@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  sniper-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sniper-ai
+    restart: unless-stopped
+
+    # Inyectar variables desde el archivo .env del host
+    env_file:
+      - .env
+
+    # Persistencia de datos crítica (DB + WAL + SHM + Models)
+    # Montamos el directorio completo para evitar corrupción de SQLite
+    volumes:
+      - ./data/db:/app/data
+      - ./data/models:/app/models
+
+    # Healthcheck alineado con core/watchdog.py
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,time; from pathlib import Path; p=os.getenv('WATCHDOG_HEARTBEAT_PATH') or '/dev/shm/sniper_ai_heartbeat.json'; hb=Path(p) if Path(p).parent.exists() else Path('/tmp/sniper_ai_heartbeat.json'); assert hb.exists() and time.time()-hb.stat().st_mtime < 60, 'Heartbeat stale'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+    # Configuración de logs para evitar desbordamiento de disco en el VPS
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    # Limitación de recursos para estabilidad de la instancia OCI
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          memory: 512M
+
+networks:
+  default:
+    name: sniper-network

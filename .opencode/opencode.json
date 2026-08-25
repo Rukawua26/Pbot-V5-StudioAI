@@ -1,0 +1,118 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "share": "disabled",
+  "snapshot": true,
+  "autoupdate": "notify",
+  "instructions": [
+    "AGENTS.md",
+    ".opencode/context/repo-summary.md",
+    ".opencode/context/critical-runtime-rules.md",
+    ".opencode/context/validation-commands.md",
+    ".opencode/context/skill-policy.md",
+    ".opencode/context/known-bugs.md"
+  ],
+  "skills": {
+    "paths": [".opencode/skills"]
+  },
+  "tool_output": {
+    "max_lines": 1200,
+    "max_bytes": 32768
+  },
+  "compaction": {
+    "auto": true,
+    "prune": true,
+    "tail_turns": 4
+  },
+  "permission": {
+    "edit": "ask",
+    "bash": {
+      "*": "ask",
+      "git status": "allow",
+      "git diff": "allow",
+      "git diff --stat": "allow",
+      "git diff --check": "allow",
+      "git diff --cached": "allow",
+      "git log*": "allow",
+      "./.venv/bin/python -m compileall*": "allow",
+      "./.venv/bin/python tools/check_no_silent_pass.py": "allow",
+      "SNIPER_DISABLE_FILE_TELEMETRY=1 ./.venv/bin/python tools/regression_contracts.py": "allow",
+      "SNIPER_DISABLE_FILE_TELEMETRY=1 ./.venv/bin/python -m unittest*": "allow",
+      "rm *": "deny",
+      "sudo *": "deny",
+      "git reset *": "deny",
+      "git clean *": "deny",
+      "git checkout *": "deny",
+      "docker system prune *": "deny"
+    },
+    "external_directory": {
+      "*": "ask",
+      "~/.ssh/**": "deny",
+      "~/.gnupg/**": "deny",
+      "~/.aws/**": "deny",
+      "~/.config/**": "deny",
+      "~/.*": "deny"
+    },
+    "webfetch": "ask",
+    "websearch": "ask",
+    "task": "ask",
+    "skill": "ask"
+  },
+  "command": {
+    "validate-repo": {
+      "description": "Run or guide the repository validation sequence.",
+      "template": "Use the repo-validation skill. Run the minimum relevant validation for the current changes, prefer the local .venv, and report any skipped command with the reason."
+    },
+    "runtime-review": {
+      "description": "Review trading runtime safety risks.",
+      "agent": "trading-runtime-reviewer",
+      "subtask": true,
+      "template": "Review the current task or diff for runtime-critical trading risks. Focus on Binance Futures execution, PAPER/SHADOW/REAL mode separation, hard stop loss coverage, idempotency, reconciliation, wallet sync, watchdog, recovery, and HALT behavior. Return findings first with file references."
+    },
+    "security-review": {
+      "description": "Review security and hardening risks.",
+      "agent": "security-reviewer",
+      "subtask": true,
+      "template": "Review the current task or diff for security risks. Focus on secrets, .env, API keys, permissions, shell scripts, external data, generated artifacts, MCP, network access, and dependency risk. Return findings first with file references."
+    },
+    "test-impact": {
+      "description": "Identify needed tests for the current change.",
+      "agent": "test-reviewer",
+      "subtask": true,
+      "template": "Analyze the current task or diff and identify the smallest useful test coverage. Prefer existing unittest patterns, avoid network dependencies, include PAPER/SHADOW/REAL mode considerations when relevant, and list exact test commands."
+    },
+    "pre-finish": {
+      "description": "Checklist before finishing a task.",
+      "template": "Perform a final lightweight check before responding: inspect relevant diff/status if needed, confirm no secrets or generated local artifacts were introduced, confirm tests or validation run/skipped with reasons, cross-reference changes against .opencode/context/known-bugs.md to detect regressions, and call out runtime/security review needs if the change touched critical areas."
+    },
+    "check-trade-lifecycle": {
+      "description": "Check trade entry/exit and performance lifecycle.",
+      "template": "Review the current task or diff for trade lifecycle correctness. Check entry logic, exit strategies, position sizing, and trade state transitions. Verify consistency with bot_trade_manager and bot_performance_ops logic. Return findings first with file references."
+    },
+    "check-wallet-sync": {
+      "description": "Check wallet synchronization and reconciliation.",
+      "template": "Review the current task or diff for wallet sync and reconciliation risks. Verify bot_wallet_sync.py and reconciliation.py invariants. Ensure no gaps in account balance tracking or duplication of exposure. Return findings first with file references."
+    },
+    "check-pre-deploy": {
+      "description": "Pre-deployment readiness checklist.",
+      "template": "Verify deployment readiness for the current changes. Check .env.example, Dockerfile, docker-compose, and systemd unit files. Ensure no hardcoded paths and that env vars are correctly documented. Return a readiness verdict."
+    },
+    "review-signals": {
+      "description": "Deep review of signal and strategy logic.",
+      "agent": "strategy-signal-reviewer",
+      "subtask": true,
+      "template": "Perform a deep review of the signal generation pipeline, strategy orchestration, and risk policies. Focus on look-ahead bias, indicator configuration, and regime detection correctness. Return findings first with file references."
+    },
+    "check-safety": {
+      "description": "Quick check of runtime safety gates.",
+      "template": "Review the current change for runtime safety gate violations. Check for missing HARD SL, improper HALT triggers, or non-idempotent retries. Ensure no silent 'pass' in critical core logic."
+    },
+    "audit-diff": {
+      "description": "Scan current diff for common issues.",
+      "template": "Scan the current git diff for common issues: missing error handling, logging of secrets, hardcoded thresholds, or deviations from project style. Ignore autogenerated data files. Return a concise list of issues."
+    },
+    "log-bug-fix": {
+      "description": "Registra bug corregido en known-bugs.md para prevenir regresiones.",
+      "template": "Extrae del diff actual o la conversación: síntomas, causa raíz, fix, archivos y regla preventiva. Revisa si ya existe entrada similar en known-bugs.md. Si el archivo tiene >=10 entries, archiva las más antiguas (>30 días) en known-bugs-archive.md. Inyecta nueva entry al inicio de la tabla en known-bugs.md en formato compacto."
+    }
+  }
+}

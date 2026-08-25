@@ -1,0 +1,44 @@
+{
+  "enabled": true,
+  "timeframe": "1h",
+  "updated_at": "2026-05-09T14:24:31.236704+00:00",
+  "source": "tools/hyperopt_sniper.py --symbol BTC/USDT --timeframe 1h --days 30 --trials 100",
+  "params": {
+    "alma_offset": 0.8238549372181303,
+    "alma_sigma": 4.7600986465859165,
+    "z_score_threshold": 3.028247005608292,
+    "entropy_bins": 16,
+    "adx_threshold": 23.343770592642844,
+    "stop_loss_pct": 1.3853617818505761,
+    "take_profit_pct": 5.553955881075562
+  },
+  "symbols": {
+    "BTC/USDT": {
+      "alma_offset": 0.8238549372181303,
+      "alma_sigma": 4.7600986465859165,
+      "z_score_threshold": 3.028247005608292,
+      "entropy_bins": 16,
+      "adx_threshold": 23.343770592642844,
+      "stop_loss_pct": 1.3853617818505761,
+      "take_profit_pct": 5.553955881075562
+    },
+    "ETH/USDT": {
+      "alma_offset": 0.85228,
+      "alma_sigma": 6.92176,
+      "z_score_threshold": 3.27585,
+      "entropy_bins": 11,
+      "adx_threshold": 25.62257,
+      "stop_loss_pct": 3.06031,
+      "take_profit_pct": 6.10928
+    },
+    "SOL/USDT": {
+      "alma_offset": 0.79947,
+      "alma_sigma": 7.01221,
+      "z_score_threshold": 3.28041,
+      "entropy_bins": 9,
+      "adx_threshold": 21.36867,
+      "stop_loss_pct": 2.18131,
+      "take_profit_pct": 3.49011
+    }
+  }
+}

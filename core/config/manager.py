@@ -1,0 +1,413 @@
+from core.config.env_helpers import (
+    _CONFIG_ENV_WARNINGS as _CONFIG_ENV_WARNINGS,
+)
+from core.config.env_helpers import (
+    env_bool as _env_bool,
+)
+from core.config.env_helpers import (
+    env_float as _env_float,
+)
+from core.config.env_helpers import (
+    env_int as _env_int,
+)
+from core.config.env_helpers import (
+    env_list as _env_list,
+)
+from core.config.env_helpers import (
+    env_str as _env_str,
+)
+from core.config.env_helpers import (
+    get_env_warnings,
+)
+from core.config.operational import OperationalConfig
+from core.config.strategy import StrategyConfig
+from core.symbol_utils import normalize_position_symbol
+
+
+class Config(OperationalConfig, StrategyConfig):
+    """
+    Clase de configuración unificada.
+    Hereda de Operational y Strategy para mantener la compatibilidad con el resto del código.
+    """
+
+    MAX_SPREAD_THRESHOLD = _env_float("MAX_SPREAD_THRESHOLD", 0.008)
+    MAX_SLIPPAGE = _env_float("MAX_SLIPPAGE", 0.001)
+    VIRTUAL_FEE = _env_float("VIRTUAL_FEE", 0.001)
+    ENTRY_IOC_CONFIRM_TIMEOUT_SECONDS = _env_float("ENTRY_IOC_CONFIRM_TIMEOUT_SECONDS", 2.0)
+    BTC_RISK_MAX_PRICE_AGE_SECONDS = _env_float("BTC_RISK_MAX_PRICE_AGE_SECONDS", 90.0)
+    HALT_RECOVERY_MAX_ATTEMPTS = _env_int("HALT_RECOVERY_MAX_ATTEMPTS", 5)
+
+    # --- Risk overrides ---
+    RISK_PER_TRADE_PERCENT = _env_float("RISK_PER_TRADE_PERCENT", 1.2)
+    RISK_PER_TRADE = RISK_PER_TRADE_PERCENT
+    RISK_PER_TRADE_PCT = RISK_PER_TRADE_PERCENT / 100.0
+    MAX_RISK_USD = _env_float("MAX_RISK_USD", 2.0)
+    MAX_OPEN_TRADES = _env_int("MAX_OPEN_TRADES", 3)
+    MAX_DIRECTIONAL_TRADES = _env_int("MAX_DIRECTIONAL_TRADES", 2)
+    MIN_NOTIONAL_VALUE = _env_float("MIN_NOTIONAL_VALUE", 5.0)
+    MAX_MARGIN_PERCENT = _env_float("MAX_MARGIN_PERCENT", 5.0)
+    DAILY_LOSS_LIMIT = _env_float("DAILY_LOSS_LIMIT", 2.0)
+    RISK_REWARD_FILTER_ENABLED = _env_bool("RISK_REWARD_FILTER_ENABLED", True)
+    MIN_RISK_REWARD_RATIO = _env_float("MIN_RISK_REWARD_RATIO", 1.5)
+    RISK_REWARD_VOLATILITY_BOOST_ENABLED = _env_bool("RISK_REWARD_VOLATILITY_BOOST_ENABLED", True)
+    RISK_REWARD_HIGH_VOL_MIN_RATIO = _env_float("RISK_REWARD_HIGH_VOL_MIN_RATIO", 1.7)
+    GENETIC_BATCH_ENABLED = _env_bool("GENETIC_BATCH_ENABLED", True)
+    GENETIC_BATCH_MIN_TRADES = _env_int("GENETIC_BATCH_MIN_TRADES", 50)
+
+    # --- Filtro de volatilidad minima (Fase 1: Torniquete) ---
+    MIN_ATR_PCT = _env_float("MIN_ATR_PCT", 0.006)
+    MIN_ATR_PCT_FILTER_ENABLED = _env_bool("MIN_ATR_PCT_FILTER_ENABLED", True)
+    BULL_TREND_ENTRY_VETO_ENABLED = _env_bool("BULL_TREND_ENTRY_VETO_ENABLED", True)
+    BULL_TREND_ALIGNED_REAL_ENABLED = _env_bool("BULL_TREND_ALIGNED_REAL_ENABLED", False)
+    HMM_RANGE_LEARNING_OVERRIDE_ENABLED = _env_bool("HMM_RANGE_LEARNING_OVERRIDE_ENABLED", False)
+
+    # --- Cap de correlacion por direccion (Fase 1: Torniquete) ---
+    MAX_SHADOW_DIRECTIONAL_TRADES = _env_int("MAX_SHADOW_DIRECTIONAL_TRADES", 3)
+
+    # --- Limites de perdida por trade (Fase 1: Torniquete) ---
+    SHADOW_HARD_SL_PERCENT = _env_float("SHADOW_HARD_SL_PERCENT", -5.0)
+    REAL_HARD_SL_PERCENT = _env_float("REAL_HARD_SL_PERCENT", -3.0)
+
+    # --- ML weight overrides ---
+    XGB_WEIGHT = _env_float("XGB_WEIGHT", 0.30)
+    LGB_WEIGHT = _env_float("LGB_WEIGHT", 0.30)
+    RF_WEIGHT = _env_float("RF_WEIGHT", 0.20)
+    GB_WEIGHT = _env_float("GB_WEIGHT", 0.15)
+    LR_WEIGHT = _env_float("LR_WEIGHT", 0.05)
+
+    # --- Umbrales de operación 1H (fase final) ---
+    REAL_MODE_THRESHOLD = _env_float("REAL_MODE_THRESHOLD", 70.0)
+    SHADOW_MODE_MIN = _env_float("SHADOW_MODE_MIN", 55.0)
+    SHADOW_MODE_MAX = _env_float("SHADOW_MODE_MAX", 69.9)
+
+    # --- ABLATION STUDY PROFILES (Fase 1) ---
+    # El Baseline es: Sizing fijo, SL/TP estático (ATR), sin IA, sin filtros.
+    ABLATION_PROFILES = {
+        "BASELINE": {
+            "EXIT_ENGINE_V1_ENABLED": False,
+            "HMM_REGIME_ENABLED": False,
+            "OI_FILTER_ENABLED": False,
+            "CVD_FILTER_ENABLED": False,
+            "MTF_FILTER_ENABLED": False,
+            "CORRELATION_RISK_ENABLED": False,
+            "REGIME_TUNING_ENABLED": False,
+            "RAG_ENABLED": False,
+            "USE_KELLY_SIZING": False,  # Usará calculate_position_size_by_stop
+        },
+        "FULL_INSTITUTIONAL": {
+            # Todos los flags en True (estado actual)
+        },
+    }
+
+    # --- Hurst exponent regime controls ---
+    HURST_ENABLED = _env_bool("HURST_ENABLED", True)
+    HURST_WINDOW = _env_int("HURST_WINDOW", 128)
+    HURST_MAX_LAG = _env_int("HURST_MAX_LAG", 64)
+    HURST_MIN_LAG = _env_int("HURST_MIN_LAG", 10)
+    HURST_PERSISTENT_THRESHOLD = _env_float("HURST_PERSISTENT_THRESHOLD", 0.55)
+    HURST_ANTIPERSISTENT_THRESHOLD = _env_float("HURST_ANTIPERSISTENT_THRESHOLD", 0.45)
+    HURST_CLASSIFY_PERSISTENT = _env_float("HURST_CLASSIFY_PERSISTENT", 0.60)
+    HURST_CLASSIFY_ANTIPERSISTENT = _env_float("HURST_CLASSIFY_ANTIPERSISTENT", 0.40)
+    HURST_MT_BOOST = _env_float("HURST_MT_BOOST", 0.10)
+    HURST_SR_BOOST = _env_float("HURST_SR_BOOST", 0.10)
+    HURST_RANDOM_PENALTY = _env_float("HURST_RANDOM_PENALTY", 0.95)
+    HURST_ALIGNED_BOOST = _env_float("HURST_ALIGNED_BOOST", 1.05)
+    HURST_COUNTER_PENALTY = _env_float("HURST_COUNTER_PENALTY", 0.90)
+
+    # --- HMM/Markov regime probability controls ---
+    MARKOV_BREAKOUT_MIN = _env_float("MARKOV_BREAKOUT_MIN", 75.0)
+    MARKOV_DEAD_ZONE_MAX = _env_float("MARKOV_DEAD_ZONE_MAX", 30.0)
+    MARKOV_RANGE_BREAKOUT_WEIGHT = _env_float("MARKOV_RANGE_BREAKOUT_WEIGHT", 0.90)
+    MARKOV_RANGE_STANDARD_WEIGHT = _env_float("MARKOV_RANGE_STANDARD_WEIGHT", 0.75)
+    MARKOV_BULL_STRONG_WEIGHT = _env_float("MARKOV_BULL_STRONG_WEIGHT", 1.10)
+    MARKOV_BEAR_STRONG_WEIGHT = _env_float("MARKOV_BEAR_STRONG_WEIGHT", 1.10)
+    MARKOV_SNAPSHOT_MAX_AGE_SECONDS = _env_float("MARKOV_SNAPSHOT_MAX_AGE_SECONDS", 2 * 60 * 60)
+    MARKOV_SNAPSHOT_STALE_SECONDS = _env_float("MARKOV_SNAPSHOT_STALE_SECONDS", 6 * 60 * 60)
+    MARKOV_SNAPSHOT_PERSIST_INTERVAL_SECONDS = _env_float(
+        "MARKOV_SNAPSHOT_PERSIST_INTERVAL_SECONDS", 5 * 60
+    )
+    MARKOV_PREVETO_BEARISH_REVERSAL_MIN = _env_float("MARKOV_PREVETO_BEARISH_REVERSAL_MIN", 85.0)
+
+    # [Experimento 2 - Ablacion] Minimo de reglas heuristicas para disparar SHADOW.
+    # Default 4 (comportamiento original). Bajar a 3 para acumular data sin modelo ML.
+    BOOTSTRAP_SHADOW_MIN_HITS = _env_int("BOOTSTRAP_SHADOW_MIN_HITS", 4)
+    BEAR_COUNTER_WEIGHT = _env_float("BEAR_COUNTER_WEIGHT", 0.70)
+
+    # --- BEAR_TREND pair universe reduction ---
+    BEAR_TREND_MAX_PAIRS = _env_int("BEAR_TREND_MAX_PAIRS", 15)
+    BEAR_TREND_CONFIDENCE_BOOST = _env_float("BEAR_TREND_CONFIDENCE_BOOST", 10.0)
+
+    # --- Mapa de SHOCKS (filtro de espacio operativo) ---
+    SHOCK_MIN_DIST_PCT = _env_float("SHOCK_MIN_DIST_PCT", 0.2)
+    HMM_RANGE_PENALTY = _env_float("HMM_RANGE_PENALTY", 0.80)
+    HMM_RANGE_VETO = _env_bool("HMM_RANGE_VETO", True)
+    SHOCK_PIVOT_WINDOW = _env_int("SHOCK_PIVOT_WINDOW", 3)
+    SHOCK_LOOKBACK_BARS = _env_int("SHOCK_LOOKBACK_BARS", 240)
+
+    # --- Breakout Hunter (pasivo) ---
+    BREAKOUT_WATCH_ENABLED = _env_bool("BREAKOUT_WATCH_ENABLED", True)
+    BREAKOUT_MIN_IA_PROB = _env_float("BREAKOUT_MIN_IA_PROB", 55.0)
+    BREAKOUT_SHOCK_MIN_IA_PROB = _env_float("BREAKOUT_SHOCK_MIN_IA_PROB", 50.0)
+    BREAKOUT_WATCH_COHERENCE_ENABLED = _env_bool("BREAKOUT_WATCH_COHERENCE_ENABLED", True)
+    BREAKOUT_COHERENCE_MIN_IA_PROB = _env_float("BREAKOUT_COHERENCE_MIN_IA_PROB", 50.0)
+    BREAKOUT_BUFFER_PCT = _env_float("BREAKOUT_BUFFER_PCT", 0.5)
+    BREAKOUT_VOLUME_MULT = _env_float("BREAKOUT_VOLUME_MULT", 1.5)
+    BREAKOUT_TIMEOUT_MINUTES = _env_int("BREAKOUT_TIMEOUT_MINUTES", 60)
+    BREAKOUT_SEMI_ACTIVE_SHADOW = _env_bool("BREAKOUT_SEMI_ACTIVE_SHADOW", True)
+    BREAKOUT_EXTREME_IA_PROB = _env_float("BREAKOUT_EXTREME_IA_PROB", 75.0)
+    DIRECTIONAL_COHERENCE_FILTER = _env_bool("DIRECTIONAL_COHERENCE_FILTER", True)
+    REGIME_CONFLICT_SHADOW_OVERRIDE_ENABLED = _env_bool(
+        "REGIME_CONFLICT_SHADOW_OVERRIDE_ENABLED", False
+    )
+
+    # --- Open Interest Delta Filter (v118.3) ---
+    OI_FILTER_ENABLED = _env_bool("OI_FILTER_ENABLED", True)
+    OI_DELTA_THRESHOLD = _env_float("OI_DELTA_THRESHOLD", 0.005)
+    OI_CACHE_TTL_SECONDS = _env_int("OI_CACHE_TTL_SECONDS", 180)
+    SIGNAL_ANALYSIS_WORKERS = _env_int("SIGNAL_ANALYSIS_WORKERS", 1)
+
+    # --- CVD / Order Flow Filter (Fase 12.3) ---
+    CVD_FILTER_ENABLED = _env_bool("CVD_FILTER_ENABLED", False)
+    CVD_WINDOW_SECONDS = _env_int("CVD_WINDOW_SECONDS", 300)
+    CVD_IMBALANCE_THRESHOLD = _env_float("CVD_IMBALANCE_THRESHOLD", 0.12)
+    CVD_MIN_QUOTE_VOLUME = _env_float("CVD_MIN_QUOTE_VOLUME", 1000.0)
+    CVD_ALIGNED_WEIGHT = _env_float("CVD_ALIGNED_WEIGHT", 1.05)
+    CVD_CONFLICT_WEIGHT = _env_float("CVD_CONFLICT_WEIGHT", 0.85)
+
+    # --- Multi-timeframe signal confirmation ---
+    MTF_FILTER_ENABLED = _env_bool("MTF_FILTER_ENABLED", False)
+    MTF_DIRECTION_WINDOW = _env_int("MTF_DIRECTION_WINDOW", 20)
+    MTF_DIRECTION_THRESHOLD_PCT = _env_float("MTF_DIRECTION_THRESHOLD_PCT", 0.002)
+    MTF_ALIGNED_BOOST = _env_float("MTF_ALIGNED_BOOST", 1.0)
+
+    # --- Agent Weight Decay Monitor ---
+    AGENT_DEGRADATION_THRESHOLD = _env_float("AGENT_DEGRADATION_THRESHOLD", 0.85)
+    AGENT_MONITOR_WINDOW = _env_int("AGENT_MONITOR_WINDOW", 20)
+    AGENT_MIN_TRADES_BEFORE_ALERT = _env_int("AGENT_MIN_TRADES_BEFORE_ALERT", 10)
+    AGENT_MONITOR_INTERVAL_MINUTES = _env_int("AGENT_MONITOR_INTERVAL_MINUTES", 60)
+
+    # --- MTF Metrics ---
+    MTF_METRICS_WINDOW = _env_int("MTF_METRICS_WINDOW", 100)
+
+    # --- Correlation Risk (Fase 12.1) ---
+    CORRELATION_RISK_ENABLED = _env_bool("CORRELATION_RISK_ENABLED", False)
+    CORRELATION_RISK_THRESHOLD = _env_float("CORRELATION_RISK_THRESHOLD", 0.85)
+    CORRELATION_RISK_REDUCTION_MAX = _env_float("CORRELATION_RISK_REDUCTION_MAX", 0.50)
+    CORRELATION_RISK_WINDOW = _env_int("CORRELATION_RISK_WINDOW", 48)
+    CORRELATION_RISK_MIN_CANDLES = _env_int("CORRELATION_RISK_MIN_CANDLES", 24)
+
+    # --- Regime Auto-Tuning (Fase 12.2) ---
+    REGIME_TUNING_ENABLED = _env_bool("REGIME_TUNING_ENABLED", True)
+    REGIME_TUNING_MIN_TRADES = _env_int("REGIME_TUNING_MIN_TRADES", 20)
+    REGIME_TUNING_SL_RANGE_MIN = _env_float("REGIME_TUNING_SL_RANGE_MIN", 0.60)
+    REGIME_TUNING_SL_RANGE_MAX = _env_float("REGIME_TUNING_SL_RANGE_MAX", 1.20)
+    REGIME_TUNING_TP_RANGE_MIN = _env_float("REGIME_TUNING_TP_RANGE_MIN", 0.70)
+    REGIME_TUNING_TP_RANGE_MAX = _env_float("REGIME_TUNING_TP_RANGE_MAX", 1.30)
+
+    # --- Exit Engine v118 (dinámico) ---
+    EXIT_ENGINE_V1_ENABLED = _env_bool("EXIT_ENGINE_V1_ENABLED", True)
+
+    # --- Agent Direction Override ---
+    SIGNAL_AGENT_OVERRIDE_ENABLED = _env_bool("SIGNAL_AGENT_OVERRIDE_ENABLED", True)
+    SIGNAL_AGENT_OVERRIDE_THRESHOLD = _env_float("SIGNAL_AGENT_OVERRIDE_THRESHOLD", 15.0)
+
+    # --- Regime-Adaptive Trailing ---
+    EXIT_RANGE_BREAKEVEN_PULLBACK_MULT = _env_float("EXIT_RANGE_BREAKEVEN_PULLBACK_MULT", 2.0)
+    EXIT_RANGE_ACTIVATION_MULT = _env_float("EXIT_RANGE_ACTIVATION_MULT", 1.5)
+
+    EXIT_TIME_DECAY_BARS = _env_int("EXIT_TIME_DECAY_BARS", 4)
+    EXIT_ESCAPE_VELOCITY_PCT = _env_float("EXIT_ESCAPE_VELOCITY_PCT", 0.2)
+    EXIT_STRUCTURAL_ATR_BUFFER = _env_float("EXIT_STRUCTURAL_ATR_BUFFER", 0.25)
+    EXIT_STRUCTURAL_MIN_BUFFER_PCT = _env_float("EXIT_STRUCTURAL_MIN_BUFFER_PCT", 0.05)
+    EXIT_STRUCTURAL_MIN_HOLD_SECONDS = _env_int("EXIT_STRUCTURAL_MIN_HOLD_SECONDS", 120)
+    EXIT_TRAILING_ACTIVATION_PCT = _env_float("EXIT_TRAILING_ACTIVATION_PCT", 0.9)
+    EXIT_TRAILING_ATR_MULT = _env_float("EXIT_TRAILING_ATR_MULT", 3.0)
+    EXIT_TRAILING_ATR_MULT_TIGHT = _env_float("EXIT_TRAILING_ATR_MULT_TIGHT", 1.5)
+    EXIT_TRAILING_TIGHTEN_PNL_PCT = _env_float("EXIT_TRAILING_TIGHTEN_PNL_PCT", 2.0)
+    EXIT_TRAILING_MIN_DISTANCE_PCT = _env_float("EXIT_TRAILING_MIN_DISTANCE_PCT", 0.3)
+    EXIT_BREAKEVEN_TRIGGER_PCT = _env_float("EXIT_BREAKEVEN_TRIGGER_PCT", 1.2)
+    EXIT_BREAKEVEN_ATR_MULT = _env_float("EXIT_BREAKEVEN_ATR_MULT", 1.2)
+    EXIT_BREAKEVEN_LOCK_PCT = _env_float("EXIT_BREAKEVEN_LOCK_PCT", 0.1)
+    EXIT_FLAT_TIME_DECAY_BARS = _env_int("EXIT_FLAT_TIME_DECAY_BARS", 3)
+    EXIT_FLAT_TIME_DECAY_ATR_MULT = _env_float("EXIT_FLAT_TIME_DECAY_ATR_MULT", 0.5)
+
+    # --- Global Market Provider (CoinGecko/CoinCap satélite read-only) ---
+    GLOBAL_MARKET_PROVIDER_ENABLED = _env_bool("GLOBAL_MARKET_PROVIDER_ENABLED", False)
+    GLOBAL_MARKET_CACHE_TTL = _env_int("GLOBAL_MARKET_CACHE_TTL", 300)
+    GLOBAL_MARKET_USE_MCP = _env_bool("GLOBAL_MARKET_USE_MCP", False)
+
+    # --- Global Market Filters (macro veto/boost en señales) ---
+    GLOBAL_FEAR_GREED_FILTER_ENABLED = _env_bool("GLOBAL_FEAR_GREED_FILTER_ENABLED", True)
+    GLOBAL_BTC_DOM_FILTER_ENABLED = _env_bool("GLOBAL_BTC_DOM_FILTER_ENABLED", True)
+    GLOBAL_FEAR_VETO_THRESHOLD = _env_int("GLOBAL_FEAR_VETO_THRESHOLD", 20)
+    GLOBAL_BTC_DOM_BOOST_THRESHOLD = _env_float("GLOBAL_BTC_DOM_BOOST_THRESHOLD", 65.0)
+    MARKET_BREADTH_FEAR_FILTER_ENABLED = _env_bool("MARKET_BREADTH_FEAR_FILTER_ENABLED", True)
+
+    # --- SHADOW validation campaign telemetry (observational only) ---
+    SHADOW_VALIDATION_ENABLED = _env_bool("SHADOW_VALIDATION_ENABLED", False)
+    SHADOW_VALIDATION_CAMPAIGN = _env_str(
+        "SHADOW_VALIDATION_CAMPAIGN", "shadow_macro_fvg_consensus_v1"
+    )
+
+    # --- Side Quality Parity Filter ---
+    SIDE_PARITY_FILTER_ENABLED = _env_bool("SIDE_PARITY_FILTER_ENABLED", True)
+    SIDE_PARITY_MIN_ADX = _env_float("SIDE_PARITY_MIN_ADX", 25.0)
+    SIDE_PARITY_MIN_VOL_REL = _env_float("SIDE_PARITY_MIN_VOL_REL", 0.30)
+    SIDE_PARITY_RANGE_BUY_MAX_RSI = _env_float("SIDE_PARITY_RANGE_BUY_MAX_RSI", 60.0)
+    SIDE_PARITY_RANGE_SELL_MIN_RSI = _env_float("SIDE_PARITY_RANGE_SELL_MIN_RSI", 40.0)
+    SIDE_PARITY_MIN_AGENT_SUPPORT = _env_int("SIDE_PARITY_MIN_AGENT_SUPPORT", 2)
+
+    # --- EMA Alignment Filter (PAPER/SHADOW-first experiment) ---
+    EMA_ALIGNMENT_FILTER_ENABLED = _env_bool("EMA_ALIGNMENT_FILTER_ENABLED", False)
+    EMA_ALIGNMENT_MODE = _env_str("EMA_ALIGNMENT_MODE", "cross")
+    EMA_SLOPE_FILTER_ENABLED = _env_bool("EMA_SLOPE_FILTER_ENABLED", False)
+    EMA_SLOPE_LOOKBACK = _env_int("EMA_SLOPE_LOOKBACK", 2)
+    EMA_SLOPE_COMPARISON_ENABLED = _env_bool("EMA_SLOPE_COMPARISON_ENABLED", True)
+    EMA_SLOPE_COMPARISON_LOOKBACK = _env_int("EMA_SLOPE_COMPARISON_LOOKBACK", 4)
+    EMA_COMPRESSION_TELEMETRY_ENABLED = _env_bool("EMA_COMPRESSION_TELEMETRY_ENABLED", True)
+
+    # --- FVG / Gap Tracker (satélite read-only) ---
+    FVG_TRACKER_ENABLED = _env_bool("FVG_TRACKER_ENABLED", False)
+    FVG_MIN_GAP_PCT = _env_float("FVG_MIN_GAP_PCT", 0.1)
+    FVG_SCAN_INTERVAL = _env_int("FVG_SCAN_INTERVAL", 300)
+    FVG_ALERT_TELEGRAM = _env_bool("FVG_ALERT_TELEGRAM", True)
+    FVG_ALERT_THROTTLE_SEC = _env_int("FVG_ALERT_THROTTLE_SEC", 3600)
+    FVG_MAX_CANDLES_SCAN = _env_int("FVG_MAX_CANDLES_SCAN", 200)
+    FVG_MAX_SYMBOLS_PER_CYCLE = _env_int("FVG_MAX_SYMBOLS_PER_CYCLE", 20)
+    FVG_EXPIRATION_BARS = _env_int("FVG_EXPIRATION_BARS", 48)
+
+    # Compatibilidad con rutas actuales de decisión (0-1)
+    REAL_CONFIDENCE_MIN = REAL_MODE_THRESHOLD / 100.0
+    REAL_CONFIDENCE_THRESHOLD = REAL_CONFIDENCE_MIN
+    SHADOW_PROB_MIN = SHADOW_MODE_MIN / 100.0
+
+    @staticmethod
+    def sanitize_symbol(sym: str) -> str:
+        """Normalización estricta a SYMBOL/USDT."""
+        return normalize_position_symbol(sym, default_quote="USDT", strict=True)
+
+    SYMBOL_BLACKLIST = _env_list(
+        "SYMBOL_BLACKLIST",
+        [
+            "PUMP/USDT",
+            "KITE/USDT",
+            "STABLE/USDT",
+            "BERA/USDT",
+            "WIF/USDT",
+            "ZAMA/USDT",
+            "AGLD/USDT",
+            "MATIC/USDT",
+            "EOS/USDT",
+            "FARTCOIN/USDT",
+        ],
+    )
+
+    @classmethod
+    def sanitize_pairs(cls, pairs: list) -> list:
+        """Sanitizador de símbolos deduplicado."""
+        sanitized = []
+        for p in pairs:
+            cleaned = cls.sanitize_symbol(p)
+            if cleaned and cleaned.endswith("/USDT"):
+                sanitized.append(cleaned)
+        return list(dict.fromkeys(sanitized))
+
+    @classmethod
+    def env_warnings(cls) -> list[str]:
+        return get_env_warnings()
+
+    @classmethod
+    def _validate_real_mode(cls) -> list[str]:
+        errors: list[str] = []
+        if cls.PAPER_MODE:
+            return errors
+        if not cls.ALLOW_REAL_TRADING:
+            errors.append(
+                "REQUIERE_ALLOW_REAL_TRADING: modo REAL requiere ALLOW_REAL_TRADING=true explícito. "
+                "Esto evita activación accidental de trading con capital real."
+            )
+        if not cls.BINANCE_API_KEY or not cls.BINANCE_API_SECRET:
+            errors.append(
+                "REAL_MODE_SIN_KEYS: modo REAL requiere BINANCE_API_KEY y BINANCE_API_SECRET."
+            )
+        if cls.USE_TESTNET:
+            errors.append(
+                "REAL_MODE_TESTNET_BLOCKED: modo REAL requiere USE_TESTNET=false. "
+                "Use PAPER_MODE=true para pruebas o desactive testnet antes de operar con capital real."
+            )
+        if cls.MAX_OPEN_TRADES < 1 or cls.MAX_OPEN_TRADES > 3:
+            errors.append(
+                "REAL_MODE_MAX_TRADES: en modo REAL, MAX_OPEN_TRADES debe estar entre 1 y 3."
+            )
+        if cls.MAX_RISK_USD <= 0 or cls.MAX_RISK_USD > 50:
+            errors.append("REAL_MODE_MAX_RISK: en modo REAL, MAX_RISK_USD debe estar entre 0 y 50.")
+        if float(cls.RISK_PER_TRADE_PERCENT) <= 0 or float(cls.RISK_PER_TRADE_PERCENT) > 2.0:
+            errors.append(
+                "REAL_MODE_RISK_PCT: en modo REAL, RISK_PER_TRADE_PERCENT debe estar entre 0% y 2%."
+            )
+        if not cls.TELEGRAM_TOKEN or not cls.TELEGRAM_CHAT_ID:
+            errors.append(
+                "REAL_MODE_TELEGRAM: modo REAL requiere TELEGRAM_TOKEN y TELEGRAM_CHAT_ID."
+            )
+        return errors
+
+    @classmethod
+    def validate(cls) -> list[str]:
+        errors = cls._validate_real_mode()
+
+        if not (0.0 < float(cls.RISK_PER_TRADE_PERCENT) <= 5.0):
+            errors.append("RISK_PER_TRADE_PERCENT debe estar en (0, 5]")
+        if int(cls.MAX_OPEN_TRADES) < 0 or int(cls.MAX_OPEN_TRADES) > 20:
+            errors.append("MAX_OPEN_TRADES debe estar entre 0 y 20")
+        if int(cls.MAX_DIRECTIONAL_TRADES) < 0 or int(cls.MAX_DIRECTIONAL_TRADES) > int(
+            cls.MAX_OPEN_TRADES
+        ):
+            errors.append("MAX_DIRECTIONAL_TRADES debe estar entre 0 y MAX_OPEN_TRADES")
+        if float(cls.SHADOW_MODE_MIN) >= float(cls.REAL_MODE_THRESHOLD):
+            errors.append("SHADOW_MODE_MIN debe ser menor que REAL_MODE_THRESHOLD")
+        if float(cls.SHADOW_MODE_MAX) < float(cls.SHADOW_MODE_MIN):
+            errors.append("SHADOW_MODE_MAX debe ser >= SHADOW_MODE_MIN")
+        if float(cls.MAX_SLIPPAGE) < 0 or float(cls.MAX_SLIPPAGE) > 0.05:
+            errors.append("MAX_SLIPPAGE debe estar entre 0 y 0.05")
+        if float(cls.MAX_ENTRY_SL_PCT) < 3.0:
+            errors.append("MAX_ENTRY_SL_PCT debe ser >= 3.0")
+        if float(cls.SHOCK_MIN_DIST_PCT) > 0.2:
+            errors.append("SHOCK_MIN_DIST_PCT debe ser <= 0.2")
+        if float(cls.MIN_RISK_REWARD_RATIO) <= 0:
+            errors.append("MIN_RISK_REWARD_RATIO debe ser positivo")
+        if float(cls.RISK_REWARD_HIGH_VOL_MIN_RATIO) < float(cls.MIN_RISK_REWARD_RATIO):
+            errors.append("RISK_REWARD_HIGH_VOL_MIN_RATIO debe ser >= MIN_RISK_REWARD_RATIO")
+        if int(cls.GENETIC_BATCH_MIN_TRADES) < 1:
+            errors.append("GENETIC_BATCH_MIN_TRADES debe ser >= 1")
+        if str(cls.EMA_ALIGNMENT_MODE).lower() not in {"cross", "stack"}:
+            errors.append("EMA_ALIGNMENT_MODE debe ser 'cross' o 'stack'")
+        if int(cls.EMA_SLOPE_LOOKBACK) < 1:
+            errors.append("EMA_SLOPE_LOOKBACK debe ser >= 1")
+        if int(cls.EMA_SLOPE_COMPARISON_LOOKBACK) < 1:
+            errors.append("EMA_SLOPE_COMPARISON_LOOKBACK debe ser >= 1")
+        if float(cls.BTC_RISK_MAX_PRICE_AGE_SECONDS) <= 0:
+            errors.append("BTC_RISK_MAX_PRICE_AGE_SECONDS debe ser positivo")
+        if int(cls.HALT_RECOVERY_MAX_ATTEMPTS) < 1:
+            errors.append("HALT_RECOVERY_MAX_ATTEMPTS debe ser >= 1")
+        backend = str(getattr(cls, "EXECUTION_BACKEND", "live") or "live").lower()
+        if backend not in {"live", "shadow_live"}:
+            errors.append("EXECUTION_BACKEND debe ser 'live' o 'shadow_live'")
+        if float(cls.FVG_MIN_GAP_PCT) <= 0:
+            errors.append("FVG_MIN_GAP_PCT debe ser positivo")
+        if int(cls.FVG_SCAN_INTERVAL) <= 0:
+            errors.append("FVG_SCAN_INTERVAL debe ser positivo")
+        if int(cls.FVG_ALERT_THROTTLE_SEC) < 0:
+            errors.append("FVG_ALERT_THROTTLE_SEC debe ser >= 0")
+        if int(cls.FVG_MAX_CANDLES_SCAN) < 3:
+            errors.append("FVG_MAX_CANDLES_SCAN debe ser >= 3")
+        if int(cls.FVG_MAX_SYMBOLS_PER_CYCLE) < 1:
+            errors.append("FVG_MAX_SYMBOLS_PER_CYCLE debe ser >= 1")
+        if int(cls.FVG_EXPIRATION_BARS) <= 0:
+            errors.append("FVG_EXPIRATION_BARS debe ser positivo")
+
+        total_weight = (
+            cls.XGB_WEIGHT + cls.LGB_WEIGHT + cls.RF_WEIGHT + cls.GB_WEIGHT + cls.LR_WEIGHT
+        )
+        if not (0.99 <= float(total_weight) <= 1.01):
+            errors.append("La suma de pesos ML debe estar cerca de 1.0")
+        return errors

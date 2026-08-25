@@ -1,0 +1,5 @@
+{
+  "name": "Sniper AI - Master Monitor",
+  "description": "Risk Radar and Master Monitor for Sniper AI Binance Futures trading system.",
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

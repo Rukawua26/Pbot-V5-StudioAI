@@ -1,0 +1,131 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [master, main]
+  push:
+    branches: [master, main, freeze/**]
+
+permissions:
+  contents: read
+
+env:
+  SNIPER_DISABLE_FILE_TELEMETRY: 1
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Cache pip
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684  # v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.lock', 'requirements-dev.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install runtime dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.lock
+          pip install -r requirements-dev.lock
+
+      - name: Dependency consistency check
+        run: |
+          python -m pip check
+
+      - name: Dependency vulnerability audit
+        run: |
+          python -m pip_audit --strict
+
+      - name: Syntax check (compileall)
+        run: |
+          python -m compileall -q main.py core
+
+      - name: Ruff lint (core + tests)
+        run: |
+          ruff check core/ tests/
+
+      - name: Ruff format check
+        run: |
+          ruff format --check core/ tests/
+
+      - name: Type check config surface
+        run: |
+          MYPYPATH=. mypy --explicit-package-bases core/config/ core/types.py core/bot_facade.py core/execution_adapters.py
+
+      - name: Secrets scan
+        uses: trufflesecurity/trufflehog@v3.90.6
+        with:
+          extra_args: --only-verified
+
+      - name: Requirements lock sanity
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          lock = Path('requirements.lock').read_text().splitlines()
+          packages = {
+              line.split('==', 1)[0].lower().replace('_', '-')
+              for line in lock
+              if line and not line.startswith((' ', '#')) and '==' in line
+          }
+          print(f"locked_packages={len(packages)}")
+          for package in {'ccxt', 'pandas', 'pandas-ta', 'ta', 'uvloop'}:
+              assert package in packages, f"missing locked dependency: {package}"
+          dev_lock = Path('requirements-dev.lock').read_text().splitlines()
+          dev_packages = {
+              line.split('==', 1)[0].lower().replace('_', '-')
+              for line in dev_lock
+              if line and not line.startswith((' ', '#')) and '==' in line
+          }
+          for package in {'coverage', 'hypothesis', 'pip-audit', 'ruff', 'mypy'}:
+              assert package in dev_packages, f"missing dev locked dependency: {package}"
+          PY
+
+      - name: Smoke modular imports
+        run: |
+          bash scripts/smoke_modular_imports.sh
+
+      - name: Guardrail pass silenciosos en core
+        run: |
+          python tools/check_no_silent_pass.py
+
+      - name: Regression contracts (arquitectura)
+        run: |
+          python tools/regression_contracts.py
+
+      - name: Chaos matrix (runtime safety)
+        run: |
+          python tools/chaos_matrix.py
+
+      - name: Recovery drill (restart safety)
+        run: |
+          python tools/recovery_drill.py
+
+      - name: Regression unit tests (runtime flows)
+        run: |
+          python -m unittest discover -s tests -p "test_*.py"
+
+      - name: Coverage gate (core)
+        run: |
+          coverage run -m unittest discover -s tests -p "test_*.py"
+          coverage report --fail-under=75
+
+      - name: Temporal invariance stress tests
+        run: |
+          python -m unittest tests/test_temporal_invariance.py
+
+      - name: Build Docker image
+        run: |
+          docker build -t sniper-ai .

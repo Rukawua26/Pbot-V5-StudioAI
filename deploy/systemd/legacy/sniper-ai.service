@@ -1,0 +1,21 @@
+[Unit]
+Description=Sniper AI Trading Bot - Nivel 4
+After=network.target
+
+[Service]
+# Usuario que ejecuta el bot
+User=maos
+# Ruta raíz de tu proyecto
+WorkingDirectory=/home/maos/Documentos/Pbot - V5ARCH - DEV-2026/Pbot - V5ARCH - DEV
+# Comando para arrancar (asegúrate de que la ruta a python3 sea correcta)
+ExecStart=/usr/bin/python3 main.py
+# Reiniciar automáticamente si falla
+Restart=always
+RestartSec=5
+# Logs de consola redirigidos a syslog
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=sniper-ai
+
+[Install]
+WantedBy=multi-user.target

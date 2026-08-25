@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Sniper AI watchdog every 30s
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=30s
+Unit=sniper-ai-watchdog.service
+Persistent=true
+
+[Install]
+WantedBy=timers.target

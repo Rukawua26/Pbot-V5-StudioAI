@@ -1,0 +1,17 @@
+{
+  "name": "sniper-ai-monitor",
+  "version": "1.0.0",
+  "description": "Risk Radar & Master Monitor for Sniper AI",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "build": "node -e \"console.log('Build complete')\""
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  }
+}

@@ -1,0 +1,553 @@
+# Mejoras Pendientes
+
+Documento vivo para registrar mejoras, integraciones y decisiones tecnicas pendientes del proyecto. Esta es la fuente de verdad cuando se pregunte que mejoras estan pendientes.
+
+## Reglas De Trabajo
+
+- No tocar runtime critico sin tests enfocados y validacion minima.
+- Mantener separacion estricta entre `PAPER`, `SHADOW` y `REAL`.
+- En `REAL`, cualquier estado ambiguo debe preferir `HALT` y reconciliacion antes de continuar.
+- No introducir logica nueva de ejecucion fuera de `core/execution_adapters.py` y los flujos existentes.
+- No integrar senales al `Risk Engine`, sizing, entradas o salidas sin evidencia estadistica.
+- No refactorizar modulos que ya funcionan salvo que exista un problema concreto, medible y cubierto por tests.
+- Si una mejora es experimental, debe iniciar apagada por defecto y validarse primero en `PAPER` o `SHADOW`.
+
+## Estado Actual Confirmado
+
+- Runtime safety gates integrados en CI.
+- Coverage gate elevado a `75%`.
+- Chaos matrix integrada: `tools/chaos_matrix.py`.
+- Recovery drill integrado: `tools/recovery_drill.py`.
+- Telemetria runtime local JSONL integrada.
+- Health check de auth `REAL` integrado con comportamiento `HALT` ante auth/permisos invalidos.
+- README actualizado con `949 tests OK`, `2 skipped` y `75% coverage`.
+- Commit confirmado y subido a GitHub: `ba5a42a harden: add runtime safety gates and raise coverage`.
+- **FVG Tracker (GapTrackerModule)** implementado como modulo satelite read-only en `core/analytics/fvg_tracker.py`.
+- **SHADOW Validation Campaign** implementada como telemetria observacional (`SHADOW_VALIDATION_ENABLED`) y reporte `tools/shadow_validation_report.py`.
+
+## Mejoras Pendientes
+
+### 1. FVG Tracker — Medicion estadistica en PAPER/SHADOW
+
+FVG Tracker ya implementado. Pendiente:
+
+1. Activar `FVG_TRACKER_ENABLED=true` en PAPER o SHADOW.
+2. Activar `SHADOW_VALIDATION_ENABLED=true` para registrar ciclos FVG y correlacionarlos con trades SHADOW.
+3. Medir si mejora MAE/MFE, winrate o reduce entradas malas.
+4. Si solo genera ruido, mantener como herramienta observacional.
+
+Criterio de exito: informacion incremental medible sobre trades existentes. Sin evidencia, no integrar al Risk Engine ni a ejecucion.
+
+### 2. Global Market Provider (CoinGecko REST) — IMPLEMENTADO
+
+Satelite read-only en `core/providers/global_market.py`. Inyecta 7 campos macro en `ctx`:
+- `btc_dominance`, `eth_dominance`, `total_market_cap`, `total_volume_24h`
+- `fear_greed_index`, `active_cryptos`, `trending_coins`
+
+Flags: `GLOBAL_MARKET_PROVIDER_ENABLED`, `GLOBAL_MARKET_CACHE_TTL`, `GLOBAL_MARKET_USE_MCP`.
+
+Pendiente:
+1. Activar `GLOBAL_MARKET_PROVIDER_ENABLED=true` en PAPER o SHADOW.
+2. Revisar calidad de datos: CoinGecko gratis tiene rate limit, validar que no haya huecos.
+3. Si se necesita MCP, implementar `_fetch_from_mcp()` en el provider.
+4. Usar `tools/shadow_validation_report.py` para medir vetos/boosts macro antes de tocar thresholds.
+
+### 3. Filtros Macro-Reactivos — IMPLEMENTADO
+
+Veto/boost en `core/signals/filters.py` basado en Fear & Greed y BTC dominance.
+Flags: `GLOBAL_FEAR_GREED_FILTER_ENABLED`, `GLOBAL_BTC_DOM_FILTER_ENABLED`,
+`GLOBAL_FEAR_VETO_THRESHOLD`, `GLOBAL_BTC_DOM_BOOST_THRESHOLD`.
+
+Pendiente:
+1. Validar en PAPER/SHADOW que los thresholds actuales (fear<20 veto, dom>65% boost) sean óptimos.
+2. Añadir más reglas: total_market_cap drop % veto, eth_dominance altseason boost.
+3. No ajustar thresholds hasta tener 20+ trades SHADOW cerrados en el reporte de validacion.
+
+### 4. Auto-Replication de Estrategias Ganadoras — PENDIENTE (Futuro)
+
+Cuando el RAG detecte que las condiciones actuales tienen ≥90% de similitud con 3+ trades ganadores,
+ejecutar automáticamente la señal en SHADOW (sin esperar consenso ML completo).
+
+Estado: NO implementado. Requiere datos suficientes en `trade_context_snapshots` primero.
+
+Pasos:
+1. Recolectar datos SHADOW con Fase 1 y 3 activas por al menos 1 semana.
+2. Validar que los vectores de similitud con macro (btc_dominance, fear_greed) mejoran la correlación.
+3. Implementar bloque en `core/trade_entry.py` post-similarity-search.
+4. Restringir a SHADOW inicialmente (`REPLICATION_MODE=shadow`).
+5. Flags: `REPLICATION_ENABLED`, `REPLICATION_MIN_WINNERS`, `REPLICATION_MIN_SIMILARITY`.
+
+Criterio de exito: winrate > 65% en trades replicados vs ~50% baseline, con al menos 20 muestras.
+
+### 5. Dashboard API — SNIPER_API_KEY requerida
+
+`tools/dashboard_api_server.py` requiere `SNIPER_API_KEY` con al menos 16 caracteres para iniciar.
+Si no esta configurada, el dashboard API lanza warning pero el bot sigue operando normal.
+El dashboard localhost usa cookie HttpOnly para lectura automatica sin prompt del navegador.
+
+Pendiente:
+1. Definir `SNIPER_API_KEY` segura en `.env` si se va a usar el dashboard.
+2. Si el dashboard no se usa, evaluar flag para no iniciar el API y silenciar el warning.
+3. Documentar la variable en `.env.example` si aplica.
+
+Criterio de exito: bot arranca sin warning cuando dashboard esta habilitado, o dashboard queda apagado explicitamente cuando no se use.
+
+### 5.1 Dashboard Votos / Consenso — PENDIENTE
+
+Objetivo: ver desde `http://127.0.0.1:8000` los votos MT/SR/G, consenso, score direccional, override y razon exacta de veto por simbolo.
+
+Pendiente:
+1. Ampliar `core/state_snapshot.py` o agregar endpoint read-only `/api/v1/signals/live`.
+2. Exponer por simbolo: `votos`, `agent_direction_score`, `agent_signal_override`, `audit_verdict`, `filter_reason`, `prob_final`.
+3. Agregar pestana UI "Votos / Consenso" en `dashboard/static/index.html`.
+4. Mantener solo lectura en esta fase; no permitir force entry, override o cambios de pesos hasta terminar la campana SHADOW.
+
+Criterio de exito: el usuario puede auditar por localhost por que una senal 70-80% fue vetada sin consultar logs ni consola.
+
+### 6. Direccion por Consenso de Agentes + Trailing Adaptativo — IMPLEMENTADO
+
+Cambios aplicados:
+1. `tools/strategy.py`: `_resolve_signal_from_agents()` permite que MT/SR/G reviertan la direccion EMA cuando hay consenso fuerte.
+2. `core/strategy/orchestrator.py`: `calculate_consensus()` devuelve `final_weights` para resolver direccion ponderada.
+3. `core/bot_guardian.py`: trailing adaptativo por regimen, mas permisivo en `RANGE`.
+4. `core/config/strategy.py`: trailing menos agresivo (`TRAILING_ACTIVATION_PNL=1.20`, `TRAILING_BREAKEVEN_PNL=3.0`, `TRAILING_BREAKEVEN_PULLBACK=2.0`).
+5. `core/config/manager.py`: flags `SIGNAL_AGENT_OVERRIDE_ENABLED`, `SIGNAL_AGENT_OVERRIDE_THRESHOLD`, `EXIT_RANGE_BREAKEVEN_PULLBACK_MULT`, `EXIT_RANGE_ACTIVATION_MULT`.
+
+Pendiente:
+1. Recolectar al menos 10 trades SHADOW cerrados post-cambio.
+2. Comparar contra baseline previo: 17 SHADOW trades, 35.3% WR, PnL total -12.17%.
+3. Medir si aparecen mas BUY utiles sin degradar proteccion macro BTC.
+4. Ajustar `SIGNAL_AGENT_OVERRIDE_THRESHOLD` si los agentes revierten demasiado o demasiado poco.
+5. Ajustar multiplicadores de trailing si las ganadoras siguen cerrando temprano.
+6. Usar `SHADOW_VALIDATION_ENABLED=true` para medir `agent_override_rate_pct`, WR y avg win/loss.
+
+Criterio de exito: winrate SHADOW >45% y mejor relacion avg win/avg loss sin aumentar drawdown ni saltarse filtros macro.
+
+### 7. Plan de Optimizacion Cuantitativa del Bot — PENDIENTE
+
+Objetivo: mejorar calidad matematica, eficiencia del pipeline y estabilidad del aprendizaje antes de escalar la campana SHADOW o pensar en REAL.
+
+Restricciones:
+
+1. No tocar `cmd_consumer.py`, IPC del dashboard, `ws_reconciliation.py`, `scanner_history` ni `consensus_history` salvo bug real.
+2. No cambiar `EMA_SLOPE_LOOKBACK` por intuicion; medir primero.
+3. No introducir Redis/CQRS en esta fase.
+4. Cada veto nuevo debe quedar visible en logs estructurados, dashboard/radar y tests.
+5. Mantener cambios pequenos, medibles y reversibles.
+
+#### Sprint 1 — Seguridad matematica: filtro RRR estructural — IMPLEMENTADO
+
+Problema corregido: una senal con consenso alto podia llegar a entrada aunque el `TP/SL` tuviera mala esperanza matematica.
+
+Implementado:
+
+1. Filtro de ratio riesgo/beneficio minimo despues de calcular `sl_val` y `tp_val`, antes del sizing/ejecucion en `core/trade_entry.py`.
+2. RRR con precio estimado defensivo ante spread/slippage:
+    - BUY: penalizar entrada hacia arriba.
+    - SELL: penalizar entrada hacia abajo.
+3. Uso de `spread`, `MAX_SLIPPAGE` y `atr_pct` para evitar aceptar trades al filo del umbral.
+4. Configuracion:
+    - `RISK_REWARD_FILTER_ENABLED=true`
+    - `MIN_RISK_REWARD_RATIO=1.5`
+    - `RISK_REWARD_VOLATILITY_BOOST_ENABLED=true`
+    - `RISK_REWARD_HIGH_VOL_MIN_RATIO=1.7`
+5. Evento estructurado `RISK_REWARD_VETO` con `symbol`, `side`, `entry_price`, `estimated_entry`, `sl_val`, `tp_val`, `risk`, `reward`, `actual_rrr`, `required_rrr`, `spread` y `atr_pct`.
+6. Veto visible en dashboard/radar como `RRR ESTRUCTURAL INSUFICIENTE`.
+7. Tests agregados:
+    - BUY con RRR valido pasa.
+    - BUY con RRR invalido bloquea.
+    - SELL con RRR valido pasa.
+    - SELL con RRR invalido bloquea.
+   - Bounds invalidos bloquean.
+   - Penalizacion por spread/slippage reduce RRR.
+
+Criterio de salida:
+
+- Logs/eventos `RISK_REWARD_VETO` visibles y correctos.
+- Tests nuevos en verde.
+- No romper PAPER/SHADOW.
+
+Pendiente operacional:
+
+1. Medir durante campana PAPER/SHADOW si los trades aceptados mantienen RRR medio superior al minimo teorico.
+2. Ajustar `MIN_RISK_REWARD_RATIO` o `RISK_REWARD_HIGH_VOL_MIN_RATIO` solo con evidencia de muestra cerrada.
+
+#### Sprint 2 — Eficiencia del pipeline: pre-filtros baratos — IMPLEMENTADO
+
+Problema corregido: parte del analisis pesado podia ejecutarse antes de descartar simbolos por reglas simples.
+
+Implementado:
+
+1. Helper `_passes_cheap_pre_filters(...)` antes de `_analyze_symbol_candidate(...)` en `core/bot_signals.py`.
+2. Se usa tanto en `_precompute_signal_analysis(...)` como en `run_signal_scan_cycle(...)` para evitar analisis paralelo o secuencial innecesario.
+3. Solo usa datos O(1) en RAM:
+    - cooldown.
+    - simbolo ya activo.
+    - latency quarantine.
+    - runtime symbol controls cacheados.
+    - `res_data` vacio, `NO_DATA`, timeout o latencia extrema ya conocida.
+4. No se movio a pre-filtro barato:
+    - RSI contextual.
+    - ADX contextual.
+    - shock distance.
+    - coherencia final.
+    - MTF/OI.
+    - filtros que dependan de `ctx` profundo.
+5. Evento `CHEAP_PREFILTER_VETO` con razon (`COOLDOWN_ACTIVE`, `SYMBOL_ALREADY_ACTIVE`, `LATENCY_QUARANTINED`, `DATA_INTEGRITY_FAIL`, `SYMBOL_BLOCKED`).
+6. Tests enfocados validan que simbolos bloqueados/activos/latencia extrema no llaman a `_analyze_symbol_candidate(...)`.
+
+Criterio de salida:
+
+- Menos invocaciones al analisis pesado.
+- Vetos baratos visibles antes del consenso pesado.
+- Tests nuevos en verde.
+
+Pendiente operacional:
+
+1. Medir `cycle_latency_ms` o tiempo por simbolo para comparar antes/despues durante PAPER/SHADOW.
+2. Confirmar menor latencia media por ciclo y ausencia de cambios raros en senales validas.
+
+#### Sprint 3 — Aprendizaje estable: genetica en batch — IMPLEMENTADO
+
+Problema corregido: `evolve_genetics(symbol)` corria en el cierre individual y podia sobreajustar por ruido reciente.
+
+Implementado:
+
+1. `bot.brain.evolve_genetics(symbol)` sale del hot-path de `core/trade_exit.py`; el cierre solo encola el simbolo en `_genetic_batch_pending_symbols`.
+2. Se mantiene por trade:
+    - `update_trade_context_result(...)`
+    - `finalize_confidence_exit_audit(...)`
+    - `update_agent_reputation(...)`
+3. Batch genetico en `core/bot_maintenance.py` con flags:
+    - `GENETIC_BATCH_ENABLED=true`
+    - `GENETIC_BATCH_MIN_TRADES=50`
+4. El batch procesa solo simbolos pendientes con muestras suficientes y conserva pendientes sin muestras minimas.
+5. Registrar eventos:
+    - `GENETIC_BATCH_STARTED`
+    - `GENETIC_BATCH_COMPLETED`
+    - `GENETIC_BATCH_SKIPPED`
+    - `GENETIC_BATCH_SWAP_APPLIED`
+    - `GENETIC_BATCH_QUEUED`
+6. Tests enfocados validan cierre sin evolucion inmediata, batch con muestras suficientes, batch insuficiente y batch deshabilitado.
+
+Criterio de salida:
+
+- Genetica fuera del cierre inmediato.
+- Tests nuevos en verde.
+
+Pendiente operacional:
+
+1. Observar en PAPER/SHADOW que el batch no congela main loop ni WebSocket.
+2. Si se refactoriza `Brain.evolve_genetics`, calcular parametros en copia aislada y aplicar con swap atomico corto.
+
+#### Sprint 4 — Escala y sensibilidad — IMPLEMENTADO
+
+Objetivo implementado: ampliar universo operable y medir sensibilidad sin adivinar.
+
+Implementado:
+
+1. Triage gradual despues de Sprints 1-3:
+    - `TRIAGE_CANDIDATE_POOL_MULTIPLIER=2`
+    - `TRIAGE_MAX_CANDIDATE_POOL=60`
+2. Telemetria comparativa para `EMA_SLOPE_LOOKBACK`:
+    - `EMA_SLOPE_LOOKBACK=2` se mantiene en ejecucion.
+    - `EMA_SLOPE_COMPARISON_LOOKBACK=4` se calcula pasivamente como `ema50_slope_alt`.
+    - `ema50_slope_alt_lookback` queda en snapshot/contexto para analisis posterior.
+
+Pendiente operacional:
+
+1. Medir durante 48h en SHADOW:
+    - timeouts.
+    - latencia del ciclo.
+    - candidatos utiles.
+    - ratio de vetos posteriores.
+    - senales SHADOW seleccionadas.
+2. No alterar ejecucion de slope hasta tener evidencia.
+
+Criterio de salida:
+
+- Triage ampliado con preset `2/60`.
+- Datos pasivos suficientes para decidir si conviene ajustar slope.
+- No se cambio sensibilidad por intuicion.
+
+Orden de ejecucion obligatorio:
+
+1. Sprint 1: RRR minimo spread/slippage-aware. IMPLEMENTADO.
+2. Sprint 2: pre-filtros baratos solo en RAM. IMPLEMENTADO.
+3. Sprint 3: genetica batch. IMPLEMENTADO.
+4. Sprint 4: triage 2x + telemetria slope comparativa. IMPLEMENTADO.
+
+### 8. Medicion y validacion SHADOW de optimizaciones cuantitativas
+
+Estado: pendiente de implementar y ejecutar.
+
+Objetivo: crear una capa minima de metricas y validacion que permita confirmar, con evidencia, si los Sprints 1-4 realmente mejoraron el bot antes de seguir ajustando thresholds o activar nuevas automatizaciones.
+
+Que debe permitir verificar:
+
+1. Si `RISK_REWARD_VETO` mejora la calidad de trades aceptados.
+2. Si `CHEAP_PREFILTER_VETO` reduce costo de scan sin perder senales validas.
+3. Si `GENETIC_BATCH` no degrada main loop ni WebSocket.
+4. Si la comparacion `ema50_slope` lookback `2` vs `4` aporta senal util o solo ruido.
+5. Si FVG, macro y consenso anaden informacion incremental real.
+
+Entregables minimos:
+
+1. Metricas SHADOW visibles y exportables.
+2. Reporte resumido por campana.
+3. Criterios de aceptacion objetivos por bloque.
+4. Checklist de cierre para decidir por mejora: `KEEP`, `TUNE`, `ROLLBACK` o `PROMOTE_TO_NEXT_PHASE`.
+
+Metricas minimas requeridas:
+
+1. `rrr_veto_rate_pct`
+2. `accepted_trade_avg_rrr`
+3. `scan_cycle_latency_ms`
+4. `cheap_prefilter_veto_rate_pct`
+5. `heavy_analysis_calls_per_cycle`
+6. `genetic_batch_runs`
+7. `genetic_batch_avg_duration_ms`
+8. `loop_stall_events`
+9. `ema_slope_2_vs_4_disagreement_rate`
+10. `macro_veto_rate_pct`
+11. `macro_boost_rate_pct`
+12. `shadow_winrate`
+13. `avg_win`
+14. `avg_loss`
+15. `drawdown_shadow`
+
+Criterio de cierre:
+
+1. Existe campana SHADOW con muestra suficiente.
+2. Existe reporte legible por campana.
+3. Existe decision documentada por bloque:
+    - RRR.
+    - pre-filtros.
+    - genetica batch.
+    - slope comparativo.
+    - macro/FVG/consenso.
+
+Resultado esperado al cerrar:
+
+1. Saber que optimizaciones se mantienen.
+2. Saber cuales requieren tuning.
+3. Saber cuales deben revertirse.
+4. Saber si ya hay base para pasar a Auto-Replication.
+
+Implementacion sugerida en fases:
+
+#### Fase 1 — Campana SHADOW de medicion
+
+Estado: pendiente hasta tener datos medidos de la campana SHADOW.
+
+Objetivo: decidir ajustes e implementaciones nuevas con evidencia, no por intuicion.
+
+1. Ejecutar PAPER/SHADOW con:
+    - `FVG_TRACKER_ENABLED=true`
+    - `GLOBAL_MARKET_PROVIDER_ENABLED=true`
+    - `SHADOW_VALIDATION_ENABLED=true`
+2. Medir durante 48h a 7 dias:
+    - impacto real de `RISK_REWARD_VETO`.
+    - latencia media del ciclo tras `CHEAP_PREFILTER_VETO`.
+    - si `GENETIC_BATCH` afecta main loop o WebSocket.
+    - comparacion pasiva `ema50_slope` lookback `2` vs `4`.
+3. Generar reporte con `tools/shadow_validation_report.py`.
+4. Criterio de salida:
+    - evidencia estadistica suficiente.
+    - sin degradacion runtime.
+    - sin timeouts anomalos.
+
+#### Fase 2 — Ajuste fino con evidencia
+
+1. Revisar thresholds macro:
+    - `fear<20` veto.
+    - `btc_dominance>65` boost.
+2. Revisar consenso/trailing:
+    - `agent_override_rate_pct`.
+    - winrate SHADOW.
+    - avg win / avg loss.
+3. Ajustar solo con muestra cerrada suficiente:
+    - `MIN_RISK_REWARD_RATIO`.
+    - `RISK_REWARD_HIGH_VOL_MIN_RATIO`.
+    - `SIGNAL_AGENT_OVERRIDE_THRESHOLD`.
+    - multiplicadores de trailing.
+4. Criterio de salida:
+    - WR SHADOW >45%.
+    - mejor relacion avg win / avg loss.
+    - sin subir drawdown.
+
+#### Fase 3 — Dashboard y operacion local
+
+1. Decidir si se usara el dashboard API.
+2. Si se usa:
+    - definir `SNIPER_API_KEY` segura.
+    - documentarla en `.env.example` si aplica.
+3. Si no se usa:
+    - apagar inicio del API o silenciar warning.
+4. Mantener auditoria read-only de votos, consenso y vetos por simbolo.
+
+#### Fase 4 — Auto-Replication de estrategias ganadoras
+
+1. Precondiciones:
+    - al menos 1 semana de datos SHADOW utiles en `trade_context_snapshots`.
+    - minimo 20 muestras cerradas relevantes.
+2. Validar primero que agregar macro al vector de similitud mejora correlacion.
+3. Implementar replica solo en SHADOW:
+    - `REPLICATION_ENABLED`.
+    - `REPLICATION_MODE=shadow`.
+    - `REPLICATION_MIN_WINNERS`.
+    - `REPLICATION_MIN_SIMILARITY`.
+4. Insertar logica post-similarity-search en `core/trade_entry.py`.
+5. Registrar eventos y veto visible en radar/dashboard.
+6. Criterio de salida:
+    - WR replicado >65%.
+    - no saltarse filtros macro ni riesgo.
+    - no tocar `REAL`.
+
+Prioridad recomendada:
+
+1. Campana SHADOW de medicion.
+2. Ajuste fino de thresholds.
+3. Dashboard/operacion local.
+4. Auto-Replication solo si la evidencia lo justifica.
+
+### 9. Dashboard Votos / Consenso — IMPLEMENTADO Y CERRADO
+
+Estado: implementado, validado y commiteado.
+
+Objetivo: que la pestana `Votos / Consenso` explique de forma inmediata que quiso hacer el bot, por que entro/no entro, que regimen favorecia y que modelo estaba activo.
+
+Cambios implementados localmente:
+
+1. Panel principal de respuesta humana:
+   - `Señal seleccionada`
+   - `Señal bloqueada`
+   - `Bloqueado por coherencia`
+   - `Sistema neutral`
+2. Explicacion directa del motivo, por ejemplo:
+   - `Señal BUY contra régimen BAJISTA. Dirección favorecida: SELL.`
+3. KPIs visuales:
+   - `Señal`
+   - `Régimen`
+   - `Favorece`
+   - `Resultado`
+4. Chips de auditoria del modelo:
+   - `Model`
+   - `Features`
+   - `ML active` / `Heuristic`
+5. Filtros del grafico de consenso:
+   - `Todas`
+   - `Bloqueadas`
+   - `Seleccionadas`
+   - `Neutras`
+6. Colores semanticos en el grafico historico:
+   - verde para seleccionadas
+   - rojo para bloqueadas
+   - azul para neutrales
+   - ambar para observadas
+
+Archivos tocados:
+
+- `dashboard/static/index.html`
+- `tests/test_dashboard_ipc.py`
+
+Validacion local ya ejecutada:
+
+- `tests/test_dashboard_ipc.py` OK.
+- `ruff check tests/test_dashboard_ipc.py` OK.
+- `ruff format --check tests/test_dashboard_ipc.py` OK.
+- `git diff --check` OK.
+
+Evidencia de cierre:
+
+1. Commits `966beb7`, `6ec61df` y `2eba461` contienen la mejora de explicabilidad y su cierre operativo.
+2. `dashboard/static/index.html` contiene la pestana y componentes de votos/consenso.
+3. El repositorio quedo limpio y sincronizado con `origin/master` tras la validacion.
+
+Mejoras futuras opcionales, fuera del alcance cerrado:
+
+1. Captura visual comparativa antes/despues.
+2. Tooltip detallado por punto del grafico con `symbol`, `side`, `status`, `reason` y `prob_final`.
+
+### 10. Plan de Reparacion de Edge — EN PROGRESO
+
+Diagnostico: el bot es selectivo en volumen pero no efectivo. Winrate SHADOW 26.5%, avg pnl -2.06%. La selectividad no esta filtrando edge real; esta filtrando por restricciones (bootstrap + filtros duros). Causas raiz probables: (1) ausencia de modelo ML cargo, (2) sobre-filtrado, (3) score mal calibrado, (4) sin edge en RANGE.
+
+Plan completo en `docs/runbooks/plan-reparacion-edge.md`.
+
+Fases:
+0. Congelar diagnostico base — COMPLETADO.
+1. Salir de bootstrap — INTENTADO / MODELO RECHAZADO POR OOS.
+2. Rankear filtros — PENDIENTE.
+3. Confirmar entrada vs salida — PENDIENTE.
+4. Calibrar score — PENDIENTE.
+5. Edge por regimen — PENDIENTE.
+6. Experimentos controlados A/B — PENDIENTE.
+
+Criterio de exito: winrate SHADOW mejorado, buckets altos de confianza ganan mas que bajos, menos trades en Hard SL, no pasar a REAL hasta cumplir todo.
+
+Resultado Fase 1 (2026-07-13): se entreno Ghost offline con dataset curado (279 trades, outliers >10% excluidos, `UNKNOWN` excluido), pero fallo gate ciego `F1 >= 0.30` en OOS (0.2581). No se publico modelo; runtime sigue en bootstrap.
+
+Actualizacion Fase 2 quick fix (2026-07-13): se reparo propagacion de `spread` real al RRR validator y se activo veto configurable de entradas en `BULL_TREND/BULL_STRONG`. Observar 50-100 trades post-reinicio antes de reentrenar Ghost.
+
+Actualizacion Fase 2 RANGE (2026-07-13): `HMM_RANGE_LEARNING_OVERRIDE_ENABLED=false` debe dejar `RANGE` como veto duro tambien en SHADOW. El primer intento fue anulado por Markov (`range_veto=False` en `hmm_state == "RANGE"`); corregido para que el hard veto domine salvo override explicito. Reabrir solo si el flujo operativo queda insuficiente.
+
+### 11. Plan de Saneamiento y Simplificacion de Codigo — PENDIENTE
+
+Estado: plan aprobado y documentado. No iniciar cambios de codigo hasta una autorizacion posterior explicita.
+
+Objetivo: revisar en detalle cada bloque y modulo para mejorar buenas practicas, mantener el mismo comportamiento con menos codigo y eliminar codigo muerto confirmado sin debilitar la seguridad runtime.
+
+Restricciones:
+
+1. Los cambios deben preservar comportamiento; no mezclar saneamiento con fixes funcionales ni nuevas features.
+2. Un cambio pequeno y verificable por commit.
+3. Antes de eliminar codigo, demostrar que no tiene callers, imports, referencias dinamicas, contratos legacy ni cobertura necesaria.
+4. No eliminar `config.py`, `core/bot_facade.py` ni otras fronteras de compatibilidad sin un plan de migracion explicito.
+5. No simplificar validaciones, manejo de errores, HALT, reconciliacion ni proteccion HARD SL.
+6. Para runtime critico, mantener separacion estricta entre `PAPER`, `SHADOW` y `REAL`, con el exchange como fuente de verdad.
+
+Flujo de auditoria por modulo:
+
+1. Ejecutar primero una revision read-only y crear un mapa rankeado de hallazgos.
+2. Revisar imports sin uso, codigo inalcanzable, helpers o constantes duplicados, archivos huerfanos, bloques comentados, funciones extensas y ownership ambiguo.
+3. Para cada candidato, registrar archivo/linea, severidad, evidencia de no uso, cambio minimo propuesto y validacion requerida.
+4. Agregar o confirmar tests de comportamiento antes de simplificar flujos grandes o sensibles.
+5. Aplicar solo limpiezas confirmadas, una por vez, y validar antes de continuar.
+
+Orden por riesgo:
+
+1. Bajo riesgo: `core/analytics/`, `core/providers/`, helpers de rutas, tiempo, simbolos y utilidades puras.
+2. Riesgo medio: `core/signals/`, `core/strategy/`, `core/risk/`, `core/commands/` y operaciones auxiliares `core/bot_*_ops.py`.
+3. Runtime critico: `core/trade_entry.py`, `core/trade_exit.py`, `core/bot_guardian.py`, `core/reconciliation.py`, `core/execution_service.py`, `core/bot_wallet_sync.py` y `core/execution_adapters.py`.
+
+Watchlist preventiva:
+
+1. `core/trade_entry.py::execute_order`: conservar sizing, similarity boost, reconciliacion de fills y cobertura HARD SL.
+2. `core/bot_guardian.py::run_guardian_loop`: conservar semantica de TP1, exits ambiguos y HALT.
+3. `core/trade_exit.py::close_trade`: conservar fail-safe ante cierre REAL ambiguo.
+4. `core/reconciliation.py::reconcile_bootstrap_state`: conservar al exchange como autoridad.
+5. Cambios en contratos publicos o bootstrap requieren `tools/regression_contracts.py` y `scripts/smoke_modular_imports.sh`.
+
+Validacion minima por lote:
+
+1. `compileall`, Ruff lint y Ruff format.
+2. `tools/check_no_silent_pass.py`.
+3. Smoke de imports modulares.
+4. Suite unitaria completa.
+5. Para runtime critico: tests enfocados, contratos de regresion, chaos matrix y recovery drill.
+
+Criterio de cierre por modulo:
+
+1. Codigo muerto eliminado solo con evidencia verificable.
+2. Sin imports inutilizados, duplicaciones evitables ni `pass` silenciosos.
+3. Menos codigo o complejidad sin cambios de comportamiento.
+4. Tests y gates aplicables en verde.
+5. Hallazgos y decisiones documentados para evitar refactors amplios u oportunistas.
+
+Entregables futuros:
+
+1. Mapa rankeado de hallazgos por archivo y riesgo.
+2. Cola de limpiezas pequenas y ordenadas.
+3. Commits independientes con evidencia de validacion.
+4. Informe final de codigo eliminado, complejidad reducida y riesgos residuales.
