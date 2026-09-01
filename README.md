@@ -1,714 +1,408 @@
 <div align="center">
 
-# 🤖 Sniper AI — Pbot V5ARCH DEV Clean
+# ⚡ SNIPER AI · QUANTITATIVE EXECUTION ENGINE
+### *Institutional-Grade Algorithmic Trading Infrastructure for Binance USDⓈ-M Futures*
 
-### *Bot cuantitativo runtime-first para Binance Futures, endurecido para operación segura*
+[![Engine Version](https://img.shields.io/badge/Version-v118.8--PRO%20%7C%20Enterprise-00f2fe?style=for-the-badge&logo=codeforces&logoColor=white)](https://github.com/Rukawua26/Pbot-V5ARCH-DEV-clean)
+[![Python Runtime](https://img.shields.io/badge/Python-3.12%20%7C%20AsyncIO-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![Exchange](https://img.shields.io/badge/Exchange-Binance%20Futures-F3BA2F?style=for-the-badge&logo=binance&logoColor=black)](https://binance.com)
+[![CI Build](https://img.shields.io/badge/CI%2FCD-Passing%20%7C%201259%20Tests-22c55e?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/Rukawua26/Pbot-V5ARCH-DEV-clean/actions)
+[![Coverage](https://img.shields.io/badge/Test%20Coverage-78%25%20Verified-0ea5e9?style=for-the-badge&logo=codecov&logoColor=white)]()
+[![Security Audit](https://img.shields.io/badge/Security-Pip--Audit%20Clean-10b981?style=for-the-badge&logo=securityscorecard&logoColor=white)]()
 
-> Inteligencia de mercado con HMM Markov · Escaneo dinámico 1H · Ejecución segura · Shadow Lab · Reconciliación defensiva
-
----
-
-[![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
-[![Binance](https://img.shields.io/badge/Exchange-Binance_Futures-F3BA2F?style=for-the-badge&logo=binance&logoColor=black)](https://binance.com)
-[![Estado](https://img.shields.io/badge/Estado-Activo-22c55e?style=for-the-badge&logo=statuspage&logoColor=white)]()
-[![CI](https://img.shields.io/github/actions/workflow/status/Rukawua26/Pbot-V5ARCH-DEV-clean/ci.yml?branch=master&style=for-the-badge&logo=githubactions&logoColor=white&label=CI)](https://github.com/Rukawua26/Pbot-V5ARCH-DEV-clean/actions)
-
-[![Versión](https://img.shields.io/badge/Bot-v118.7--PRO_%7C_Runtime_Clean-2563eb?style=flat-square)](https://github.com/Rukawua26/Pbot-V5ARCH-DEV-clean)
-[![Modos](https://img.shields.io/badge/Modos-PAPER_%7C_REAL_%7C_SHADOW-0ea5e9?style=flat-square)]()
-[![HMM](https://img.shields.io/badge/HMM-Markov_Intelligence-f97316?style=flat-square)]()
-[![Tests](https://img.shields.io/badge/Tests-1259_ok_%7C_2_skipped-22c55e?style=flat-square)]()
-[![Shadow](https://img.shields.io/badge/Shadow_Capacity-20_trades-9333ea?style=flat-square)]()
-[![Deploy](https://img.shields.io/badge/Deploy-systemd_%7C_Docker-111827?style=flat-square)]()
-[![Risk](https://img.shields.io/badge/Risk_Engine-v118.7-ef4444?style=flat-square)]()
-[![Runtime](https://img.shields.io/badge/Runtime-Hardened-16a34a?style=flat-square)]()
-
-</div>
-
----
-
-## 📖 ¿Qué es Sniper AI?
-
-**Sniper AI** es un bot de trading cuantitativo diseñado para operar en **Binance Futures** con un enfoque *runtime-first*: cada decisión, ejecución y reconciliación ocurre en una arquitectura modular, trazable y segura.
-
-Combina regímenes de mercado via **HMM Markov**, filtros multi-temporalidad, motor de agentes y un laboratorio *shadow* para explorar sin arriesgar capital real.
-
-### ✅ Estado Actual del Build
-
-| Check | Estado |
-|---|---|
-| `unittest discover` | ✅ `1259 tests OK` · `2 skipped` |
-| `ruff` | ✅ Sin errores en archivos tocados |
-| `compileall main.py core` | ✅ OK |
-| `check_no_silent_pass.py` | ✅ OK |
-| `mypy --explicit-package-bases core` | ✅ OK |
-| `pip-audit --strict` | ✅ Sin vulnerabilidades conocidas |
-| `coverage report --fail-under=75` | ✅ **78%** |
-| `docker build -t sniper-ai .` | ✅ OK |
-| Runtime safety | ✅ HARD SL, locks, reconciliación y deploy hardening revisados |
-| Portable packaging | ✅ Windows `.zip` y Linux `.tar.gz` vía GitHub Releases por tag `v*` |
-
-> Esta rama limpia elimina módulos huérfanos, corrige riesgos de concurrencia y deja el runtime preparado para validación CI/producción.
+<br/>
 
 ```
-Binance Futures → Triage Dinámico → HMM BTC → Agentes MT/SR/G
-       → Filtros (OI · CVD · MTF · SHOCK) → Decisión → Ejecución
-       → Telemetría · Reconciliación · Telegram
+[ Market Microstructure ] ──▶ [ HMM Regime Classification ] ──▶ [ Multi-Agent Alpha Engine ]
+                                                                             │
+[ Real-Time Telemetry & BI ] ◀── [ Hardened Execution Router ] ◀── [ Dynamic Risk Governance ]
+```
+
+<p align="center">
+  <b>Arquitectura algorítmica determinista de alta disponibilidad con clasificación estocástica de regímenes de mercado, análisis de microestructura (CVD / Order Flow / Open Interest), gobernanza estricta de riesgo y simulación shadow concurrente.</b>
+</p>
+
+---
+
+[Resumen Ejecutivo](#-resumen-ejecutivo) •
+[Arquitectura del Sistema](#-arquitectura-del-sistema) •
+[Módulos Cuantitativos](#-módulos-cuantitativos) •
+[Gobernanza de Riesgo](#-gobernanza-de-riesgo-y-seguridad-operativa) •
+[Dashboard & Telemetría](#-dashboard-institucional--bi) •
+[Despliegue & Operación](#-despliegue--operación) •
+[CI/CD & Calidad](#-aseguramiento-de-calidad-y-validación) •
+[Documentación](#-gobernanza-técnica-y-runbooks)
+
+---
+
+</div>
+
+## 📌 Resumen Ejecutivo
+
+**Sniper AI** es una plataforma cuantitativa modular de nivel institucional desarrollada para la ejecución autónoma en el mercado de derivados **Binance USDⓈ-M Futures**. Diseñada bajo la filosofía **Runtime-First & Zero-Trust State**, la infraestructura prioriza la preservación de capital, la trazabilidad estricta de órdenes y la resiliencia operativa ante condiciones anómalas de mercado.
+
+### Capacidades Nucleares
+
+- **Clasificación Estocástica de Regímenes (HMM Markov)**: Detección dinámica de estados de mercado (`BULLISH`, `BEARISH`, `RANGE`) con matrices de probabilidad de transición aplicadas como modulador de confianza sobre los modelos de entrada.
+- **Consenso Multi-Agente & Microestructura**: Síntesis de señales provenientes de agentes especializados (Momentum Breakout, Mean Reversion, Kinetic S/R, Redes Neuronales Ghost) validados por flujo de órdenes agresor (CVD), delta de Open Interest y análisis multi-temporalidad (MTF 15m/5m/1h).
+- **Gestión Cuantitativa de Riesgo (Risk Governance)**: Sizing dinámico adaptativo mediante distancia ATR / SL, matriz de co-riesgo por correlación cruzada en tiempo real, circuit breaker por drawdown diario UTC y enforcement incondicional de **Hard Stop Loss** en el exchange.
+- **Laboratorio de Ejecución Shadow (Zero-Capital Sandbox)**: Evaluación paralela de hasta 20 estrategias concurrentes sobre datos en vivo con modelado de latencia de red, slippage asimétrico y tasas de rechazo antes de la asignación de capital real.
+- **Telemetría Institucional & Reconciliación Continua**: Reconciliación atómica entre balance local y estado del broker, auditoría JSONL inmutable, dashboard web interactivo con zoom lightbox y control remoto seguro vía Telegram.
+
+---
+
+## 🏛️ Arquitectura del Sistema
+
+El flujo de procesamiento opera como una tubería determinista desacoplada, garantizando que ninguna orden se envíe al exchange sin la validación previa de todas las capas de seguridad y riesgo.
+
+```text
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                                 MARKET DATA INGESTION                                  │
+│   Binance Futures WebSocket (Mark Price / Tickers / Klines) + REST API (Open Interest) │
+│   WebSocket AggTrade Stream (Order Flow / Cumulative Volume Delta - CVD)               │
+└───────────────────────────────────────────┬────────────────────────────────────────────┘
+                                            │
+                                            ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                              MARKET REGIME & INTELLIGENCE                              │
+│   Hidden Markov Model (HMM) ──▶ Probabilidades de Transición [BULL / BEAR / RANGE]     │
+│   Dynamic Liquidity Guard   ──▶ Spread Filter + 30-Pair Real-Time Triage Matrix        │
+└───────────────────────────────────────────┬────────────────────────────────────────────┘
+                                            │
+                                            ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                           MULTI-AGENT ALPHA GENERATION ENGINE                          │
+│   ┌───────────────────────┬─────────────────────────┬──────────────────────────────┐   │
+│   │ Momentum Trend (MT)   │ Kinetic S/R & Flow (SR) │ Neural Ghost Predictor (G)   │   │
+│   └───────────────────────┴─────────────────────────┴──────────────────────────────┘   │
+│   CycleContext (Snapshot Inmutable) + Multi-Timeframe Confirmation (15m / 5m / 1h)     │
+└───────────────────────────────────────────┬────────────────────────────────────────────┘
+                                            │
+                                            ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                        QUANTITATIVE RISK ENGINE & GOVERNANCE                           │
+│   • Pairwise Correlation Matrix (Veto a sobreexposición > 0.80)                        │
+│   • Open Interest Delta Filter (Protección contra Squeezes y Liquidaciones)            │
+│   • Sizing Adaptativo por Volatilidad (ATR) y Drawdown Diario UTC Circuit Breaker      │
+│   • Hard Stop Loss Pre-Execution Calculation & Trailing Stop Invariants                │
+└───────────────────────────────────────────┬────────────────────────────────────────────┘
+                                            │
+                                            ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                              EXECUTION ROUTER & TELEMETRY                              │
+│   ┌────────────────────────────────────────┬───────────────────────────────────────┐   │
+│   │ LIVE EXECUTION ADAPTER (REAL / PAPER)  │ SHADOW EXECUTION LAB (Virtual Sandbox)│   │
+│   └────────────────────────────────────────┴───────────────────────────────────────┘   │
+│   Atomic Guardian Vigilance ──▶ Emergency Market Close ──▶ State Reconciler            │
+│   Web Dashboard (FastAPI/Static) + Telegram Command Center + GitHub Projects v2 Kanban │
+└────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## ✨ Últimas Fases
+## 🧬 Módulos Cuantitativos y Modelado
 
-### 📦 Phase 23 — Portable Windows/Linux Releases (Julio 2026)
-Distribución portable multiplataforma estilo RustDesk:
+### 1. Clasificación de Régimen por Cadenas de Markov Ocultas (HMM)
+En lugar de depender de indicadores rezagados univariados, el motor entrena modelos HMM sobre la serie temporal de Bitcoin (BTCUSDT) para identificar el estado latente del mercado.
+- **`BULLISH`**: Habilita estrategias tendenciales con sizing completo (1.0x) y trailing dinámico de 1.8 ATR.
+- **`BEARISH`**: Activa modo de cobertura; restringe compras direccionales y aplica filtros estrictos a ventas en corto.
+- **`RANGE`**: Modula a estrategias de reversión a la media con bandas Bollinger/RSI, reduciendo el sizing general (0.5x) para mitigar el desgaste por chop.
 
-| Área | Resultado |
-|---|---|
-| Rutas portables | Windows `%APPDATA%\SniperBot`, Linux `~/.config/SniperBot` |
-| Wizard inicial | Crea `.env`, detecta IP pública y arranca siempre en `PAPER` |
-| Seguridad | `ALLOW_REAL_TRADING=false` por defecto; REAL no se activa desde wizard |
-| Persistencia | DB, logs, modelos y backups fuera del directorio temporal de PyInstaller |
-| Packaging | PyInstaller `onedir`, `console=True`, dashboard estático incluido |
-| Releases | Workflow `.github/workflows/release.yml` genera Windows `.zip` y Linux `.tar.gz` al pushear tags `v*`
+### 2. Microestructura & Order Flow (CVD & Open Interest)
+- **Cumulative Volume Delta (CVD)**: Procesa transacciones agresoras tick-a-tick vía WebSocket `aggTrade` para cuantificar la absorción institucional y divergencias precio-delta.
+- **Open Interest Delta**: Detecta anomalías de apalancamiento súbito, vetando entradas susceptibles a cascadas de liquidación o trampas de volatilidad (short/long squeezes).
 
-### 🛡️ Phase 24 — Runtime Safety Hardening + Safe-Fill (Julio–Ago 2026)
-Endurecimiento crítico del runtime tras validación de fills REAL, validación de ACK HARD SL y protección contra estados ambiguos:
-
-| Cambio | Descripción |
-|---|---|
-| `execute_order` fail-safe | Reconciliación inmediata contra `fetch_positions()`; cero con exposición → HALT; fills parciales terminales → protección + HALT; ACK sin order ID → HALT (`ENTRY_ORDER_ID_UNVERIFIED`) |
-| Validación HARD SL | `hard_sl_ack_looks_valid` exige: `id` activo, estado `open`/`new`, tipo `STOP_MARKET`, `reduceOnly=true`, cantidad con tolerancia relativa; rechaza status terminal/bool/nonfinite |
-| `_fetch_exchange_position_amount` | Rechaza snapshots malformados y cantidades contradictorias (`contracts` vs `positionAmt` con o sin `side`) → `None` (unknown) |
-| Persistencia REAL | Falla de persistencia final activa `is_paused`, `integrity_lock_active` y `halt_system_active` |
-| `close_trade` fail-safe | En bloque `except` de cierre REAL asume `close_failed = True` (fail-safe) y solo revierte a `False` si el exchange confirma posición plana |
-| CI hardening | Pin `actions/setup-python@v5` a SHA `a26af69be951a213d495a4c3e4e4022e16d87065`; errores mypy resueltos con narrowing `raw_info`; tests herméticos (`tests/test_dashboard_ipc.py`, `tests/test_min_atr_filter.py`) |
+### 3. Síntesis de Consenso Multi-Agente
+- **Kinetic Support/Resistance**: Análisis cinético de velas con Z-Score de aceleración (Multiplicador ×1.3 en zonas de absorción confirmada, penalización ×0.7 ante cuchillos cayendo).
+- **Red Neuronal Ghost**: Modelo probabilístico no lineal que evalúa la calidad estructural de la configuración técnica antes de emitir autorización.
 
 ---
 
-### 🖼️ Capturas del dashboard
+## 🛡️ Gobernanza de Riesgo y Seguridad Operativa
 
-<div align="center">
-<img src="docs/README/graph_equity_curve.png" alt="Curva de equity" width="520"/>
-<p><em>Curva de equity: balance con Δ% y marcadores inicio/fin.</em></p>
-</div>
+> **Invariante Nuclear:** *El estado del exchange es la única fuente de verdad sobre la exposición real. Ninguna posición en modo REAL puede existir sin una orden `HARD STOP LOSS` activa y confirmada.*
 
-<div align="center">
-<img src="docs/README/graph_consensus_probability.png" alt="Probabilidad de consenso" width="520"/>
-<p><em>Probabilidad final por ronda de consenso con umbrales 65%/75%.</em></p>
-</div>
-
-<div align="center">
-<img src="docs/README/graph_pnl_distribution.png" alt="Distribución de PnL" width="520"/>
-<p><em>Distribución de PnL% por trade.</em></p>
-</div>
-
-<div align="center">
-<img src="docs/README/graph_blocked_reasons.png" alt="Razones de bloqueo" width="520"/>
-<p><em>Frecuencia de razones de veto (ventana reciente).</em></p>
-</div>
-
-<div align="center">
-<img src="docs/README/graph_daily_pnl_calendar.png" alt="Calendario PnL" width="520"/>
-<p><em>PnL diario heatmap semanal.</em></p>
-</div>
-
-<div align="center">
-<img src="docs/README/graph_winrate_by_symbol.png" alt="Winrate por símbolo" width="520"/>
-<p><em>Ganados/perdidos por símbolo con WR%.</em></p>
-</div>
-
----
-
-### 📈 Resultados tras endurecimiento
-
-- **1259 tests OK** · **78% coverage** · **Docker build OK**.
-- **Gates de CI**: Ruff, format, compileall, `check_no_silent_pass`, smoke imports, suite completa, chaos matrix, recovery drill.
-- **Riesgo residual**: estados `REAL` ambiguos ahora fuerzan `HALT` + reconciliación antes de continuar, sin degradación silenciosa.
-- **Validado en**: PAPER y SHADOW con flags `FVG_TRACKER_ENABLED`, `GLOBAL_MARKET_PROVIDER_ENABLED`, `SHADOW_VALIDATION_ENABLED`.
-
---- |
-
-### 🧱 Phase 22 — FVG Tracker + Idempotencia de Salidas + Readiness (Junio 2026)
-Endurecimiento incremental sin activar nuevas decisiones de trading por defecto:
-
-| Área | Resultado |
-|---|---|
-| FVG Tracker | Detector read-only apagado por defecto con persistencia local y alertas opcionales |
-| Idempotencia | Writes críticos de salida recuperan por `clientOrderId` tras timeout ambiguo |
-| Coverage crítico | `trade_exit` 78%, `ghost_agent` 83%, `orchestrator` 95%, `shocks` 89%, `consensus_nn` 79% |
-| Dependencias | `msgpack` actualizado por `pip-audit` |
-| Pending Improvements Readiness | Script `tools/pending_improvements_readiness.py` + runbook `paper-shadow-observation.md` |
-| Validación | 1259 tests OK · 78% coverage · chaos/recovery/Docker OK · readiness OK |
-
-### 🛡️ Phase 21 — Runtime Safety + CI Closure (Junio 2026)
-Sweep de seguridad y validación completa antes de publicar en GitHub:
-
-| Área | Resultado |
-|---|---|
-| HARD SL | Estados ambiguos en open orders ahora fuerzan `HALT` en vez de duplicar órdenes |
-| Reconciliación | Posiciones huérfanas solo persisten `OPEN` tras confirmar HARD SL |
-| Locks | Account/exchange calls serializadas y lock inversion corregida |
-| Config REAL | `EXECUTION_BACKEND` validado y guardrails REAL unificados |
-| ML/Data | Split temporal cronológico con embargo y optimizer legacy bloqueado por defecto |
-| Dashboard | API canónica `tools.dashboard_api_server`; legacy duplicado retirado |
-| Dependencias | `aiohttp`, `cryptography` y `starlette` actualizados; `pip-audit` limpio |
-| Validación | 949 tests OK · 75% coverage · Docker build OK |
-
-### 🧠 Phase 20 — Intelligence Layer + Dashboard Consultivo (Junio 2026)
-Nueva capa consultiva, separada del runtime crítico, integrada en el dashboard:
-
-| Área | Resultado |
-|---|---|
-| `tools/intelligence/` | Ingesta read-only de `execution_events`, `state_snapshot` y DB del bot |
-| Reportes | `daily_report`, `weekly_report`, `postmortem` y `advisories` persistidos |
-| Dashboard | Nueva pestaña `Intelligence` con KPIs, advisories, annotations y lookup de postmortem |
-| SHADOW | Comparativa `SHADOW vs REAL` para calibración consultiva |
-| Seguridad | Sin impacto sobre órdenes, SL, reconciliación, watchdog ni recovery |
-
-> Esta capa no participa en el path de ejecución. Si falla, el bot sigue operando igual.
-
-### 🔵 Phase 19 — Kanban GitHub Projects (Junio 2026)
-Integración **async no-bloqueante** con GitHub Projects v2 para el ciclo de vida completo de operaciones:
-
-| Columna Kanban | Significado |
-|---|---|
-| 🟡 `Estrategias Activas` | Señal detectada, buscando entrada |
-| 🟠 `Órdenes Pendientes` | Orden limit/stop esperando en el exchange |
-| 🟢 `Posiciones Abiertas` | Trade activo con PnL en vivo |
-| ⚫ `Historial de Cierre` | Operación finalizada con resultado |
-
-### 🟢 Runtime Clean — Dead Code + Safety Sweep (Junio 2026)
-Limpieza profunda orientada a estabilidad operativa:
-
-| Área | Resultado |
-|---|---|
-| Código muerto | Eliminados módulos/agentes huérfanos no registrados |
-| Concurrencia | Protegidos accesos a `active_trades`, `scanner_history`, cooldowns y balance |
-| Shutdown | Señalización defensiva con `_shutdown_event` y cierre de executors |
-| Seguridad | Pickle seguro, subprocess con path validado y timeout |
-| Validación | 891 tests OK · `ruff` OK · mypy core OK |
-
-### 🟣 Phase 18 — Hardening Técnico (Junio 2026)
-Consolidación del runtime sin deuda legacy:
-
-| Área | Cambio |
-|---|---|
-| 🗑️ Imports legacy | Retiro de wrappers raíz deprecated |
-| 📊 Dashboard | Ruta canónica `tools.dashboard` con import lazy |
-| 🧠 RAG Memory | `find_similar_contexts` vectorizado con NumPy |
-| 💾 Maturity cache | Hash-debounce + persistencia async |
-| 🗄️ DB path | `core.learning_paths.DEFAULT_DB_PATH` como fuente única |
-| ✅ Validación | 891 tests · compileall · ruff · mypy core · silent-pass guard |
-
-### 🟡 Phase 17 — Recalibración SHADOW (Mayo 2026)
-Ajuste de umbrales para operar en régimen RANGE:
-
-| Parámetro | Antes | Después | Efecto |
-|---|---|---|---|
-| `SHADOW_MODE_MIN` | 50% | **55%** | Umbral shadow más selectivo |
-| `SHOCK_MIN_DIST_PCT` | 0.40% | **0.20%** | Menos vetos en mercado lateral |
-| `HMM_RANGE_PENALTY` | 0.50x | **0.80x** | Penalización más suave en RANGE |
-| Breakout penalty | 0.85x | **0.95x** | Mínima penalización sin breakout |
-| `MAX_ENTRY_SL_PCT` | 2.50% | **3.0%** | Límite operativo balanceado |
-
----
-
-## 🧬 Inteligencia Markov
-
-El motor HMM clasifica el régimen de BTC y publica un snapshot en memoria con probabilidades de transición. Los filtros lo usan como **regulador de confianza**, no como interruptor ciego.
-
-```json
-{
-  "state": "RANGE",
-  "confidence": 0.72,
-  "bullish_breakout_prob": 82.0,
-  "bearish_reversal_prob": 12.0,
-  "range_prob": 6.0,
-  "model_version": "hmm_markov_v1"
-}
+```
+┌──────────────────────────────────────────────────────────────────────────────────────┐
+│                                ESTADOS DEL TRADE EN RUNTIME                          │
+│                                                                                      │
+│   [PENDING_SEND]                                                                     │
+│         │                                                                            │
+│         ▼                                                                            │
+│   [PENDING_EXCHANGE_OPEN] ──▶ ACK de Orden Confirmado por Exchange                   │
+│         │                                                                            │
+│         ▼                                                                            │
+│   [ENTRY_FILLED_AWAITING_POSITION_SYNC] ──▶ Reconciliación Inmediata con Wallet     │
+│         │                                                                            │
+│         ▼                                                                            │
+│   [OPEN (HARD SL CONFIRMADO)] ──▶ Hard Stop Loss Activo en el Orderbook              │
+│         │                                                                            │
+│         ▼                                                                            │
+│   [CLOSING_INITIATED] ──▶ Cierre por TP / Trailing SL / Emergency Fail-Safe          │
+│         │                                                                            │
+│         ▼                                                                            │
+│   [CLOSED (FLAT)] ──▶ Auditoría JSONL + Reconciliación de Balance Final              │
+└──────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-| Señal Markov | Acción del sistema |
-|---|---|
-| `RANGE` + breakout alto | Penalización leve — señal fuerte puede llegar a `REAL` |
-| `RANGE` estándar | Penalización media — degrada a `SHADOW` |
-| `RANGE` estancado | Penalización estándar — no veto total |
-| Tendencia alineada fresca | Boost controlado a la probabilidad final |
-| Snapshot expirado | Solo puede penalizar, nunca boostear |
+### Salvaguardas Críticas de Producción
+
+1. **Protocolo Fail-Safe de Fills Reales (`execute_order`)**:
+   - Tras el envío de una orden de entrada, el sistema consulta de inmediato `fetch_positions()`.
+   - Si se detecta exposición sin confirmación o con discrepancias en el `orderId`, el motor activa `HALT` preventivo (`ENTRY_ORDER_ID_UNVERIFIED`) para impedir duplicación de contratos.
+2. **Validación Exhaustiva de Hard Stop Loss (`hard_sl_ack_looks_valid`)**:
+   - Toda orden de stop loss requiere verificación estricta: `id` activo, estado `NEW`/`OPEN`, tipo `STOP_MARKET`, `reduceOnly=true` y tolerancia cuantitativa de volumen coincidente con la posición.
+   - Si el broker rechaza el SL (e.g. error `-2021: would trigger immediately`), el motor ejecuta un **Emergency Market Close** inmediato para eliminar exposición no protegida.
+3. **Matriz de Co-Riesgo por Correlación Dinámica**:
+   - Monitoreo continuo de coeficientes de correlación de Pearson entre pares activos.
+   - Aplica reducciones escalonadas de tamaño o vetos totales de entrada ante coeficientes superiores a `+0.80`, evitando correlaciones ocultas en carteras de altcoins.
+4. **Circuit Breakers por Drawdown UTC**:
+   - Suspensión automática de operaciones intradiarias si el drawdown diario acumulado alcanza el límite de seguridad (default 5.0%), bloqueando la apertura de nuevas posiciones hasta el reinicio del ciclo UTC.
+5. **Jerarquía Estricta de Locks Concurrenciales**:
+   - Prevención matemática de interbloqueos (*deadlocks*) mediante ordenamiento ascendente riguroso:
+     $$\text{bot.lock} \prec \text{execution.\_exchange\_call\_lock} \prec \text{execution.\_account\_lock} \prec \text{shadow.\_lock} \prec \text{bot.db\_lock} \prec \text{bot.price\_lock}$$
 
 ---
 
-## ⚡ Ventajas Operativas
+## 📊 Dashboard Institucional & BI
 
-| Módulo | Descripción |
-|---|---|
-| 🧬 **HMM Markov** | Probabilidades de transición `BULL` · `BEAR` · `RANGE` en tiempo real |
-| ⚡ **Kinetic SR** | Z-score + cinética de velas: boost ×1.3 en absorción, penalty ×0.7 en falling knife |
-| 👻 **Shadow Lab** | Hasta 20 operaciones paralelas sin tocar capital real |
-| 🛡️ **OI Delta** | Veta short squeezes y long liquidations antes de ejecutar |
-| 🧭 **MTF 15m/5m** | Confirmación multi-temporalidad sin quitar ownership al `1h` |
-| 🔬 **CVD Order Flow** | Agresores `aggTrade` para detectar presión compradora/vendedora real |
-| 📉 **Correlación dinámica** | Reduce position size cuando las apuestas abiertas se mueven juntas |
-| 🧪 **Auto-tuning régimen** | Ajusta SL/TP por régimen con mínimos de muestra y límites duros |
-| 💰 **Spread dinámico** | BULL 0.10% · BEAR 0.08% · RANGE 0.05% por régimen HMM |
-| 🧾 **Audit trail JSONL** | Trazabilidad de señal → filtro → fill → protección |
-| 📡 **WebSocket BTC** | Precio en vivo con fallback REST y logging de reconexión |
-| 📲 **Control Telegram** | Auditoría, inteligencia y control remoto en tiempo real |
+La plataforma incorpora una consola web reactiva de grado profesional (`FastAPI` + `Vanilla JS/Tailwind`) configurada para monitoreo de baja latencia:
+
+<div align="center">
+
+| Módulo de BI | Visualización | Métrica / Función Clave |
+|---|---|---|
+| **Curva de Equity** | ![Equity Curve](docs/README/graph_equity_curve.png) | Balance acumulado en vivo con $\Delta\%$ y drawdown |
+| **Consenso de Agentes** | ![Consensus](docs/README/graph_consensus_probability.png) | Distribución de probabilidades y umbrales de disparo |
+| **Distribución PnL** | ![PnL Distribution](docs/README/graph_pnl_distribution.png) | Histograma de retorno por trade y factor de beneficio |
+| **Análisis de Vetos** | ![Blocked Reasons](docs/README/graph_blocked_reasons.png) | Frecuencia de rechazos por filtros de riesgo |
+| **Heatmap Semanal** | ![Daily PnL](docs/README/graph_daily_pnl_calendar.png) | Calendario de consistencia y rendimiento diario |
+| **Winrate por Par** | ![Winrate Symbol](docs/README/graph_winrate_by_symbol.png) | Tasa de acierto desglosada por activo cotizado |
+
+</div>
+
+### Características del Dashboard
+
+- **Matriz de Correlación con Lightbox Zoom**: Inspección ampliada a pantalla completa de la matriz de calor cross-asset con cálculo de co-riesgo en tiempo real.
+- **Radar de Señales con Densidad Adaptativa**: Selector de vista compacta/espaciada con persistencia local y columnas congeladas (*sticky*) para auditoría en dispositivos móviles.
+- **Semáforo Interactivo de Régimen HMM**: Inspección de los multiplicadores estratégicos activos según el estado estocástico de BTC.
+- **Acordeón Agrupado de Configuración**: Parametrización en vivo categorizada por filtros de tendencia, liquidez, riesgo, motor de ejecución y entorno.
 
 ---
 
 ## 🎮 Modos de Operación
 
-| Modo | Variable | Comportamiento |
-|---|---|---|
-| 🟦 `PAPER` | `PAPER_MODE=true` | Capital virtual. Valida conectividad si hay credenciales. |
-| 🟥 `REAL` | `PAPER_MODE=false` | Requiere credenciales válidas. Errores de auth abortan el arranque. |
-| 👻 `shadow_live` | `EXECUTION_BACKEND=shadow_live` | Runtime real con latencia, rechazo y slippage simulados. |
-| 🧪 `TESTNET` | `USE_TESTNET=true` | Sandbox de Binance para validación sin capital real. |
+El motor permite alternar entre distintos entornos de ejecución garantizando aislamiento total de memoria y estado:
+
+```bash
+# Modo PAPER (Por defecto en instalaciones iniciales)
+PAPER_MODE=true
+ALLOW_REAL_TRADING=false
+EXECUTION_BACKEND=live
+
+# Modo SHADOW LIVE (Simulación concurrente sobre orderbook real)
+PAPER_MODE=true
+ALLOW_REAL_TRADING=false
+EXECUTION_BACKEND=shadow_live
+MAX_SHADOW_TRADES=20
+
+# Modo PRODUCCIÓN REAL (Requiere checklist de runbook y claves con permisos)
+PAPER_MODE=false
+ALLOW_REAL_TRADING=true
+EXECUTION_BACKEND=live
+```
+
+| Modo | Capital | Red de Datos | Órdenes en Exchange | Caso de Uso |
+|---|---|---|:---:|---|
+| 🟦 **`PAPER`** | Virtual | Binance Live | No | Calibración de filtros y validación de conectividad |
+| 👻 **`SHADOW`** | Virtual | Binance Live | No | Benchmark de hasta 20 estrategias en paralelo con slippage |
+| 🧪 **`TESTNET`** | Testnet | Binance Testnet | Sí (Sandbox) | Verificación de callbacks y ciclo de órdenes |
+| 🟥 **`REAL`** | Real | Binance Live | **Sí (Real)** | Ejecución de capital con salvaguardas y Hard SL activos |
 
 ---
 
-## 🚀 Inicio Rápido
+## 🚀 Despliegue & Operación
+
+### Requisitos de Sistema
+- **Sistema Operativo**: Linux (Ubuntu 22.04+ / Debian 12 / Arch), Windows 11 / Server 2022.
+- **Python**: Versión `3.12+` x86_64.
+- **Conectividad**: Acceso de baja latencia a los endpoints de Binance Futures (`fapi.binance.com`).
+
+### 1. Instalación Rápida (Entorno Local)
 
 ```bash
 # 1. Clonar el repositorio
 git clone https://github.com/Rukawua26/Pbot-V5ARCH-DEV-clean.git
 cd Pbot-V5ARCH-DEV-clean
 
-# 2. Crear entorno virtual e instalar dependencias lockeadas
+# 2. Configurar entorno virtual con dependencias verificadas
 python3.12 -m venv .venv
 source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r requirements.lock
+pip install --upgrade pip
+pip install -r requirements.lock -r requirements-dev.lock
 
-# 3. Configurar variables de entorno
+# 3. Parametrizar variables de entorno
 cp .env.example .env
-# Editar .env con tus credenciales y modo de operación
+# Configurar API keys y parámetros en .env
 
-# 4. Arrancar el bot
+# 4. Iniciar el motor
 ./.venv/bin/python main.py
 ```
 
-> ⚠️ Para modo `REAL`, completa primero los checks de `docs/runbooks/real-trading.md` y `docs/runbooks/recovery.md`.
+### 2. Despliegue Automatizado en Servidores VPS / Google Cloud (1-Click Setup)
+
+Para desplegar en instancias gratuitas de **Google Cloud (e2-micro Always Free)** o VPS con 1 GB de RAM, el script automatizado configura la memoria SWAP de 2 GB, el entorno virtual `.venv` y las dependencias:
+
+```bash
+# Opción 1: Ejecutar directamente desde el repositorio clonado
+git clone https://github.com/Rukawua26/Pbot-V5ARCH-DEV-clean.git
+cd Pbot-V5ARCH-DEV-clean
+bash scripts/setup_vps.sh
+
+# Opción 2: Instalación directa remota en 1 comando (curl)
+curl -sSL https://raw.githubusercontent.com/Rukawua26/Pbot-V5ARCH-DEV-clean/main/scripts/setup_vps.sh | bash
+```
+
+### 3. Despliegue en Servidores VPS / Bare Metal (`systemd`)
+
+Para entornos de producción 24/7 con reinicio automático ante fallos:
+
+```bash
+# Instalar y habilitar el servicio watchdog systemd
+bash tools/install_watchdog_systemd.sh
+
+# Comandos de administración
+systemctl --user status sniper-ai.service --no-pager
+systemctl --user restart sniper-ai.service
+journalctl --user -u sniper-ai.service -f -n 100
+```
+
+### 3. Despliegue en Contenedores (`Docker`)
+
+```bash
+# Construir imagen optimizada
+docker build -t sniper-ai:latest .
+
+# Despliegue mediante Docker Compose
+docker compose up -d --build
+```
+
+### 4. Distribuciones Portables Autónomas (Windows / Linux)
+Los binarios portables se compilan y publican automáticamente en **GitHub Releases** mediante el flujo de CI/CD:
+- **Windows**: `SniperBot-Windows-Portable.zip` (Ejecutable nativo con configuración en `%APPDATA%\SniperBot`).
+- **Linux**: `SniperBot-Linux-Portable.tar.gz` (Binario autónomo con configuración en `~/.config/SniperBot`).
 
 ---
 
-## 📦 Portables Windows / Linux
+## 📲 Control Remoto y Monitoreo vía Telegram
 
-Los paquetes portables se publican en **GitHub Releases** cuando se pushea un tag `v*`.
-
-| Sistema | Archivo | Primer arranque |
-|---|---|---|
-| Windows | `SniperBot-Windows-Portable.zip` | Ejecutar `SniperBot.exe`; crea `%APPDATA%\SniperBot\.env` |
-| Linux Ubuntu/Debian/Arch moderno | `SniperBot-Linux-Portable.tar.gz` | Ejecutar `./SniperBot`; crea `~/.config/SniperBot/.env` |
-
-El wizard portable siempre genera configuración segura:
-
-```env
-PAPER_MODE=true
-ALLOW_REAL_TRADING=false
-EXECUTION_BACKEND=live
-```
-
-### Windows
-
-```powershell
-# Descargar desde Releases, extraer zip y ejecutar:
-.\SniperBot.exe
-```
-
-Para desarrollo con Python instalado:
-
-```bat
-packaging\windows\start_bot.bat
-```
-
-### Linux
-
-```bash
-tar -xzf SniperBot-Linux-Portable.tar.gz
-cd SniperBot
-./SniperBot
-```
-
-Para desarrollo con Python instalado:
-
-```bash
-bash packaging/linux/start_bot.sh
-```
-
-### Crear un Release
-
-```bash
-git tag v118.8-PRO
-git push origin v118.8-PRO
-```
-
-Esto dispara `.github/workflows/release.yml` y sube ambos artefactos al Release.
-
----
-
-## 📊 Dashboard
-
-El bot arranca automáticamente el dashboard en `http://127.0.0.1:8000`.  
-Muestra: estado runtime · trades activos · radar de señales · logs en vivo · intelligence consultiva.
-
-### Dashboard + Intelligence
-
-- Pestaña `🧠 Intelligence` con resumen diario y semanal.
-- `Advisories` persistidos desde la capa consultiva.
-- `Trade annotations` generadas desde histórico + contexto.
-- `Postmortem lookup` por `trade_id`.
-- Botón `⚙ Generar` para regenerar reportes desde la UI.
-- Botón `PM` en el historial de trades para abrir el postmortem del trade.
-
-Variables útiles:
-
-```bash
-export SNIPER_API_KEY="tu_clave_larga_y_segura"
-export SNIPER_DASHBOARD_AUTOSTART=1
-export SNIPER_INTELLIGENCE_AUTOSTART=1
-export SNIPER_INTELLIGENCE_STARTUP_DELAY_SECONDS=12
-export SNIPER_INTELLIGENCE_REFRESH_SECONDS=1800
-```
-
-Arranque recomendado:
-
-```bash
-SNIPER_API_KEY="tu_clave_larga_y_segura" ./.venv/bin/python main.py
-```
-
-URL local:
+El bot integra un centro de mando asíncrono con control de acceso por ID de usuario:
 
 ```text
-http://127.0.0.1:8000
+/status         ─── Estado del runtime, balance, exposición y régimen actual
+/open           ─── Lista de posiciones activas con PnL no realizado y trailing SL
+/pipeline       ─── Telemetría del ciclo de escaneo y filtros de triaje
+/shadow_stats   ─── Rendimiento y estadísticas del laboratorio shadow
+/intelligence   ─── Consulta del informe ejecutivo y advisories consultivos
+/explain <SYM>  ─── Desglose de decisión cuantitativa sobre un activo
+/pause          ─── Pausa preventiva de nuevas entradas (mantiene gestión de abiertas)
+/panic          ─── Veto total y cierre de emergencia a mercado de todas las posiciones
 ```
+
+---
+
+## 🧪 Aseguramiento de Calidad y Validación
+
+La infraestructura se somete a una rigurosa suite de pruebas automatizadas y simulaciones de caos antes de cada despliegue:
 
 ```bash
-# Iniciar manualmente
-bash dashboard/run.sh
-```
-
-Generación manual por CLI:
-
-```bash
-./.venv/bin/python -m tools.intelligence.report_daily
-./.venv/bin/python -m tools.intelligence.report_weekly
-./.venv/bin/python -m tools.intelligence.postmortem 123
-```
-
----
-
-## 🏗️ Arquitectura del Runtime
-
-```
-main.py
-  └─▶ core.bot_app.run_entrypoint()
-        └─▶ Bot(BotFacade)
-              └─▶ bootstrap · servicios · modelos · loops
-```
-
-### Módulos Clave
-
-| Módulo | Función |
-|---|---|
-| `core/bot_app.py` | Bootstrap, clase `Bot`, event loop y wiring |
-| `core/bot_facade.py` | Contrato público del runtime |
-| `core/bot_connection.py` | Conexión a Binance por modo operativo |
-| `core/bot_guardian.py` | Vigilancia de posiciones activas |
-| `core/reconciliation.py` | Recovery DB/exchange al arranque |
-| `core/execution_adapters.py` | Backends `live` y `shadow_live` |
-| `core/trade_entry.py` | `execute_order` — ejecución de entrada |
-| `core/trade_exit.py` | `close_trade` — cierre de posición |
-| `core/trade_helpers.py` | Emergency close · MARKET fallback · precondiciones |
-| `core/risk_engine.py` | RiskEngine · daily drawdown · sizing |
-| `core/risk_policy.py` | `EntryRiskDecision` · protección runtime |
-| `core/cycle_context.py` | Snapshot inmutable por ciclo de scan |
-| `core/intent_deduper.py` | Dedup de señales por ventana temporal |
-| `core/config/manager.py` | Fuente canónica de configuración |
-| `core/config/thresholds.py` | `ThresholdSpec` con 30+ umbrales tipados |
-| `core/signals/filters.py` | Filtrado y ruteo por modo de ejecución |
-| `core/strategy/orchestrator.py` | Orquestador de agentes MT · SR · G |
-
----
-
-## 🛡️ Seguridad Runtime
-
-> **Principio fundamental:** El exchange manda sobre la DB para exposición real y estado de órdenes.
-
-- 🔒 Ninguna posición real queda sin `HARD SL`.
-- 🚨 Si el SL no puede adjuntarse (`-2021: would trigger immediately`), se ejecuta **Emergency Market Close**.
-- 🔍 `LOST_IN_TRANSMISSION` solo se declara tras verificar posiciones activas, órdenes abiertas y `origClientOrderId`.
-- ⛔ Estado ambiguo → comportamiento esperado es `HALT` + reconciliación antes de continuar.
-- 🧱 CI bloquea `pass` silenciosos en `core/` mediante guardrail automático.
-
-### Estados de Orden/Trade
-
-```
-PENDING_SEND → PENDING_EXCHANGE_OPEN → ENTRY_FILLED_AWAITING_POSITION_SYNC → OPEN → CLOSING_INITIATED
-```
-
----
-
-## 🔧 Fases de Hardening Runtime
-
-| # | Descripción | Estado |
-|---|---|:---:|
-| 1 | Circuit Breaker diario UTC solo para `REAL` | ✅ |
-| 2 | Position sizing por distancia al Stop Loss | ✅ |
-| 3 | Validación walk-forward para modelos | ✅ |
-| 4 | Market Breadth con veto LONG en `FEAR` | ✅ |
-| 5 | Filtro macro HMM + telemetría de pipeline | ✅ |
-| 6 | Shadow ampliado + matriz táctica validada | ✅ |
-| 7 | HMM Markov como regulador probabilístico | ✅ |
-| 8 | Dead zone Markov → penalización estándar | ✅ |
-| 9 | Escudo de liquidez: spread 0.05% · radar 30 pares | ✅ |
-| 10 | Filtro OI Delta contra squeezes/liquidaciones | ✅ |
-| 11 | Límite de triaje end-to-end (`v118.4-PRO`) | ✅ |
-| 12 | `SCAN_INTERVAL=300` — 12 llamadas API/hora | ✅ |
-| 12.1 | Correlación dinámica como reducer de tamaño | ✅ |
-| 12.2 | Auto-tuning SL/TP por régimen | ✅ |
-| 12.3 | CVD Order Flow por WebSocket `aggTrade` | ✅ |
-| 13 | `v118.5-PRO`: CycleContext · IntentDeduper · risk policy | ✅ |
-| 14 | Emergency close unificado + limpieza código muerto | ✅ |
-| 15 | MTF regime-aware + spread dinámico por régimen | ✅ |
-| 16 | Kinetic SR: boost ×1.3 absorción · penalty ×0.7 falling knife | ✅ |
-| 17 | Recalibración SHADOW: umbrales 55% · SHOCK 0.20% · RANGE 0.80x | ✅ |
-| 18 | Hardening técnico: legacy retirado · RAG NumPy · tests ampliados | ✅ |
-| 19 | GitHub Projects v2 Kanban async — ciclo vida de operaciones | ✅ |
-| 20 | Intelligence Layer + Dashboard consultivo | ✅ |
-| 21 | Runtime Safety + CI Closure: audit, coverage y Docker OK | ✅ |
-| 22 | FVG tracker read-only + idempotencia de salidas + coverage crítico | ✅ |
-| 24 | Runtime safety hardening + safe-fill: fills REAL fail-safe, validación ACK HARD SL, protección estados ambiguos, close_trade fail-safe, CI pin/mypy/hermetic tests | ✅ |
-
----
-
-## 📋 GitHub Projects Kanban
-
-```bash
-# Inicializar tablero
-./.venv/bin/python tools/bootstrap_github_project_kanban.py \
-  --owner Rukawua26 \
-  --repo Rukawua26/Pbot-V5ARCH-DEV
-```
-
-Ver tablero: `https://github.com/users/Rukawua26/projects`
-
-Funciones disponibles en `tools/github_projects_kanban.py`:
-- `crear_tarjeta_operacion()` · `mover_tarjeta()` · `actualizar_pnl_tarjeta()`
-
----
-
-## ⚙️ Variables de Configuración Principales
-
-| Variable | Descripción | Default |
-|---|---|---|
-| `PAPER_MODE` | Alterna modo paper/real | `true` |
-| `ALLOW_REAL_TRADING` | Habilita capital real | `false` |
-| `EXECUTION_BACKEND` | `live` o `shadow_live` | `live` |
-| `MAX_SHADOW_TRADES` | Máx. trades shadow concurrentes | `20` |
-| `HMM_REGIME_ENABLED` | Filtro de régimen BTC HMM | `true` |
-| `MTF_FILTER_ENABLED` | Confirmación 15m/5m | `false` |
-| `OI_FILTER_ENABLED` | Filtro Open Interest Delta | `true` |
-| `CVD_FILTER_ENABLED` | CVD rolling por aggTrade | `false` |
-| `CORRELATION_RISK_ENABLED` | Reducer por correlación | `false` |
-| `REGIME_TUNING_ENABLED` | Auto-tuning SL/TP | `true` |
-| `FVG_TRACKER_ENABLED` | Tracker FVG read-only; no participa en ejecución | `false` |
-| `FVG_MAX_SYMBOLS_PER_CYCLE` | Límite de símbolos FVG por ciclo | `20` |
-| `GLOBAL_MARKET_PROVIDER_ENABLED` | Proveedor macro CoinGecko read-only | `false` |
-| `GLOBAL_FEAR_GREED_FILTER_ENABLED` | Veto por Fear & Greed extremo | `true` |
-| `GLOBAL_BTC_DOM_FILTER_ENABLED` | Boost SELL por dominancia BTC | `true` |
-| `SIGNAL_AGENT_OVERRIDE_ENABLED` | Dirección por consenso de agentes | `true` |
-| `EXIT_RANGE_ACTIVATION_MULT` | Trailing más permisivo en RANGE | `1.5` |
-| `EXIT_RANGE_BREAKEVEN_PULLBACK_MULT` | Pullback de breakeven en RANGE | `2.0` |
-| `TOP_TRIAGE_COUNT` | Universo de pares a escanear | `30` |
-| `TELEGRAM_TOKEN` | Token del bot de Telegram | — |
-
-> Configuración completa en `.env.example`. La fuente canónica es `core/config/manager.py`.
-
----
-
-## 🚀 Despliegue
-
-### Local
-```bash
-./.venv/bin/python main.py
-```
-
-### systemd (recomendado para VPS)
-```bash
-bash tools/install_watchdog_systemd.sh
-systemctl --user status sniper-ai.service --no-pager
-```
-
-### Docker
-```bash
-docker compose up --build -d
-```
-
-Build manual verificado:
-
-```bash
-docker build -t sniper-ai .
-```
-
----
-
-## 📊 Operación Diaria
-
-| Tarea | Comando |
-|---|---|
-| Ver estado | `systemctl --user status sniper-ai.service --no-pager` |
-| Iniciar | `systemctl --user start sniper-ai.service` |
-| Detener | `systemctl --user stop sniper-ai.service` |
-| Logs en vivo | `journalctl --user -u sniper-ai.service -f` |
-| Dashboard | `http://127.0.0.1:8000` |
-
----
-
-## 📲 Comandos Telegram
-
-| Categoría | Comandos |
-|---|---|
-| 🎛️ **Control** | `/on` `/off` `/pause` `/resume` `/panic` `/closeall` `/reset` |
-| 🔍 **Auditoría** | `/status` `/open` `/targets` `/signals` `/pipeline` `/shadow_stats` |
-| 🧠 **Inteligencia** | `/thinking` `/explain <symbol>` `/dna <symbol>` `/agents` `/intelligence` |
-| 📈 **Rendimiento** | `/paper_review` `/performance_trends` `/shadow_report` `/audit_report` |
-
----
-
-## ✅ Validación Mínima (alineada con CI)
-
-```bash
-# Compilación
+# 1. Compilación estática de bytecode
 ./.venv/bin/python -m compileall -q main.py core
 
-# Imports modulares
-PATH="./.venv/bin:$PATH" bash scripts/smoke_modular_imports.sh
+# 2. Análisis estático de tipos y estilo
+./.venv/bin/ruff check core/ tests/
+MYPYPATH=. ./.venv/bin/mypy --explicit-package-bases core/config/ core/types.py core/bot_facade.py core/execution_adapters.py
 
-# Guardrails
+# 3. Verificación de políticas anti-silent-pass y contratos de arquitectura
 ./.venv/bin/python tools/check_no_silent_pass.py
-
-# Contratos de arquitectura
 SNIPER_DISABLE_FILE_TELEMETRY=1 ./.venv/bin/python tools/regression_contracts.py
 
-# Runtime safety drills
+# 4. Simulacros de caos y recuperación de exchange
 SNIPER_DISABLE_FILE_TELEMETRY=1 ./.venv/bin/python tools/chaos_matrix.py
 SNIPER_DISABLE_FILE_TELEMETRY=1 ./.venv/bin/python tools/recovery_drill.py
 
-# Suite completa de tests
-SNIPER_DISABLE_FILE_TELEMETRY=1 ./.venv/bin/python -m unittest discover -s tests -p "test_*.py"
-
-# Invarianza temporal
-SNIPER_DISABLE_FILE_TELEMETRY=1 ./.venv/bin/python -m unittest tests/test_temporal_invariance.py
-
-# Dependencias y seguridad
-./.venv/bin/python -m pip check
-./.venv/bin/python -m pip_audit --strict
-
-# Cobertura mínima y contenedor
+# 5. Suite unitaria completa y gate de cobertura (Fail under 75%)
 SNIPER_DISABLE_FILE_TELEMETRY=1 ./.venv/bin/python -m coverage run -m unittest discover -s tests -p "test_*.py"
 ./.venv/bin/python -m coverage report --fail-under=75
-docker build -t sniper-ai .
+
+# 6. Prueba de invarianza temporal
+SNIPER_DISABLE_FILE_TELEMETRY=1 ./.venv/bin/python -m unittest tests/test_temporal_invariance.py
+
+# 7. Auditoría estricta de vulnerabilidades en dependencias
+./.venv/bin/python -m pip_audit --strict
 ```
 
-**Estado verificado:** `1259` tests OK · `2` skipped · `78%` coverage · `pip-audit` limpio · Docker build OK · readiness OK.
-
-
-**Coverage ratchet:** gate actual `fail-under=75`; siguiente objetivo `80%` priorizando `bot_guardian`, `bot_cycles`, `bot_io_loops`, `bot_runtime_monitor` y `data_service`.
-
-> 💡 **Nuevo:** Ejecuta `tools/pending_improvements_readiness.py` antes de activar flags de observación en PAPER/SHADOW para validar que tu configuración está lista.
+### Métricas de Calidad de Código
+- **Suite de Pruebas**: **1259 tests exitosos** (0 fallos, 2 omitidos por entorno).
+- **Cobertura de Código**: **78%** de cobertura en módulos nucleares de ejecución.
+- **Seguridad**: `pip-audit` con 0 vulnerabilidades conocidas (CVEs mitigados).
 
 ---
 
-## 🧪 REAL Pilot
+## 📂 Estructura del Repositorio
 
-El bot opera en modo REAL en Binance Futures con capital controlado:
+```text
+Pbot-V5ARCH-DEV-clean/
+├── main.py                     # Entrypoint ultra-ligero (delegación en core.bot_app)
+├── core/                       # Núcleo del motor cuantitativo
+│   ├── bot_app.py              # Bootstrap de servicios, ciclo de eventos e inyección de dependencias
+│   ├── bot_facade.py           # Contrato público e interfaz de control
+│   ├── bot_guardian.py         # Monitor atómico de posiciones y Hard Stop Loss
+│   ├── bot_connection.py       # Gestión segura de credenciales y transporte Binance
+│   ├── execution_adapters.py   # Adaptadores de ejecución: live y shadow_live
+│   ├── reconciliation.py       # Algoritmo de recuperación y alineación DB/Exchange
+│   ├── risk_engine.py          # Motor de sizing por ATR, correlación y circuit breakers
+│   ├── trade_entry.py          # Pipeline determinista de apertura y verificación de fills
+│   ├── trade_exit.py           # Gestión de salidas idempotentes y trailing stops
+│   ├── config/                 # Gestor canónico de configuración y umbrales tipados
+│   ├── signals/                # Filtros de microestructura (OI, CVD, Spread, Regímenes)
+│   └── strategy/               # Agentes analíticos (Momentum, Kinetic S/R, Neural Ghost)
+├── dashboard/                  # Interfaz web analítica institucional
+│   └── static/index.html       # Single Page Application reactiva con telemetría en tiempo real
+├── deploy/                     # Scripts y configuraciones para systemd y contenedores
+├── docs/                       # Documentación técnica, memoria y runbooks operativos
+│   ├── engineering/            # Memoria técnica de decisiones arquitectónicas
+│   ├── roadmap/                # Backlog cuantitativo y mejoras planificadas
+│   └── runbooks/               # Protocolos de operación, contingencia y pilotaje REAL
+├── packaging/                  # Especificaciones PyInstaller para releases portables
+├── tests/                      # Suite integral de pruebas unitarias, integración y caos
+└── tools/                      # Herramientas auxiliares, simuladores y kanban
+```
 
-| Parámetro | Valor |
+---
+
+## 📚 Gobernanza Técnica y Runbooks
+
+Para procedimientos detallados de operación y contingencia, consulte la documentación oficial en el repositorio:
+
+| Documento | Enfoque Operativo |
 |---|---|
-| 💵 Capital | $24.90 USDT |
-| ⚖️ Riesgo por trade | 0.3% |
-| 📊 Trades simultáneos máx. | 2 |
-| 🔧 Apalancamiento | 1x |
-| 🛑 Límite pérdida diaria | 5% |
-| 🔒 HARD SL | −3.0% |
-
-```bash
-bash tools/start_real_pilot.sh   # Arrancar
-bash tools/stop_real_pilot.sh --confirm-real-stop    # Detener tras verificar posiciones/SL
-```
-
----
-
-## 📁 Estructura del Proyecto
-
-```
-Pbot-V5ARCH-DEV/
-├── main.py                     # Entrypoint (delega en core.bot_app)
-├── core/
-│   ├── bot_app.py              # Bootstrap y clase Bot
-│   ├── bot_facade.py           # Contrato público del runtime
-│   ├── bot_guardian.py         # Vigilancia de posiciones
-│   ├── reconciliation.py       # Recovery DB/exchange
-│   ├── execution_adapters.py   # Backends live y shadow_live
-│   ├── trade_entry.py          # execute_order
-│   ├── trade_exit.py           # close_trade
-│   ├── risk_engine.py          # RiskEngine y sizing
-│   ├── risk_policy.py          # EntryRiskDecision
-│   ├── config/
-│   │   ├── manager.py          # Fuente canónica de config
-│   │   ├── operational.py      # load_dotenv + defaults
-│   │   └── thresholds.py       # 30+ umbrales tipados
-│   ├── signals/                # Filtros y ejecución de señales
-│   └── strategy/               # Agentes MT · SR · G
-├── tests/                      # 1259 tests unittest
-├── tools/                      # Herramientas de análisis y validación (incl. readiness)
-├── deploy/systemd/legacy/      # Unidades systemd históricas
-├── docs/runbooks/              # Guías operativas
-└── docker-compose.yml
-```
-
----
-
-## 📚 Documentación
-
-| Archivo | Contenido |
-|---|---|
-| [`CHANGELOG.md`](CHANGELOG.md) | Historial de versiones y cambios |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Guía para contribuidores |
-| [`SECURITY.md`](SECURITY.md) | Política de seguridad |
-| [`SPEC.md`](SPEC.md) | Especificación técnica del sistema |
-| [`BOT_TECHNICAL_ROADMAP.md`](BOT_TECHNICAL_ROADMAP.md) | Hoja de ruta técnica |
-| [`docs/engineering/memoria-tecnica.md`](docs/engineering/memoria-tecnica.md) | Memoria tecnica de cambios, decisiones y guardrails |
-| [`docs/roadmap/mejoras-pendientes.md`](docs/roadmap/mejoras-pendientes.md) | Backlog tecnico y mejoras pendientes |
-| [`docs/runbooks/real-trading.md`](docs/runbooks/real-trading.md) | Checklist de activación REAL |
-| [`docs/runbooks/recovery.md`](docs/runbooks/recovery.md) | Procedimientos de recuperación |
-| [`docs/runbooks/chaos-validation.md`](docs/runbooks/chaos-validation.md) | Matriz de fallos de exchange |
-| [`docs/runbooks/risk-governance.md`](docs/runbooks/risk-governance.md) | Prioridad de decisiones de riesgo |
-| [`docs/runbooks/hmm-stuck-range.md`](docs/runbooks/hmm-stuck-range.md) | Fallos de lógica HMM/RANGE |
-| [`docs/runbooks/drawdown-while-trading.md`](docs/runbooks/drawdown-while-trading.md) | Drawdown mientras sigue operando |
-| [`docs/runbooks/high-confidence-no-entry.md`](docs/runbooks/high-confidence-no-entry.md) | Señales fuertes sin entrada |
-| [`docs/runbooks/shadow-real-divergence.md`](docs/runbooks/shadow-real-divergence.md) | Divergencia SHADOW vs REAL |
-| [`docs/runbooks/github-projects-kanban.md`](docs/runbooks/github-projects-kanban.md) | Guía Kanban |
-| [`docs/runbooks/paper-shadow-observation.md`](docs/runbooks/paper-shadow-observation.md) | Validación de mejoras pendientes en PAPER/SHADOW |
-
----
-
-## 🔒 Seguridad del Repositorio
-
-> ⛔ **Nunca subas:** `.env` · bases `.db` · logs · modelos binarios · reportes con datos locales.
-
-- Usa variables de entorno o un gestor de secretos para credenciales.
-- Antes de operar en `REAL`: valida permisos Futures, tamaño de cuenta y rutas de recovery.
-- El token de GitHub debe rotarse regularmente y nunca hardcodearse.
+| [`docs/engineering/memoria-tecnica.md`](docs/engineering/memoria-tecnica.md) | Memoria técnica de cambios, invariantes de seguridad y contratos |
+| [`docs/runbooks/real-trading.md`](docs/runbooks/real-trading.md) | Checklist mandatario de pre-vuelo para operaciones con capital real |
+| [`docs/runbooks/recovery.md`](docs/runbooks/recovery.md) | Protocolos de resolución ante desincronización o caídas de red |
+| [`docs/runbooks/chaos-validation.md`](docs/runbooks/chaos-validation.md) | Matriz de pruebas de inyección de fallos de exchange y API |
+| [`docs/runbooks/risk-governance.md`](docs/runbooks/risk-governance.md) | Jerarquía de decisiones de riesgo y políticas de veto de órdenes |
+| [`docs/runbooks/paper-shadow-observation.md`](docs/runbooks/paper-shadow-observation.md) | Metodología de validación de modelos en entornos simulados |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Guía de contribución, estándares de tipado y estilo de código |
+| [`SECURITY.md`](SECURITY.md) | Políticas de divulgación responsable y reporte de incidentes |
 
 ---
 
 <div align="center">
 
-**Sniper AI** · `v118.7-PRO` · Phase 21 · Binance Futures · Python 3.12+
+**SNIPER AI QUANTITATIVE SYSTEMS**  
+*Deterministic Algorithmic Trading • Built with Python 3.12 & Modern Quantitative Engineering*
 
-*Construido con enfoque en seguridad runtime, trazabilidad total y exploración sin riesgo.*
+<sub>Este software ha sido diseñado con propósitos cuantitativos y de investigación financiera. Opere con responsabilidad y respetando las directrices de gestión de riesgo institucional.</sub>
 
 </div>

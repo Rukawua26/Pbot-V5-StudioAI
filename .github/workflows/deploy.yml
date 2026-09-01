@@ -1,0 +1,121 @@
+name: Deploy to VPS
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_branch:
+        description: 'Branch to deploy'
+        required: true
+        default: 'main'
+      restart_service:
+        description: 'Restart systemd/docker service after deploy'
+        required: true
+        type: boolean
+        default: true
+  push:
+    branches: [main, master]
+
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Cloud VM / VPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4
+
+      - name: Deploy to Remote Server via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME || 'ubuntu' }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          passphrase: ${{ secrets.VPS_PASSPHRASE || '' }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script_stop: true
+          envs: TARGET_BRANCH,RESTART_SERVICE
+          script: |
+            set -euo pipefail
+            echo "======================================================="
+            echo "       SNIPER TRADING BOT — AUTOMATED DEPLOYMENT       "
+            echo "======================================================="
+
+            # 1. Configurar SWAP de 2 GB si no existe (Failsafe para instancias 1 GB RAM / e2-micro)
+            if [ ! -f /swapfile ]; then
+              echo "[+] Configurando 2 GB de memoria SWAP de seguridad..."
+              if [ "$(id -u)" -eq 0 ]; then
+                fallocate -l 2G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=2048
+                chmod 600 /swapfile
+                mkswap /swapfile
+                swapon /swapfile
+                if ! grep -q '/swapfile' /etc/fstab; then
+                  echo '/swapfile none swap sw 0 0' >> /etc/fstab
+                fi
+              else
+                sudo fallocate -l 2G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=2048
+                sudo chmod 600 /swapfile
+                sudo mkswap /swapfile
+                sudo swapon /swapfile
+                if ! sudo grep -q '/swapfile' /etc/fstab; then
+                  echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+                fi
+              fi
+              echo "[OK] SWAP configurado."
+            else
+              echo "[i] SWAP ya existe."
+            fi
+
+            # 2. Localizar o inicializar directorio de despliegue
+            DEPLOY_DIR="${TARGET_DIR:-$HOME/Pbot-V5ARCH-DEV-clean}"
+            if [ ! -d "$DEPLOY_DIR" ]; then
+              echo "[+] Clonando repositorio en $DEPLOY_DIR..."
+              git clone https://github.com/${{ github.repository }}.git "$DEPLOY_DIR"
+            fi
+            cd "$DEPLOY_DIR"
+
+            # 3. Actualizar código fuente
+            echo "[+] Sincronizando rama ${{ github.ref_name }}..."
+            git fetch origin
+            git checkout "${{ github.ref_name }}" || git checkout main || git checkout master
+            git pull origin "${{ github.ref_name }}" || git pull origin main || git pull origin master
+
+            # 4. Configurar entorno virtual e instalar dependencias
+            echo "[+] Verificando entorno virtual Python..."
+            if [ ! -d ".venv" ]; then
+              python3 -m venv .venv
+            fi
+
+            ./.venv/bin/python -m pip install --upgrade pip setuptools wheel
+            if [ -f "requirements.lock" ]; then
+              echo "[+] Instalando dependencias de producción desde requirements.lock..."
+              ./.venv/bin/python -m pip install -r requirements.lock
+            fi
+
+            # 5. Validación de sintaxis
+            echo "[+] Verificando integridad de código con compileall..."
+            ./.venv/bin/python -m compileall -q main.py core
+
+            # 6. Reinicio de servicio
+            if [ "${{ inputs.restart_service != false }}" = "true" ]; then
+              if systemctl list-unit-files | grep -q 'sniper-bot.service'; then
+                echo "[+] Reiniciando servicio systemd sniper-bot..."
+                sudo systemctl restart sniper-bot
+                sleep 2
+                sudo systemctl status sniper-bot --no-pager || true
+              elif docker ps -a | grep -q 'sniper-bot'; then
+                echo "[+] Reiniciando contenedor Docker sniper-bot..."
+                docker restart sniper-bot || true
+              else
+                echo "[i] Ningún servicio systemd/docker detectado automáticamente."
+                echo "    Ejecuta el bot manualmente con: cd $DEPLOY_DIR && ./.venv/bin/python main.py"
+              fi
+            fi
+
+            echo "======================================================="
+            echo "       [ÉXITO] DESPLIEGUE COMPLETADO CORRECTAMENTE     "
+            echo "======================================================="

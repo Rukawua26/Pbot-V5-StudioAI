@@ -734,6 +734,206 @@ app.post('/api/v1/intelligence/generate', (req, res) => {
   });
 });
 
+// INSTITUTIONAL TERMINAL OVERVIEW (QUANTSYNC / SNIPER PRO)
+app.get('/api/v1/terminal/overview', (req, res) => {
+  const symbol = req.query.symbol || 'BTCUSDT';
+  
+  // Generate 45 realistic candlestick bars with moving averages and executions
+  const candles = [];
+  const basePrice = symbol.includes('BTC') ? 64200 : (symbol.includes('ETH') ? 3480 : (symbol.includes('NVDA') ? 128.5 : 4250));
+  let curOpen = basePrice;
+  const nowTs = Date.now();
+  const stepMs = 15 * 60 * 1000; // 15m intervals
+
+  const buyMarkers = [
+    { index: 8, label: 'B', id: '#24576', bps: '-0.3 bps', side: 'BUY', reason: 'EMA 9/21 Bullish Golden Cross' },
+    { index: 16, label: 'B', id: '#24578', bps: '-0.2 bps', side: 'BUY', reason: 'Orderbook Bid Liquidity Imbalance' },
+    { index: 24, label: 'B', id: '#24580', bps: '-0.3 bps', side: 'BUY', reason: 'RSI Oversold (28.4) Reversal' },
+    { index: 32, label: 'B', id: '#24581', bps: '-0.2 bps', side: 'BUY', reason: 'VWAP Support Bounce + Vol Expansion' }
+  ];
+  const sellMarkers = [
+    { index: 12, label: 'S', id: '#24579', bps: '-0.3 bps', side: 'SELL', reason: 'Take Profit #1 + Micro Resistance' },
+    { index: 20, label: 'S', id: '#24583', bps: '-0.3 bps', side: 'SELL', reason: 'RSI Overbought (74.2) Mean Reversion' },
+    { index: 28, label: 'S', id: '#24585', bps: '-0.3 bps', side: 'SELL', reason: 'Trailing Stop Hit + Momentum Slowdown' },
+    { index: 38, label: 'S', id: '#24571', bps: '-0.3 bps', side: 'SELL', reason: 'Upper Bollinger Band Rejection' }
+  ];
+
+  for (let i = 44; i >= 0; i--) {
+    const time = new Date(nowTs - i * stepMs);
+    const timeStr = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const volatility = basePrice * 0.006;
+    const delta = (Math.sin(i * 0.35) * volatility * 0.8) + ((Math.random() - 0.46) * volatility);
+    const close = Math.max(10, +(curOpen + delta).toFixed(2));
+    const high = +(Math.max(curOpen, close) + Math.random() * volatility * 0.5).toFixed(2);
+    const low = +(Math.min(curOpen, close) - Math.random() * volatility * 0.5).toFixed(2);
+    const volume = Math.floor(Math.random() * 850 + 250);
+    const isGreen = close >= curOpen;
+
+    const candleObj = {
+      index: 44 - i,
+      time: timeStr,
+      timestamp: time.toISOString(),
+      open: curOpen,
+      high,
+      low,
+      close,
+      volume,
+      isGreen,
+      marker: null
+    };
+
+    const b = buyMarkers.find(m => m.index === candleObj.index);
+    const s = sellMarkers.find(m => m.index === candleObj.index);
+    if (b) candleObj.marker = { ...b, price: low };
+    if (s) candleObj.marker = { ...s, price: high };
+
+    candles.push(candleObj);
+    curOpen = close;
+  }
+
+  // Calculate EMA 9, EMA 21, VWAP
+  let ema9 = candles[0].close;
+  let ema21 = candles[0].close;
+  let cumVol = 0;
+  let cumVolPrice = 0;
+
+  candles.forEach((c, idx) => {
+    ema9 = (c.close * (2 / 10)) + (ema9 * (1 - 2 / 10));
+    ema21 = (c.close * (2 / 22)) + (ema21 * (1 - 2 / 22));
+    cumVol += c.volume;
+    cumVolPrice += (c.close * c.volume);
+    c.ema9 = +ema9.toFixed(2);
+    c.ema21 = +ema21.toFixed(2);
+    c.vwap = +(cumVolPrice / cumVol).toFixed(2);
+  });
+
+  const lastCandle = candles[candles.length - 1];
+  const firstCandle = candles[0];
+  const priceChange = +(lastCandle.close - firstCandle.open).toFixed(2);
+  const priceChangePct = +((priceChange / firstCandle.open) * 100).toFixed(2);
+
+  // Latency distribution buckets in microseconds (median ~145µs)
+  const latencyBuckets = [
+    { bin: '10', count: 12, range: '0-20µs' },
+    { bin: '25', count: 45, range: '20-40µs' },
+    { bin: '40', count: 98, range: '40-60µs' },
+    { bin: '55', count: 210, range: '60-80µs' },
+    { bin: '70', count: 320, range: '80-100µs' },
+    { bin: '85', count: 415, range: '100-120µs' },
+    { bin: '100', count: 380, range: '120-140µs' },
+    { bin: '115', count: 285, range: '140-160µs' },
+    { bin: '130', count: 190, range: '160-180µs' },
+    { bin: '145', count: 125, range: '180-200µs' },
+    { bin: '160', count: 70, range: '200-220µs' },
+    { bin: '175', count: 42, range: '220-240µs' },
+    { bin: '190', count: 28, range: '240-260µs' },
+    { bin: '205', count: 85, range: '260-280µs', isOutlier: true },
+    { bin: '220', count: 38, range: '280-300µs', isOutlier: true },
+    { bin: '235', count: 18, range: '300-320µs', isOutlier: true }
+  ];
+
+  // Active working order executions blotter
+  const workingOrders = [
+    { id: '#624578', strategy: 'ALPHA_MOM', symbol: 'EUR/USD', status: 'Working', quantity: '10,000', venue: 'IEX', side: 'BUY', price: '1.0854', time: '17:28:42' },
+    { id: '#624581', strategy: 'ALPHA_MOM', symbol: 'NVDA', status: 'Partial', quantity: '100', venue: 'ARCA', side: 'BUY', price: '128.45', time: '17:28:30' },
+    { id: '#624583', strategy: 'ALPHA_MOM', symbol: 'BTCUSDT', status: 'Working', quantity: '0.85', venue: 'BINANCE', side: 'BUY', price: '64,720.00', time: '17:28:15' },
+    { id: '#624574', strategy: 'ALPHA_MOM', symbol: 'ETHUSDT', status: 'Filled', quantity: '12.0', venue: 'BINANCE', side: 'SELL', price: '3,492.10', time: '17:27:54' },
+    { id: '#624576', strategy: 'ALPHA_MOM', symbol: 'SOLUSDT', status: 'Partial', quantity: '45.0', venue: 'BINANCE', side: 'BUY', price: '156.80', time: '17:27:10' },
+    { id: '#624578', strategy: 'ALPHA_MOM', symbol: 'SPY', status: 'Working', quantity: '500', venue: 'ARCA', side: 'BUY', price: '564.20', time: '17:26:45' },
+    { id: '#624579', strategy: 'ALPHA_MOM', symbol: 'NVDA', status: 'Filled', quantity: '30', venue: 'ARCA', side: 'SELL', price: '129.10', time: '17:26:12' },
+    { id: '#624519', strategy: 'ALPHA_MOM', symbol: 'AAPL', status: 'Filled', quantity: '80', venue: 'IEX', side: 'BUY', price: '228.40', time: '17:25:40' }
+  ];
+
+  const recentFills = [
+    { id: '#24570', symbol: 'EUR/USD', status: 'Working', quantity: '1,600', venue: 'IEX', side: 'BUY', price: '1.0852', time: '17:24:10' },
+    { id: '#24579', symbol: 'EUR/USD', status: 'Working', quantity: '1,000', venue: 'IEX', side: 'BUY', price: '1.0850', time: '17:23:45' },
+    { id: '#24572', symbol: 'NVDA', status: 'Partial', quantity: '50', venue: 'ARCA', side: 'SELL', price: '128.80', time: '17:22:15' },
+    { id: '#24572', symbol: 'EUR/USD', status: 'Partial', quantity: '50', venue: 'ARCA', side: 'BUY', price: '1.0848', time: '17:21:05' },
+    { id: '#24573', symbol: 'EUR/USD', status: 'Partial', quantity: '50', venue: 'ARCA', side: 'BUY', price: '1.0846', time: '17:20:30' },
+    { id: '#24573', symbol: 'EUR/USD', status: 'Partial', quantity: '200', venue: 'IEX', side: 'BUY', price: '1.0845', time: '17:19:12' },
+    { id: '#24570', symbol: 'NVDA', status: 'Working', quantity: '2,500', venue: 'IEX', side: 'BUY', price: '128.20', time: '17:18:50' },
+    { id: '#24531', symbol: 'NVDA', status: 'Filled', quantity: '40', venue: 'ARCA', side: 'SELL', price: '129.00', time: '17:17:40' },
+    { id: '#24570', symbol: 'EUR/USD', status: 'Partial', quantity: '20', venue: 'ARCA', side: 'BUY', price: '1.0842', time: '17:16:15' },
+    { id: '#24587', symbol: 'EUR/USD', status: 'Partial', quantity: '200', venue: 'ARCA', side: 'BUY', price: '1.0840', time: '17:15:00' },
+    { id: '#34555', symbol: 'NVDA', status: 'Working', quantity: '170', venue: 'IEX', side: 'BUY', price: '128.00', time: '17:14:20' }
+  ];
+
+  // Sector / Asset Concentration Treemap Heatmap
+  const sectorConcentration = [
+    { label: 'BTC Core', weight: '34%', return: '+2.4%', color: '#10b981', span: 'col-span-4 row-span-2' },
+    { label: 'ETH Ecosystem', weight: '22%', return: '+1.8%', color: '#059669', span: 'col-span-3 row-span-1' },
+    { label: 'Solana DeFi', weight: '16%', return: '+4.1%', color: '#34d399', span: 'col-span-2 row-span-1' },
+    { label: 'AI Chips (NVDA)', weight: '12%', return: '-0.8%', color: '#ef4444', span: 'col-span-3 row-span-1' },
+    { label: 'Macro FX (EUR)', weight: '9%', return: '+0.3%', color: '#10b981', span: 'col-span-2 row-span-1' },
+    { label: 'Vol Surface', weight: '7%', return: '-1.2%', color: '#dc2626', span: 'col-span-2 row-span-1' }
+  ];
+
+  // Cumulative PnL Dual Series (Strategy Alpha vs Benchmark)
+  const cumulativeSeries = [];
+  let stratVal = 0;
+  let benchVal = 0;
+  const dates = ['Dec 14', 'Dec 18', 'Dec 22', 'Dec 26', 'Dec 30', 'Jan 03', 'Jan 07', 'Jan 11', 'Jan 15', 'Jan 19', 'Jan 23', 'Jan 27', 'Jan 31', 'Feb 04', 'Feb 08', 'Feb 12', 'Feb 16', 'Feb 20', 'Feb 24', 'Feb 28'];
+  
+  dates.forEach((d, idx) => {
+    stratVal += (Math.sin(idx * 0.4) * 18 + 28 + (Math.random() * 10 - 2));
+    benchVal += (Math.sin(idx * 0.3) * 12 + 15 + (Math.random() * 8 - 3));
+    cumulativeSeries.push({
+      date: d,
+      strategy: +stratVal.toFixed(1),
+      benchmark: +benchVal.toFixed(1)
+    });
+  });
+
+  res.json({
+    strategy_name: 'ALPHA_MOMENTUM_v4.2',
+    firm_brand: 'QUANTSYNC TECHNOLOGIES',
+    execution_engine: 'SNIPER PRO v118',
+    ticker: {
+      symbol: symbol === 'BTCUSDT' ? 'EQ: S&P 500 E-mini Fut / BTC-PERP' : symbol,
+      last_price: lastCandle.close,
+      open: firstCandle.open,
+      high: Math.max(...candles.map(c => c.high)),
+      low: Math.min(...candles.map(c => c.low)),
+      change_usd: priceChange,
+      change_pct: priceChangePct,
+      volume_total: candles.reduce((acc, c) => acc + c.volume, 0),
+      moving_averages: {
+        ema9: lastCandle.ema9,
+        ema21: lastCandle.ema21,
+        vwap: lastCandle.vwap
+      }
+    },
+    candles,
+    latency: {
+      median_us: '145 µs',
+      outlier_us: '145 µs',
+      total_samples: '12.4k',
+      jitter: '12 µs',
+      buckets: latencyBuckets
+    },
+    orders: {
+      working: workingOrders,
+      fills: recentFills
+    },
+    risk: {
+      net_exposure: '$145.7M',
+      var_99_1d: '$2.1M',
+      var_status: 'UNDER LIMIT',
+      max_drawdown_pct: '1.85%',
+      beta: '1.15',
+      gamma: '-42k',
+      sectors: sectorConcentration
+    },
+    performance: {
+      unrealized_pnl: '+$389.2k',
+      realized_pnl: '+$1.1M',
+      sharpe_ratio_30d: '2.85',
+      profit_factor: '2.12',
+      cumulative_pnl: cumulativeSeries
+    }
+  });
+});
+
 // CONFIGURATION & ENVIRONMENT PANEL
 app.get('/api/v1/config/env', (req, res) => {
   const items = Object.entries(envConfigMap).map(([key, item]) => ({
