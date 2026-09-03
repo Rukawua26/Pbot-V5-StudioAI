@@ -1316,6 +1316,108 @@
                 <!-- 0. INSTITUTIONAL TERMINAL TAB (QUANTSYNC / SNIPER PRO) -->
                 <div class="tab-pane" active data-pane="terminal">
                     <div class="p-3 space-y-3">
+                        <!-- TERMINAL DASHBOARD HEADER WITH ADX TREND GAUGE & PRICE ALERT CONTROL -->
+                        <div id="terminal-dashboard-header" class="term-panel p-2.5 border border-theme bg-slate-900/70 backdrop-blur rounded-lg shadow-lg">
+                            <div class="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3">
+                                <!-- Left: Institutional Brand & Active Ticker -->
+                                <div class="flex items-center gap-3 shrink-0">
+                                    <div class="w-8 h-8 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 font-black text-xs shrink-0">
+                                        QS
+                                    </div>
+                                    <div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-[9.5px] font-bold tracking-widest text-muted uppercase">QUANTSYNC TERMINAL</span>
+                                            <span class="px-1.5 py-0.2 rounded text-[8.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">REALTIME DMA</span>
+                                        </div>
+                                        <div class="flex items-center gap-2 mt-0.5">
+                                            <span id="term-header-symbol-badge" class="font-extrabold text-xs text-white mono">BTCUSDT</span>
+                                            <span id="term-header-price-badge" class="text-xs font-black text-cyan-300 mono">$64,884.03</span>
+                                            <span id="term-header-change-badge" class="text-[9.5px] font-bold text-emerald-400 mono">+2.45%</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Center: ADX Trend Strength Gauge Component -->
+                                <div id="terminal-adx-gauge-card" class="flex items-center gap-3 bg-black/40 border border-theme px-3 py-1.5 rounded-lg shrink-0" title="Average Directional Index (14): &gt;25 Strong Trend, 20-25 Neutral Chop, &lt;20 Weak/Ranging">
+                                    <div class="flex items-center gap-2.5">
+                                        <!-- ADX Semi-circle Arc Canvas / Visual -->
+                                        <div class="relative flex items-center justify-center w-[50px] h-[34px]">
+                                            <canvas id="adxGaugeCanvas" width="50" height="34" class="block"></canvas>
+                                            <span id="adx-gauge-val-num" class="absolute bottom-0 text-[11px] font-black text-white mono">33.8</span>
+                                        </div>
+                                        <div>
+                                            <div class="flex items-center gap-1.5">
+                                                <span class="text-[9px] font-bold tracking-wider text-muted">ADX TREND:</span>
+                                                <span id="adx-gauge-status" class="px-1.5 py-0.2 rounded text-[9px] font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">STRONG</span>
+                                            </div>
+                                            <div class="flex items-center gap-2 mt-0.5 text-[8.5px] mono">
+                                                <span class="text-emerald-400 font-semibold">+DI: <b id="adx-plus-di-val" class="font-bold">29.2</b></span>
+                                                <span class="text-rose-400 font-semibold">-DI: <b id="adx-minus-di-val" class="font-bold">13.8</b></span>
+                                                <span id="adx-bias-badge" class="px-1 py-0.2 rounded text-[8px] font-bold bg-cyan-500/20 text-cyan-300">BULLISH</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Right: Price Alert Quick Controls -->
+                                <div class="flex flex-wrap items-center gap-1.5 bg-black/40 border border-theme px-2.5 py-1.5 rounded-lg shrink-0">
+                                    <div class="flex items-center gap-1 text-muted text-[9.5px] mono mr-1">
+                                        <i data-lucide="bell" class="w-3 h-3 text-amber-400"></i>
+                                        <span class="font-bold text-slate-300">ALERTA:</span>
+                                    </div>
+                                    <select id="alert-symbol-input" class="bg-inset text-[9.5px] mono text-cyan-300 border border-cyan-500/30 rounded px-1.5 py-0.5 outline-none cursor-pointer">
+                                        <option value="BTCUSDT">BTCUSDT</option>
+                                        <option value="ETHUSDT">ETHUSDT</option>
+                                        <option value="SOLUSDT">SOLUSDT</option>
+                                        <option value="NVDA">NVDA</option>
+                                        <option value="EUR/USD">EUR/USD</option>
+                                    </select>
+                                    <div class="relative">
+                                        <span class="absolute left-1.5 top-0.5 text-muted text-[9px]">$</span>
+                                        <input type="number" step="any" id="alert-price-input" placeholder="Precio obj..." class="input-lite mono pl-4 pr-1 py-0.5 text-[9.5px] w-24" />
+                                    </div>
+                                    <button type="button" onclick="setQuickAlertOffset(0)" title="Usar precio actual" class="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 text-[8.5px] mono text-slate-300 rounded border border-slate-700">Actual</button>
+                                    <button type="button" onclick="setQuickAlertOffset(0.01)" title="+1% por encima" class="px-1.5 py-0.5 bg-emerald-950/60 hover:bg-emerald-900 text-[8.5px] mono text-emerald-300 rounded border border-emerald-800/60">+1%</button>
+                                    <button type="button" onclick="setQuickAlertOffset(-0.01)" title="-1% por debajo" class="px-1.5 py-0.5 bg-rose-950/60 hover:bg-rose-900 text-[8.5px] mono text-rose-300 rounded border border-rose-800/60">-1%</button>
+                                    <button type="button" id="btn-set-alert" onclick="handleSetAlertFromUI()" class="btn-primary text-[9.5px] font-bold px-2 py-0.5 flex items-center gap-1">
+                                        <i data-lucide="bell-ring" class="w-3 h-3"></i> Crear
+                                    </button>
+                                    <button type="button" onclick="openAlertsModal()" class="relative px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[9.5px] rounded border border-slate-700 flex items-center gap-1 font-bold">
+                                        Ver
+                                        <span id="alerts-active-badge" class="px-1 py-0.2 rounded-full text-[8px] font-black bg-amber-500/25 text-amber-300 border border-amber-500/40">0</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Price Alerts Manager Modal -->
+                        <div id="price-alerts-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+                            <div class="term-panel max-w-md w-full p-4 border border-cyan-500/40 shadow-2xl rounded-xl bg-slate-900/95 space-y-3">
+                                <div class="flex items-center justify-between pb-2 border-b border-theme">
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-6 h-6 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300 text-xs">🔔</div>
+                                        <h3 class="text-xs font-bold text-white tracking-wide">ALERTAS DE PRECIO ACTIVAS</h3>
+                                    </div>
+                                    <button onclick="closeAlertsModal()" class="text-muted hover:text-white mono text-sm p-1">✕</button>
+                                </div>
+                                <div class="text-[9.5px] text-muted leading-relaxed">
+                                    Las alertas se almacenan en <span class="mono text-cyan-300">localStorage</span> y monitorean los precios de mercado periódicamente, activando notificaciones Toast en tiempo real al cruzarse.
+                                </div>
+                                <div class="max-h-56 overflow-y-auto space-y-1.5 pr-1 select-text" id="price-alerts-list">
+                                    <!-- Populated dynamically -->
+                                </div>
+                                <div class="pt-2 border-t border-theme flex items-center justify-between">
+                                    <button onclick="simulatePriceAlertHit()" class="px-2 py-1 bg-sky-950/60 hover:bg-sky-900 border border-sky-800/60 rounded text-[9px] mono text-sky-300 font-bold flex items-center gap-1" title="Dispara inmediatamente la primera alerta activa para pruebas">
+                                        ⚡ Simular Cruce
+                                    </button>
+                                    <div class="flex items-center gap-2">
+                                        <button onclick="clearTriggeredAlerts()" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-[9px] mono text-slate-300">Limpiar Disparadas</button>
+                                        <button onclick="closeAlertsModal()" class="btn-primary text-[9.5px] px-3 py-1">Cerrar</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="terminal-grid">
                             <!-- COLUMN 1: ORDER EXECUTION MONITOR & BLOTTER -->
                             <div class="space-y-3 flex flex-col">
@@ -1340,14 +1442,25 @@
                                         </div>
                                     </div>
                                     <div class="overflow-x-auto">
-                                        <table class="term-table">
+                                        <table class="term-table" id="terminal-working-orders-table">
                                             <thead>
                                                 <tr>
-                                                    <th>ID</th>
-                                                    <th>STRATEGY</th>
-                                                    <th>SYMBOL</th>
+                                                    <th class="cursor-pointer select-none hover:text-cyan-300 sortable-header" data-table="working" data-col="order_id" title="Ordenar por ID">
+                                                        <div class="flex items-center gap-1">ID <span class="sort-indicator text-[8px] opacity-60">↕</span></div>
+                                                    </th>
+                                                    <th class="cursor-pointer select-none hover:text-cyan-300 sortable-header" data-table="working" data-col="strategy" title="Ordenar por Estrategia">
+                                                        <div class="flex items-center gap-1">STRATEGY <span class="sort-indicator text-[8px] opacity-60">↕</span></div>
+                                                    </th>
+                                                    <th class="cursor-pointer select-none hover:text-cyan-300 sortable-header" data-table="working" data-col="symbol" title="Ordenar por Symbol">
+                                                        <div class="flex items-center gap-1">SYMBOL <span class="sort-indicator text-[8px] opacity-60">↕</span></div>
+                                                    </th>
                                                     <th>STATUS</th>
-                                                    <th>QTY</th>
+                                                    <th class="cursor-pointer select-none hover:text-cyan-300 sortable-header" data-table="working" data-col="qty" title="Ordenar por Qty">
+                                                        <div class="flex items-center gap-1">QTY <span class="sort-indicator text-[8px] opacity-60">↕</span></div>
+                                                    </th>
+                                                    <th class="cursor-pointer select-none hover:text-cyan-300 sortable-header" data-table="working" data-col="price" title="Ordenar por Price">
+                                                        <div class="flex items-center gap-1">PRICE <span class="sort-indicator text-[8px] opacity-60">↕</span></div>
+                                                    </th>
                                                     <th>VENUE</th>
                                                 </tr>
                                             </thead>
@@ -1367,16 +1480,24 @@
                                         <span class="text-[9px] mono text-muted">RECENT FILLS</span>
                                     </div>
                                     <div class="overflow-x-auto max-h-[300px] overflow-y-auto">
-                                        <table class="term-table">
+                                        <table class="term-table" id="terminal-recent-fills-table">
                                             <thead>
                                                 <tr>
-                                                    <th>ID</th>
-                                                    <th>SYMBOL</th>
+                                                    <th class="cursor-pointer select-none hover:text-cyan-300 sortable-header" data-table="fills" data-col="order_id" title="Ordenar por ID">
+                                                        <div class="flex items-center gap-1">ID <span class="sort-indicator text-[8px] opacity-60">↕</span></div>
+                                                    </th>
+                                                    <th class="cursor-pointer select-none hover:text-cyan-300 sortable-header" data-table="fills" data-col="symbol" title="Ordenar por Symbol">
+                                                        <div class="flex items-center gap-1">SYMBOL <span class="sort-indicator text-[8px] opacity-60">↕</span></div>
+                                                    </th>
                                                     <th>STATUS</th>
-                                                    <th>QTY</th>
+                                                    <th class="cursor-pointer select-none hover:text-cyan-300 sortable-header" data-table="fills" data-col="qty" title="Ordenar por Qty">
+                                                        <div class="flex items-center gap-1">QTY <span class="sort-indicator text-[8px] opacity-60">↕</span></div>
+                                                    </th>
                                                     <th>VENUE</th>
                                                     <th>SIDE</th>
-                                                    <th>PRICE</th>
+                                                    <th class="cursor-pointer select-none hover:text-cyan-300 sortable-header" data-table="fills" data-col="price" title="Ordenar por Price">
+                                                        <div class="flex items-center gap-1">PRICE <span class="sort-indicator text-[8px] opacity-60">↕</span></div>
+                                                    </th>
                                                 </tr>
                                             </thead>
                                             <tbody id="terminal-recent-fills-body">
@@ -1412,8 +1533,9 @@
                                     </div>
 
                                     <!-- OHLC & Indicators Sub-Bar -->
-                                    <div class="flex flex-wrap items-center justify-between px-3 py-1.5 bg-inset border-b border-theme text-[10px] mono gap-2">
-                                        <div class="flex items-center gap-2.5">
+                                    <div id="terminal-ohlc-bar" class="flex flex-wrap items-center justify-between px-3 py-1.5 bg-inset border-b border-theme text-[10px] mono gap-2 transition-all duration-150">
+                                        <div class="flex items-center gap-2">
+                                            <span id="ohlc-mode-badge" class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-800 text-slate-400 border border-slate-700">LATEST</span>
                                             <span>O: <b id="cand-open" class="text-white">64,250.00</b></span>
                                             <span>H: <b id="cand-high" class="text-white">64,755.27</b></span>
                                             <span>L: <b id="cand-low" class="text-white">63,980.00</b></span>
@@ -1428,10 +1550,35 @@
                                         </div>
                                     </div>
 
+                                    <!-- Interactive Execution Markers Sync Strip -->
+                                    <div class="flex items-center justify-between px-3 py-1 bg-black/35 border-b border-theme text-[9.5px] mono gap-2 overflow-x-auto">
+                                        <div class="flex items-center gap-1.5 shrink-0 text-muted">
+                                            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+                                            <span class="font-bold text-cyan-300">EXECUTION MARKERS:</span>
+                                        </div>
+                                        <div id="terminal-markers-pills" class="flex items-center gap-1.5 overflow-x-auto py-0.5">
+                                            <!-- Dynamically populated execution marker chips -->
+                                        </div>
+                                        <div id="terminal-marker-status" class="text-[9px] text-muted shrink-0 hidden md:block">
+                                            Hover over marker on chart or chip to sync crosshair &amp; OHLC
+                                        </div>
+                                    </div>
+
                                     <!-- Canvas Container for Crisp Candlestick Chart & Execution Tags -->
-                                    <div class="relative w-full p-2" style="height: 310px;">
+                                    <div class="relative w-full p-2 select-none" style="height: 310px;">
                                         <canvas id="terminalCandleCanvas" class="w-full h-full block cursor-crosshair"></canvas>
-                                        <div id="candle-tooltip" class="hidden absolute pointer-events-none bg-slate-900/95 border border-sky-400/50 p-2 rounded text-[10px] mono shadow-xl z-20 text-white space-y-0.5"></div>
+                                        <div id="candle-tooltip" class="hidden absolute pointer-events-none bg-slate-900/95 border border-sky-400/50 p-2.5 rounded-lg text-[10px] mono shadow-2xl z-30 text-white backdrop-blur-md transition-opacity duration-75"></div>
+                                        <div id="marker-clicked-card" class="hidden absolute bg-slate-950/95 border border-cyan-400/80 p-2.5 rounded-lg text-[10px] mono shadow-2xl z-40 text-white backdrop-blur-md transition-all duration-150 max-w-[270px] pointer-events-auto">
+                                            <div class="flex items-center justify-between pb-1.5 border-b border-slate-700/80">
+                                                <div class="flex items-center gap-1.5" id="clicked-marker-title"></div>
+                                                <button onclick="closeClickedMarker()" class="text-muted hover:text-white mono text-xs px-1 hover:bg-slate-800 rounded">✕</button>
+                                            </div>
+                                            <div class="py-1.5 space-y-1" id="clicked-marker-body"></div>
+                                            <div class="pt-1.5 border-t border-slate-700/80 flex items-center justify-between text-[8.5px] text-muted">
+                                                <span id="clicked-marker-time"></span>
+                                                <button onclick="closeClickedMarker()" class="text-cyan-300 hover:underline">Desanclar</button>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -2689,6 +2836,9 @@
         var activeCandles = [];
         var activeMarkers = [];
         var activeHoverCandle = null;
+        var activeHoverMarker = null;
+        var markerHitBoxes = [];
+        var defaultSummaryData = null;
 
         function setCandleTimeframe(tf, btn) {
             currentTerminalTimeframe = tf;
@@ -2749,6 +2899,7 @@
 
         function renderTerminalUI(data) {
             if (!data) return;
+            defaultSummaryData = data.summary || {};
             
             // 1. Header & Summary Stats
             var s = data.summary || {};
@@ -2777,6 +2928,53 @@
             if (vwap) vwap.textContent = Number(s.vwap || 0).toFixed(1);
             if (vol) vol.textContent = Number(s.volume || 0).toLocaleString();
 
+            // Terminal Dashboard Header Badges & Cache
+            var symBadge = document.getElementById('term-header-symbol-badge');
+            var priceBadge = document.getElementById('term-header-price-badge');
+            var changeBadge = document.getElementById('term-header-change-badge');
+            var tickerSym = data.ticker ? data.ticker.symbol : currentTerminalSymbol;
+            var tickerPrice = data.ticker ? data.ticker.last_price : (s.close || 64884);
+            var tickerChange = data.ticker ? data.ticker.change_pct : pct;
+
+            if (symBadge) symBadge.textContent = tickerSym;
+            if (priceBadge) priceBadge.textContent = '$' + Number(tickerPrice).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            if (changeBadge) {
+                changeBadge.textContent = (tickerChange >= 0 ? '+' : '') + Number(tickerChange).toFixed(2) + '%';
+                changeBadge.className = 'px-1.5 py-0.5 rounded text-[9.5px] font-bold ' + (tickerChange >= 0 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30');
+            }
+
+            window._currentMarketPrices = window._currentMarketPrices || {};
+            window._currentMarketPrices[tickerSym] = tickerPrice;
+
+            // ADX Trend Strength Gauge Component
+            renderADXGauge(data.adx || calculateADXFromCandles(data.candles));
+
+            // Populate Execution Marker Sync Chips
+            var markerPillsContainer = document.getElementById('terminal-markers-pills');
+            if (markerPillsContainer) {
+                var markers = data.execution_markers || [];
+                if (!markers.length) {
+                    markerPillsContainer.innerHTML = '<span class="text-muted text-[9px] italic">No active markers</span>';
+                } else {
+                    markerPillsContainer.innerHTML = markers.map(function(m) {
+                        var isBuy = m.side === 'BUY';
+                        var cleanId = String(m.id).replace('#', '');
+                        var colorClass = isBuy 
+                            ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30' 
+                            : 'bg-rose-500/15 text-rose-300 border-rose-500/40 hover:bg-rose-500/30';
+                        return '<button type="button" class="marker-pill px-2 py-0.5 rounded text-[9px] font-bold border transition-all cursor-pointer whitespace-nowrap ' + colorClass + '" ' +
+                            'data-marker-id="' + esc(m.id) + '" ' +
+                            'title="Candle #' + m.candle_index + ' • ' + (m.bps || '') + ' • ' + esc(m.reason || '') + '" ' +
+                            'onmouseenter="syncHoverMarker(\'' + esc(m.id) + '\')" ' +
+                            'onmouseleave="clearHoverMarker()" ' +
+                            'onclick="syncHoverMarker(\'' + esc(m.id) + '\')">' +
+                            (isBuy ? '▲ B ' : '▼ S ') + '#' + esc(cleanId) + ' ' +
+                            '<span class="text-[8px] opacity-75">(' + esc(m.bps || '') + ')</span>' +
+                            '</button>';
+                    }).join('');
+                }
+            }
+
             // 2. Risk Metrics
             var r = data.risk || {};
             var netExp = document.getElementById('term-net-exp');
@@ -2801,14 +2999,8 @@
             if (sharpe) sharpe.textContent = p.sharpe_ratio || '2.85';
             if (pf) pf.textContent = p.profit_factor || '2.12';
 
-            // 4. Blotters (applying active search filter if any)
-            var wOrders = data.working_orders || [];
-            var fOrders = data.recent_fills || [];
-            if (lastTerminalQuery) {
-                wOrders = wOrders.filter(function(o) { return (o.symbol||'').toLowerCase().includes(lastTerminalQuery) || (o.strategy||'').toLowerCase().includes(lastTerminalQuery) || (o.order_id||'').toLowerCase().includes(lastTerminalQuery) || (o.venue||'').toLowerCase().includes(lastTerminalQuery); });
-                fOrders = fOrders.filter(function(o) { return (o.symbol||'').toLowerCase().includes(lastTerminalQuery) || (o.side||'').toLowerCase().includes(lastTerminalQuery) || (o.order_id||'').toLowerCase().includes(lastTerminalQuery) || (o.venue||'').toLowerCase().includes(lastTerminalQuery); });
-            }
-            renderBlotterTables(wOrders, fOrders);
+            // 4. Blotters (with column sorting & active search filter)
+            renderTerminalBlottersWithSort();
 
             // 5. Treemap Heatmap
             renderTreemapHeatmap(data.sector_heatmap || []);
@@ -2823,13 +3015,119 @@
 
             // 8. Cumulative PnL Dual Chart
             renderCumulativePnlChart(data.cumulative_pnl || []);
+
+            // 9. Check price alerts against latest price
+            checkAlertsAgainstPrices(window._currentMarketPrices, getStoredPriceAlerts());
+        }
+
+        /* ===== TERMINAL BLOTTER SORTING & RENDERING ===== */
+        var workingSortState = { col: null, dir: 'asc' };
+        var fillsSortState = { col: null, dir: 'asc' };
+
+        function sortDataArray(arr, col, dir) {
+            if (!col || !arr || !arr.length) return arr;
+            var copy = arr.slice();
+            copy.sort(function(a, b) {
+                var vA = a[col];
+                var vB = b[col];
+
+                if (col === 'price' || col === 'qty') {
+                    var nA = parseFloat(String(vA != null ? vA : '').replace(/[^0-9.-]/g, '')) || 0;
+                    var nB = parseFloat(String(vB != null ? vB : '').replace(/[^0-9.-]/g, '')) || 0;
+                    return dir === 'asc' ? nA - nB : nB - nA;
+                }
+
+                var sA = String(vA != null ? vA : '').toLowerCase();
+                var sB = String(vB != null ? vB : '').toLowerCase();
+                if (sA < sB) return dir === 'asc' ? -1 : 1;
+                if (sA > sB) return dir === 'asc' ? 1 : -1;
+                return 0;
+            });
+            return copy;
+        }
+
+        function updateSortIcons(tableKey, activeCol, dir) {
+            var sel = '.sortable-header[data-table="' + tableKey + '"]';
+            document.querySelectorAll(sel).forEach(function(th) {
+                var col = th.getAttribute('data-col');
+                var icon = th.querySelector('.sort-indicator');
+                if (!icon) return;
+                if (col === activeCol) {
+                    icon.textContent = dir === 'asc' ? '▲' : '▼';
+                    icon.className = 'sort-indicator text-cyan-400 font-black';
+                    th.classList.add('text-cyan-300');
+                } else {
+                    icon.textContent = '↕';
+                    icon.className = 'sort-indicator opacity-40';
+                    th.classList.remove('text-cyan-300');
+                }
+            });
+        }
+
+        function setupTerminalTableSorting() {
+            document.querySelectorAll('.sortable-header').forEach(function(th) {
+                if (th._sortBound) return;
+                th._sortBound = true;
+                th.addEventListener('click', function() {
+                    var tableType = th.getAttribute('data-table');
+                    var col = th.getAttribute('data-col');
+                    if (tableType === 'working') {
+                        if (workingSortState.col === col) {
+                            workingSortState.dir = workingSortState.dir === 'asc' ? 'desc' : 'asc';
+                        } else {
+                            workingSortState.col = col;
+                            workingSortState.dir = 'asc';
+                        }
+                        updateSortIcons('working', col, workingSortState.dir);
+                    } else if (tableType === 'fills') {
+                        if (fillsSortState.col === col) {
+                            fillsSortState.dir = fillsSortState.dir === 'asc' ? 'desc' : 'asc';
+                        } else {
+                            fillsSortState.col = col;
+                            fillsSortState.dir = 'asc';
+                        }
+                        updateSortIcons('fills', col, fillsSortState.dir);
+                    }
+                    renderTerminalBlottersWithSort();
+                });
+            });
+        }
+
+        function renderTerminalBlottersWithSort() {
+            if (!terminalOverviewData) return;
+            var wOrders = (terminalOverviewData.working_orders || []).slice();
+            var fOrders = (terminalOverviewData.recent_fills || []).slice();
+
+            if (lastTerminalQuery) {
+                wOrders = wOrders.filter(function(o) { 
+                    return (o.symbol||'').toLowerCase().includes(lastTerminalQuery) || 
+                           (o.strategy||'').toLowerCase().includes(lastTerminalQuery) || 
+                           (o.order_id||'').toLowerCase().includes(lastTerminalQuery) || 
+                           (o.venue||'').toLowerCase().includes(lastTerminalQuery); 
+                });
+                fOrders = fOrders.filter(function(o) { 
+                    return (o.symbol||'').toLowerCase().includes(lastTerminalQuery) || 
+                           (o.side||'').toLowerCase().includes(lastTerminalQuery) || 
+                           (o.order_id||'').toLowerCase().includes(lastTerminalQuery) || 
+                           (o.venue||'').toLowerCase().includes(lastTerminalQuery); 
+                });
+            }
+
+            if (workingSortState.col) {
+                wOrders = sortDataArray(wOrders, workingSortState.col, workingSortState.dir);
+            }
+            if (fillsSortState.col) {
+                fOrders = sortDataArray(fOrders, fillsSortState.col, fillsSortState.dir);
+            }
+
+            renderBlotterTables(wOrders, fOrders);
         }
 
         function renderBlotterTables(working, fills) {
             var wb = document.getElementById('terminal-working-orders-body');
             if (wb) {
                 if (!working || !working.length) {
-                    wb.innerHTML = '<tr><td colspan="6" class="text-center py-3 text-muted">Sin órdenes activas</td></tr>';
+                    wb.innerHTML = '<tr><td colspan="7" class="text-center py-3 text-muted">Sin órdenes activas</td></tr>';
                 } else {
                     wb.innerHTML = working.map(function(o) {
                         var bClass = o.status === 'WORKING' ? 'badge-working' : o.status === 'PARTIAL' ? 'badge-partial' : 'badge-filled';
@@ -2843,6 +3141,7 @@
                             '<td class="font-bold text-theme">' + hlSym + '</td>' +
                             '<td><span class="' + bClass + '">' + esc(o.status) + '</span></td>' +
                             '<td class="mono">' + esc(o.qty) + '</td>' +
+                            '<td class="mono font-semibold text-white">$' + Number(o.price || 0).toLocaleString(undefined, {minimumFractionDigits: 2}) + '</td>' +
                             '<td class="text-muted text-[9.5px]">' + hlVenue + '</td>' +
                             '</tr>';
                     }).join('');
@@ -2860,7 +3159,7 @@
                         var hlSym = highlightMatch(o.symbol, lastTerminalQuery);
                         var hlVenue = highlightMatch(o.venue, lastTerminalQuery);
                         var hlSide = highlightMatch(o.side, lastTerminalQuery);
-                        return '<tr>' +
+                        return '<tr class="recent-fill-row hover:bg-cyan-500/10 transition-colors cursor-pointer" data-order-id="' + esc(o.order_id) + '" onmouseenter="syncHoverMarker(\'' + esc(o.order_id) + '\')" onmouseleave="clearHoverMarker()">' +
                             '<td class="text-muted">' + hlId + '</td>' +
                             '<td class="font-bold text-theme">' + hlSym + '</td>' +
                             '<td><span class="badge-filled">' + esc(o.status) + '</span></td>' +
@@ -2872,6 +3171,417 @@
                     }).join('');
                 }
             }
+        }
+
+        /* ===== ADX TREND STRENGTH ENGINE & GAUGE ===== */
+        function calculateADXFromCandles(candles) {
+            if (!candles || candles.length < 15) {
+                return { value: 33.8, strength: 'Strong', plus_di: 29.2, minus_di: 13.8, bias: 'BULLISH' };
+            }
+            var period = 14;
+            var trArr = [];
+            var plusDmArr = [];
+            var minusDmArr = [];
+
+            for (var i = 1; i < candles.length; i++) {
+                var cur = candles[i];
+                var prev = candles[i - 1];
+                var hDiff = cur.high - prev.high;
+                var lDiff = prev.low - cur.low;
+
+                plusDmArr.push((hDiff > lDiff && hDiff > 0) ? hDiff : 0);
+                minusDmArr.push((lDiff > hDiff && lDiff > 0) ? lDiff : 0);
+
+                var tr = Math.max(
+                    cur.high - cur.low,
+                    Math.abs(cur.high - prev.close),
+                    Math.abs(cur.low - prev.close)
+                );
+                trArr.push(tr);
+            }
+
+            var sumTr = 0, sumPlusDm = 0, sumMinusDm = 0;
+            for (var k = 0; k < period; k++) {
+                sumTr += trArr[k];
+                sumPlusDm += plusDmArr[k];
+                sumMinusDm += minusDmArr[k];
+            }
+
+            var smoothedTr = sumTr;
+            var smoothedPlus = sumPlusDm;
+            var smoothedMinus = sumMinusDm;
+            var dxArr = [];
+
+            for (var j = period; j < trArr.length; j++) {
+                smoothedTr = smoothedTr - (smoothedTr / period) + trArr[j];
+                smoothedPlus = smoothedPlus - (smoothedPlus / period) + plusDmArr[j];
+                smoothedMinus = smoothedMinus - (smoothedMinus / period) + minusDmArr[j];
+
+                var plusDiVal = smoothedTr > 0 ? (smoothedPlus / smoothedTr) * 100 : 0;
+                var minusDiVal = smoothedTr > 0 ? (smoothedMinus / smoothedTr) * 100 : 0;
+                var diSum = plusDiVal + minusDiVal;
+                var dx = diSum > 0 ? (Math.abs(plusDiVal - minusDiVal) / diSum) * 100 : 0;
+                dxArr.push({ dx: dx, plusDi: plusDiVal, minusDi: minusDiVal });
+            }
+
+            if (!dxArr.length) {
+                return { value: 33.8, strength: 'Strong', plus_di: 29.2, minus_di: 13.8, bias: 'BULLISH' };
+            }
+
+            var adxSum = 0;
+            var count = Math.min(dxArr.length, period);
+            for (var m = dxArr.length - count; m < dxArr.length; m++) {
+                adxSum += dxArr[m].dx;
+            }
+            var adx = adxSum / count;
+            var lastDx = dxArr[dxArr.length - 1];
+            var strength = adx >= 25 ? 'Strong' : adx >= 20 ? 'Neutral' : 'Weak';
+
+            return {
+                value: adx,
+                strength: strength,
+                plus_di: lastDx.plusDi,
+                minus_di: lastDx.minusDi,
+                bias: lastDx.plusDi >= lastDx.minusDi ? 'BULLISH' : 'BEARISH'
+            };
+        }
+
+        function renderADXGauge(adxData) {
+            if (!adxData) {
+                adxData = calculateADXFromCandles(activeCandles);
+            }
+            var val = typeof adxData.value === 'number' ? adxData.value : (parseFloat(adxData.adx) || 33.8);
+            var strength = adxData.strength || (val >= 25 ? 'Strong' : val >= 20 ? 'Neutral' : 'Weak');
+            var plusDi = typeof adxData.plus_di === 'number' ? adxData.plus_di : (parseFloat(adxData.plusDi) || 29.2);
+            var minusDi = typeof adxData.minus_di === 'number' ? adxData.minus_di : (parseFloat(adxData.minusDi) || 13.8);
+            var bias = adxData.bias || (plusDi >= minusDi ? 'BULLISH' : 'BEARISH');
+
+            // Digital labels & colored status indicator
+            var valEl = document.getElementById('adx-gauge-val-num');
+            if (valEl) valEl.textContent = val.toFixed(1);
+
+            var statEl = document.getElementById('adx-gauge-status');
+            if (statEl) {
+                statEl.textContent = strength.toUpperCase();
+                var sLower = strength.toLowerCase();
+                if (sLower === 'strong') {
+                    statEl.className = 'px-1.5 py-0.2 rounded text-[9px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm';
+                } else if (sLower === 'neutral') {
+                    statEl.className = 'px-1.5 py-0.2 rounded text-[9px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm';
+                } else {
+                    statEl.className = 'px-1.5 py-0.2 rounded text-[9px] font-black bg-slate-500/20 text-slate-300 border border-slate-500/40 shadow-sm';
+                }
+            }
+
+            var plusEl = document.getElementById('adx-plus-di-val');
+            if (plusEl) plusEl.textContent = plusDi.toFixed(1);
+
+            var minusEl = document.getElementById('adx-minus-di-val');
+            if (minusEl) minusEl.textContent = minusDi.toFixed(1);
+
+            var biasBadge = document.getElementById('adx-bias-badge');
+            if (biasBadge) {
+                biasBadge.textContent = bias;
+                biasBadge.className = 'px-1 py-0.2 rounded text-[8px] font-bold ' + 
+                    (bias === 'BULLISH' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30');
+            }
+
+            // High-resolution canvas dial
+            var canvas = document.getElementById('adxGaugeCanvas');
+            if (!canvas) return;
+            var dpr = window.devicePixelRatio || 1;
+            var w = 50, h = 34;
+            canvas.width = w * dpr;
+            canvas.height = h * dpr;
+            var ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+            ctx.clearRect(0, 0, w, h);
+
+            var cx = w / 2;
+            var cy = h - 4;
+            var radius = 22;
+            var startAngle = Math.PI * 0.9;
+            var endAngle = Math.PI * 2.1;
+            var totalAngle = endAngle - startAngle;
+
+            // Background track
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, startAngle, endAngle, false);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            // Value arc (0 to 60 ADX scale)
+            var clampedVal = Math.max(0, Math.min(60, val));
+            var fraction = clampedVal / 60;
+            var currentAngle = startAngle + totalAngle * fraction;
+
+            var sLowerVal = strength.toLowerCase();
+            var strokeColor = sLowerVal === 'strong' ? '#10b981' : sLowerVal === 'neutral' ? '#f59e0b' : '#64748b';
+
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, startAngle, currentAngle, false);
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+            ctx.shadowColor = strokeColor;
+            ctx.shadowBlur = 6;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+        }
+
+        /* ===== PRICE ALERTS MANAGER & POLLING SYSTEM ===== */
+        var PRICE_ALERTS_KEY = 'sniper_price_alerts';
+
+        function getStoredPriceAlerts() {
+            try {
+                var raw = localStorage.getItem(PRICE_ALERTS_KEY);
+                return raw ? JSON.parse(raw) : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function saveStoredPriceAlerts(alerts) {
+            try {
+                localStorage.setItem(PRICE_ALERTS_KEY, JSON.stringify(alerts || []));
+            } catch (e) {}
+        }
+
+        function getLatestSymbolPrice(sym) {
+            if (window._currentMarketPrices && window._currentMarketPrices[sym]) {
+                return window._currentMarketPrices[sym];
+            }
+            if (terminalOverviewData && terminalOverviewData.ticker && terminalOverviewData.ticker.last_price) {
+                return terminalOverviewData.ticker.last_price;
+            }
+            if (terminalOverviewData && terminalOverviewData.summary && terminalOverviewData.summary.close) {
+                return terminalOverviewData.summary.close;
+            }
+            return 64884.00;
+        }
+
+        window.setPriceAlert = function(symbol, price) {
+            if (!symbol) {
+                if (typeof showToast === 'function') showToast('Error: Símbolo inválido para alerta', 'critical');
+                return null;
+            }
+            var numPrice = parseFloat(price);
+            if (isNaN(numPrice) || numPrice <= 0) {
+                if (typeof showToast === 'function') showToast('Por favor ingrese un precio numérico válido mayor a 0', 'critical');
+                return null;
+            }
+
+            var sym = String(symbol).toUpperCase().trim();
+            var curPrice = getLatestSymbolPrice(sym);
+            var direction = (curPrice != null && numPrice < curPrice) ? 'BELOW' : 'ABOVE';
+
+            var alerts = getStoredPriceAlerts();
+            var newAlert = {
+                id: 'alert_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+                symbol: sym,
+                targetPrice: numPrice,
+                initialPrice: curPrice,
+                direction: direction,
+                status: 'ACTIVE',
+                createdAt: new Date().toISOString(),
+                triggeredAt: null,
+                triggerPrice: null
+            };
+
+            alerts.unshift(newAlert);
+            saveStoredPriceAlerts(alerts);
+            renderPriceAlertsUI();
+
+            var dirLabel = direction === 'ABOVE' ? '▲ Cruce Alcista' : '▼ Cruce Bajista';
+            if (typeof showToast === 'function') {
+                showToast('🔔 Alerta configurada para ' + sym + ' @ $' + Number(numPrice).toLocaleString(undefined, {minimumFractionDigits: 2}) + ' (' + dirLabel + ')', 'info');
+            }
+
+            return newAlert;
+        };
+
+        window.pollPriceAlerts = function() {
+            var alerts = getStoredPriceAlerts();
+            var activeAlerts = alerts.filter(function(a) { return a.status === 'ACTIVE'; });
+            if (!activeAlerts.length) return;
+
+            fetch('/api/v1/terminal/prices')
+                .then(function(res) {
+                    if (res.ok) return res.json();
+                    throw new Error('API prices unavailable');
+                })
+                .then(function(data) {
+                    if (data && data.prices) {
+                        window._currentMarketPrices = Object.assign(window._currentMarketPrices || {}, data.prices);
+                        checkAlertsAgainstPrices(data.prices, alerts);
+                    }
+                })
+                .catch(function() {
+                    var fallbackPrices = {};
+                    if (terminalOverviewData && terminalOverviewData.summary) {
+                        fallbackPrices['BTCUSDT'] = terminalOverviewData.summary.close;
+                    }
+                    if (window._currentMarketPrices) {
+                        Object.assign(fallbackPrices, window._currentMarketPrices);
+                    }
+                    checkAlertsAgainstPrices(fallbackPrices, alerts);
+                });
+        };
+
+        function checkAlertsAgainstPrices(pricesMap, alerts) {
+            if (!pricesMap || !alerts || !alerts.length) return;
+            var hasChanges = false;
+            alerts.forEach(function(alert) {
+                if (alert.status !== 'ACTIVE') return;
+                var p = pricesMap[alert.symbol];
+                if (p == null) {
+                    if (alert.symbol === 'BTCUSDT' || alert.symbol === 'BTC') {
+                        p = (activeCandles && activeCandles.length) ? activeCandles[activeCandles.length - 1].close : 64884.00;
+                    } else {
+                        return;
+                    }
+                }
+
+                var isHit = false;
+                if (alert.direction === 'ABOVE' && p >= alert.targetPrice) {
+                    isHit = true;
+                } else if (alert.direction === 'BELOW' && p <= alert.targetPrice) {
+                    isHit = true;
+                }
+
+                if (isHit) {
+                    alert.status = 'TRIGGERED';
+                    alert.triggeredAt = new Date().toISOString();
+                    alert.triggerPrice = p;
+                    hasChanges = true;
+
+                    var dirWord = alert.direction === 'ABOVE' ? 'superó' : 'cayó por debajo de';
+                    if (typeof showToast === 'function') {
+                        showToast('🚨 ALERTA DE PRECIO: ' + alert.symbol + ' ' + dirWord + ' $' + Number(alert.targetPrice).toLocaleString(undefined, {minimumFractionDigits: 2}) + ' (Actual: $' + Number(p).toLocaleString(undefined, {minimumFractionDigits: 2}) + ')', 'critical');
+                    }
+                }
+            });
+
+            if (hasChanges) {
+                saveStoredPriceAlerts(alerts);
+                renderPriceAlertsUI();
+            }
+        }
+
+        window.handleSetAlertFromUI = function() {
+            var symEl = document.getElementById('alert-symbol-input');
+            var priceEl = document.getElementById('alert-price-input');
+            var sym = symEl ? symEl.value : 'BTCUSDT';
+            var price = priceEl ? priceEl.value : '';
+            if (!price) {
+                if (typeof showToast === 'function') showToast('Ingrese un precio objetivo para la alerta', 'critical');
+                return;
+            }
+            var res = setPriceAlert(sym, price);
+            if (res && priceEl) {
+                priceEl.value = '';
+            }
+        };
+
+        window.setQuickAlertOffset = function(pctOffset) {
+            var symEl = document.getElementById('alert-symbol-input');
+            var sym = symEl ? symEl.value : 'BTCUSDT';
+            var cur = getLatestSymbolPrice(sym);
+            var target = cur * (1 + pctOffset);
+            var priceEl = document.getElementById('alert-price-input');
+            if (priceEl) {
+                priceEl.value = target.toFixed(sym.includes('EUR') ? 4 : 2);
+            }
+        };
+
+        window.openAlertsModal = function() {
+            var m = document.getElementById('price-alerts-modal');
+            if (m) {
+                renderPriceAlertsUI();
+                m.classList.remove('hidden');
+            }
+        };
+
+        window.closeAlertsModal = function() {
+            var m = document.getElementById('price-alerts-modal');
+            if (m) m.classList.add('hidden');
+        };
+
+        window.deletePriceAlert = function(alertId) {
+            var alerts = getStoredPriceAlerts().filter(function(a) { return a.id !== alertId; });
+            saveStoredPriceAlerts(alerts);
+            renderPriceAlertsUI();
+            if (typeof showToast === 'function') showToast('Alerta eliminada', 'info');
+        };
+
+        window.clearTriggeredAlerts = function() {
+            var alerts = getStoredPriceAlerts().filter(function(a) { return a.status === 'ACTIVE'; });
+            saveStoredPriceAlerts(alerts);
+            renderPriceAlertsUI();
+            if (typeof showToast === 'function') showToast('Alertas disparadas eliminadas', 'info');
+        };
+
+        window.simulatePriceAlertHit = function() {
+            var alerts = getStoredPriceAlerts();
+            var active = alerts.find(function(a) { return a.status === 'ACTIVE'; });
+            if (!active) {
+                var sym = 'BTCUSDT';
+                var cur = getLatestSymbolPrice(sym);
+                var simAlert = setPriceAlert(sym, cur + 50);
+                active = simAlert;
+            }
+            if (active) {
+                active.status = 'TRIGGERED';
+                active.triggeredAt = new Date().toISOString();
+                active.triggerPrice = active.targetPrice;
+                saveStoredPriceAlerts(alerts);
+                renderPriceAlertsUI();
+                if (typeof showToast === 'function') {
+                    showToast('🚨 ALERTA DISPARADA: ' + active.symbol + ' alcanzó los $' + Number(active.targetPrice).toLocaleString(undefined, {minimumFractionDigits: 2}) + ' (Simulación)', 'critical');
+                }
+            }
+        };
+
+        function renderPriceAlertsUI() {
+            var alerts = getStoredPriceAlerts();
+            var activeCount = alerts.filter(function(a) { return a.status === 'ACTIVE'; }).length;
+            var badge = document.getElementById('alerts-active-badge');
+            if (badge) badge.textContent = activeCount;
+
+            var listEl = document.getElementById('price-alerts-list');
+            if (!listEl) return;
+
+            if (!alerts.length) {
+                listEl.innerHTML = '<div class="text-center py-6 text-muted text-[10px]">No hay alertas configuradas. Usa el formulario superior para crear una.</div>';
+                return;
+            }
+
+            listEl.innerHTML = alerts.map(function(a) {
+                var isActive = a.status === 'ACTIVE';
+                var dirIcon = a.direction === 'ABOVE' ? '▲' : '▼';
+                var dirColor = a.direction === 'ABOVE' ? 'text-emerald-400' : 'text-rose-400';
+                var statusBadge = isActive 
+                    ? '<span class="px-1.5 py-0.2 rounded text-[8.5px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">ACTIVA</span>'
+                    : '<span class="px-1.5 py-0.2 rounded text-[8.5px] font-bold bg-slate-500/20 text-slate-400 border border-slate-600">DISPARADA</span>';
+                
+                return '<div class="p-2 rounded bg-black/40 border ' + (isActive ? 'border-amber-500/30' : 'border-slate-800') + ' flex items-center justify-between gap-2">' +
+                    '<div class="space-y-0.5">' +
+                        '<div class="flex items-center gap-1.5">' +
+                            '<span class="font-extrabold text-white text-[10.5px] mono">' + esc(a.symbol) + '</span>' +
+                            '<span class="font-bold text-[9px] ' + dirColor + '">' + dirIcon + ' $' + Number(a.targetPrice).toLocaleString(undefined, {minimumFractionDigits: 2}) + '</span>' +
+                            statusBadge +
+                        '</div>' +
+                        '<div class="text-[8.5px] text-muted">' +
+                            (isActive ? 'Creada: ' + new Date(a.createdAt).toLocaleTimeString() : 'Disparada @ $' + Number(a.triggerPrice || a.targetPrice).toFixed(2) + ' • ' + new Date(a.triggeredAt).toLocaleTimeString()) +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="flex items-center gap-1">' +
+                        '<button onclick="deletePriceAlert(\'' + a.id + '\')" class="p-1 text-muted hover:text-rose-400 text-xs" title="Eliminar alerta">✕</button>' +
+                    '</div>' +
+                '</div>';
+            }).join('');
         }
 
         function renderTreemapHeatmap(sectors) {
@@ -3022,6 +3732,323 @@
             });
         }
 
+        /* ===== SYNCED CROSSHAIR & EXECUTION MARKER HIGHLIGHT ENGINE ===== */
+        function highlightOhlcData(c, m) {
+            if (!c) return;
+            var o = document.getElementById('cand-open');
+            var h = document.getElementById('cand-high');
+            var l = document.getElementById('cand-low');
+            var closeEl = document.getElementById('cand-close');
+            var chg = document.getElementById('cand-change');
+            var ema9 = document.getElementById('cand-ema9');
+            var ema21 = document.getElementById('cand-ema21');
+            var vwap = document.getElementById('cand-vwap');
+            var vol = document.getElementById('cand-vol');
+            var bar = document.getElementById('terminal-ohlc-bar');
+            var badge = document.getElementById('ohlc-mode-badge');
+            var statusEl = document.getElementById('terminal-marker-status');
+
+            if (o) o.textContent = Number(c.open).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            if (h) h.textContent = Number(c.high).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            if (l) l.textContent = Number(c.low).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            if (closeEl) closeEl.textContent = Number(c.close).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+            var pct = +(((c.close - c.open) / (c.open || 1)) * 100);
+            if (chg) {
+                chg.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
+                chg.className = 'font-bold ' + (pct >= 0 ? 'text-emerald-400' : 'text-rose-400');
+            }
+            if (ema9) ema9.textContent = (c.ema_9 != null ? Number(c.ema_9).toFixed(1) : (c.ema9 != null ? Number(c.ema9).toFixed(1) : '--'));
+            if (ema21) ema21.textContent = (c.ema_21 != null ? Number(c.ema_21).toFixed(1) : (c.ema21 != null ? Number(c.ema21).toFixed(1) : '--'));
+            if (vwap) vwap.textContent = (c.vwap != null ? Number(c.vwap).toFixed(1) : '--');
+            if (vol) vol.textContent = Number(c.volume || 0).toLocaleString();
+
+            if (bar) {
+                bar.classList.remove('border-theme');
+                bar.classList.add('border-cyan-500/50', 'bg-sky-950/30');
+            }
+
+            if (m) {
+                var isBuy = m.side === 'BUY';
+                if (badge) {
+                    badge.className = 'px-1.5 py-0.2 rounded text-[9px] font-black ' + 
+                        (isBuy ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-400/50 shadow-sm' : 'bg-rose-500/25 text-rose-300 border border-rose-400/50 shadow-sm');
+                    badge.textContent = 'EXEC #' + String(m.id).replace('#', '') + ' (' + m.side + ')';
+                }
+                if (statusEl) {
+                    statusEl.innerHTML = '<span class="' + (isBuy ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold') + '">● ' + (isBuy ? 'BUY' : 'SELL') + ' #' + esc(m.id) + '</span> ' +
+                        '@ <b class="text-white">$' + Number(m.price).toLocaleString(undefined, {minimumFractionDigits: 2}) + '</b> ' +
+                        '<span class="text-cyan-300 font-semibold">(' + esc(m.bps || '') + ')</span> ' +
+                        '<span class="text-muted text-[8.5px]">• ' + esc(m.reason || 'Signal Triggered') + '</span>';
+                }
+            } else {
+                if (badge) {
+                    badge.className = 'px-1.5 py-0.2 rounded text-[9px] font-bold bg-sky-500/20 text-sky-300 border border-sky-400/30';
+                    badge.textContent = 'BAR ' + (c.time || '');
+                }
+                if (statusEl) {
+                    statusEl.innerHTML = '<span class="text-sky-300 font-semibold">Candle Bar at ' + esc(c.time || '') + '</span> <span class="text-muted">• Crosshair Synced</span>';
+                }
+            }
+        }
+
+        function restoreOhlcData() {
+            var bar = document.getElementById('terminal-ohlc-bar');
+            var badge = document.getElementById('ohlc-mode-badge');
+            var statusEl = document.getElementById('terminal-marker-status');
+            
+            if (bar) {
+                bar.classList.add('border-theme');
+                bar.classList.remove('border-cyan-500/50', 'bg-sky-950/30');
+            }
+            if (badge) {
+                badge.className = 'px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-800 text-slate-400 border border-slate-700';
+                badge.textContent = 'LATEST';
+            }
+            if (statusEl) {
+                statusEl.textContent = 'Hover over marker on chart or chip to sync crosshair & OHLC';
+            }
+
+            var s = defaultSummaryData || (terminalOverviewData ? terminalOverviewData.summary : null);
+            if (!s) return;
+            var o = document.getElementById('cand-open');
+            var h = document.getElementById('cand-high');
+            var l = document.getElementById('cand-low');
+            var closeEl = document.getElementById('cand-close');
+            var chg = document.getElementById('cand-change');
+            var ema9 = document.getElementById('cand-ema9');
+            var ema21 = document.getElementById('cand-ema21');
+            var vwap = document.getElementById('cand-vwap');
+            var vol = document.getElementById('cand-vol');
+
+            if (o) o.textContent = Number(s.open || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            if (h) h.textContent = Number(s.high || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            if (l) l.textContent = Number(s.low || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            if (closeEl) closeEl.textContent = Number(s.close || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            
+            var pct = Number(s.change_pct || 0);
+            if (chg) {
+                chg.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
+                chg.className = 'font-bold ' + (pct >= 0 ? 'text-emerald-400' : 'text-rose-400');
+            }
+            if (ema9) ema9.textContent = Number(s.ema_9 || 0).toFixed(1);
+            if (ema21) ema21.textContent = Number(s.ema_21 || 0).toFixed(1);
+            if (vwap) vwap.textContent = Number(s.vwap || 0).toFixed(1);
+            if (vol) vol.textContent = Number(s.volume || 0).toLocaleString();
+        }
+
+        var activeClickedMarker = null;
+
+        window.syncHoverMarker = function(markerId, isClick) {
+            if (!activeMarkers || !activeMarkers.length || !activeCandles || !activeCandles.length) return;
+            var cleanId = String(markerId).replace('#', '').trim();
+            var m = activeMarkers.find(function(item) {
+                return item.id === markerId || String(item.id).replace('#', '').trim() === cleanId;
+            });
+            if (!m) return;
+            var idx = m.candle_index;
+            if (idx < 0 || idx >= activeCandles.length) return;
+            var c = activeCandles[idx];
+
+            activeHoverMarker = m;
+            activeHoverCandle = { index: idx, candle: c, marker: m };
+
+            // 1. Highlight OHLC in dashboard sub-bar
+            highlightOhlcData(c, m);
+
+            // 2. Redraw canvas with locked crosshair on execution marker
+            drawCandlestickCanvas();
+
+            // 3. Position and show tooltip or pinned card
+            var canvas = document.getElementById('terminalCandleCanvas');
+            var posX = 50, posY = 100;
+            if (canvas) {
+                var rect = canvas.getBoundingClientRect();
+                var numCandles = activeCandles.length;
+                var plotWidth = rect.width - 65;
+                var candleGap = plotWidth / numCandles;
+                posX = 10 + idx * candleGap + candleGap / 2;
+                posY = rect.height / 2;
+                if (isClick) {
+                    showClickedMarkerDetails(m, c, idx, posX, posY);
+                } else {
+                    renderMarkerTooltip(m, c, idx, posX, posY);
+                }
+            }
+
+            // 4. Highlight UI chips and blotter rows
+            highlightPillsAndFills(m.id);
+        };
+
+        window.clearHoverMarker = function(force) {
+            if (activeClickedMarker && !force) {
+                return;
+            }
+            activeHoverMarker = null;
+            activeHoverCandle = null;
+            restoreOhlcData();
+            drawCandlestickCanvas();
+            var tip = document.getElementById('candle-tooltip');
+            if (tip) tip.classList.add('hidden');
+            clearPillsAndFillsHighlights();
+        };
+
+        function highlightPillsAndFills(markerId) {
+            var cleanId = String(markerId).replace('#', '').trim();
+            document.querySelectorAll('.marker-pill').forEach(function(pill) {
+                var pId = String(pill.getAttribute('data-marker-id') || '').replace('#', '').trim();
+                if (pId === cleanId) {
+                    pill.classList.add('ring-2', 'ring-cyan-400', 'scale-105', 'shadow-md');
+                } else {
+                    pill.classList.remove('ring-2', 'ring-cyan-400', 'scale-105', 'shadow-md');
+                }
+            });
+
+            document.querySelectorAll('.recent-fill-row').forEach(function(row) {
+                var rId = String(row.getAttribute('data-order-id') || '').replace('#', '').trim();
+                if (rId === cleanId) {
+                    row.classList.add('bg-cyan-500/20', 'border-l-2', 'border-cyan-400');
+                } else {
+                    row.classList.remove('bg-cyan-500/20', 'border-l-2', 'border-cyan-400');
+                }
+            });
+        }
+
+        function clearPillsAndFillsHighlights() {
+            if (activeClickedMarker) return;
+            document.querySelectorAll('.marker-pill').forEach(function(pill) {
+                pill.classList.remove('ring-2', 'ring-cyan-400', 'scale-105', 'shadow-md');
+            });
+            document.querySelectorAll('.recent-fill-row').forEach(function(row) {
+                row.classList.remove('bg-cyan-500/20', 'border-l-2', 'border-cyan-400');
+            });
+        }
+
+        function showClickedMarkerDetails(m, c, idx, posX, posY) {
+            activeClickedMarker = m;
+            var card = document.getElementById('marker-clicked-card');
+            var canvas = document.getElementById('terminalCandleCanvas');
+            if (!card || !canvas) return;
+            var rect = canvas.getBoundingClientRect();
+            card.classList.remove('hidden');
+
+            var isBuy = m.side === 'BUY';
+            var cardWidth = 260;
+            var left = Math.max(10, Math.min(rect.width - cardWidth, posX - cardWidth / 2));
+            var top = Math.max(10, Math.min(rect.height - 180, posY + (isBuy ? 20 : -180)));
+
+            card.style.left = left + 'px';
+            card.style.top = top + 'px';
+
+            var titleEl = document.getElementById('clicked-marker-title');
+            if (titleEl) {
+                titleEl.innerHTML = '<span class="px-1.5 py-0.5 rounded text-[9.5px] font-black ' + 
+                    (isBuy ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-rose-500/20 text-rose-300 border border-rose-500/40') + '">' +
+                    (isBuy ? '▲ BUY EXECUTION' : '▼ SELL EXECUTION') + ' #' + esc(String(m.id).replace('#','')) +
+                    '</span>' +
+                    '<span class="text-cyan-300 font-bold text-[9px]">' + esc(m.bps || '') + '</span>';
+            }
+
+            var bodyEl = document.getElementById('clicked-marker-body');
+            if (bodyEl) {
+                var entryReason = m.entry_reason || m.reason || (isBuy ? 'EMA 9/21 Bullish Golden Cross' : 'RSI Overbought (74.2)');
+                var exitReason = m.exit_reason || (isBuy ? 'Target TP $65,400.00' : 'VWAP Mean Reversion Band Target');
+                bodyEl.innerHTML = 
+                    '<div class="bg-black/50 p-1.5 rounded border border-slate-800 space-y-1 text-[9.5px]">' +
+                        '<div class="flex justify-between items-center"><span class="text-muted">Fill Price:</span><b class="' + (isBuy ? 'text-emerald-400' : 'text-rose-400') + ' text-xs font-black">$' + Number(m.price).toLocaleString(undefined, {minimumFractionDigits: 2}) + '</b></div>' +
+                        '<div class="flex justify-between items-center"><span class="text-muted">Slippage:</span><b class="text-cyan-300 font-mono">' + esc(m.bps || '0.0 bps') + '</b></div>' +
+                        (m.pnl ? '<div class="flex justify-between items-center"><span class="text-muted">Realized PnL:</span><b class="text-emerald-400 font-bold">' + esc(m.pnl) + '</b></div>' : '') +
+                    '</div>' +
+                    '<div class="space-y-1 pt-1 text-[9px]">' +
+                        '<div class="p-1.5 rounded bg-emerald-950/40 border border-emerald-900/60">' +
+                            '<span class="text-emerald-400 font-bold block text-[7.5px] uppercase tracking-wider">ENTRY REASON:</span>' +
+                            '<span class="text-slate-100 font-medium leading-tight block">' + esc(entryReason) + '</span>' +
+                        '</div>' +
+                        '<div class="p-1.5 rounded bg-rose-950/40 border border-rose-900/60">' +
+                            '<span class="text-rose-400 font-bold block text-[7.5px] uppercase tracking-wider">EXIT REASON:</span>' +
+                            '<span class="text-slate-100 font-medium leading-tight block">' + esc(exitReason) + '</span>' +
+                        '</div>' +
+                        (m.target_tp || m.stop_loss ? 
+                            '<div class="flex justify-between text-[8.5px] px-0.5 text-muted pt-0.5">' +
+                                (m.target_tp ? '<span>TP: <b class="text-emerald-400">' + esc(m.target_tp) + '</b></span>' : '') +
+                                (m.stop_loss ? '<span>SL: <b class="text-rose-400">' + esc(m.stop_loss) + '</b></span>' : '') +
+                            '</div>' : '') +
+                    '</div>';
+            }
+
+            var timeEl = document.getElementById('clicked-marker-time');
+            if (timeEl) {
+                timeEl.textContent = 'Bar #' + idx + ' • ' + (c.time || '');
+            }
+
+            highlightOhlcData(c, m);
+            highlightPillsAndFills(m.id);
+            drawCandlestickCanvas();
+        }
+
+        window.closeClickedMarker = function() {
+            activeClickedMarker = null;
+            var card = document.getElementById('marker-clicked-card');
+            if (card) card.classList.add('hidden');
+            window.clearHoverMarker(true);
+        };
+
+        function renderMarkerTooltip(m, c, idx, posX, posY) {
+            var tip = document.getElementById('candle-tooltip');
+            var canvas = document.getElementById('terminalCandleCanvas');
+            if (!tip || !canvas) return;
+            var rect = canvas.getBoundingClientRect();
+            tip.classList.remove('hidden');
+
+            var tipWidth = 240;
+            var left = (posX + 15);
+            if (left + tipWidth > rect.width) {
+                left = posX - tipWidth - 15;
+            }
+            left = Math.max(10, Math.min(rect.width - tipWidth, left));
+            var top = Math.max(8, Math.min(rect.height - 180, posY - 45));
+
+            tip.style.left = left + 'px';
+            tip.style.top = top + 'px';
+
+            var isBuy = m.side === 'BUY';
+            var chg = +(((c.close - c.open) / (c.open || 1)) * 100);
+            var isUp = c.close >= c.open;
+            var entryReason = m.entry_reason || m.reason || (isBuy ? 'EMA 9/21 Bullish Golden Cross' : 'RSI Overbought (74.2)');
+            var exitReason = m.exit_reason || (isBuy ? 'Target TP $65,400.00' : 'VWAP Mean Reversion Band');
+
+            tip.innerHTML = 
+                '<div class="flex items-center justify-between gap-2 pb-1.5 border-b border-slate-700/60">' +
+                    '<span class="px-1.5 py-0.5 rounded text-[9.5px] font-black ' + 
+                        (isBuy ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-rose-500/20 text-rose-300 border border-rose-500/40') + '">' +
+                        (isBuy ? '▲ BUY EXECUTION' : '▼ SELL EXECUTION') + ' #' + esc(String(m.id).replace('#','')) +
+                    '</span>' +
+                    '<span class="text-cyan-300 font-bold text-[9px]">' + esc(m.bps || '') + '</span>' +
+                '</div>' +
+                '<div class="py-1 text-[9px] space-y-1">' +
+                    '<div class="flex justify-between items-center"><span class="text-muted">Exec Price:</span><b class="' + (isBuy ? 'text-emerald-400' : 'text-rose-400') + '">$' + Number(m.price).toLocaleString(undefined, {minimumFractionDigits: 2}) + '</b></div>' +
+                    '<div class="bg-emerald-950/40 p-1 rounded border border-emerald-900/50">' +
+                        '<span class="text-emerald-400 font-bold block text-[7.5px] uppercase tracking-wider">Entry Reason:</span>' +
+                        '<span class="text-slate-200 text-[8.5px] leading-tight block truncate" title="' + esc(entryReason) + '">' + esc(entryReason) + '</span>' +
+                    '</div>' +
+                    '<div class="bg-rose-950/40 p-1 rounded border border-rose-900/50">' +
+                        '<span class="text-rose-400 font-bold block text-[7.5px] uppercase tracking-wider">Exit Reason:</span>' +
+                        '<span class="text-slate-200 text-[8.5px] leading-tight block truncate" title="' + esc(exitReason) + '">' + esc(exitReason) + '</span>' +
+                    '</div>' +
+                    (m.pnl ? '<div class="flex justify-between text-[8px]"><span class="text-muted">PnL:</span><b class="text-emerald-400 font-bold">' + esc(m.pnl) + '</b></div>' : '') +
+                '</div>' +
+                '<div class="pt-1.5 border-t border-slate-700/60 text-[8.5px] space-y-0.5">' +
+                    '<div class="flex justify-between text-muted"><span class="font-semibold text-slate-300">Bar #' + idx + ' (' + esc(c.time || '') + ')</span><span class="' + (isUp ? 'text-emerald-400' : 'text-rose-400') + ' font-bold">' + (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%</span></div>' +
+                    '<div class="grid grid-cols-2 gap-x-2 text-[8px] text-slate-300">' +
+                        '<div>O: <b class="text-white">' + Number(c.open).toFixed(2) + '</b></div>' +
+                        '<div>H: <b class="text-white">' + Number(c.high).toFixed(2) + '</b></div>' +
+                        '<div>L: <b class="text-white">' + Number(c.low).toFixed(2) + '</b></div>' +
+                        '<div>C: <b class="text-white">' + Number(c.close).toFixed(2) + '</b></div>' +
+                    '</div>' +
+                    '<div class="text-[7.5px] text-cyan-400/80 italic text-right pt-0.5">Click marker to pin trade details</div>' +
+                '</div>';
+        }
+
         /* ===== HIGH-DPI CANDLESTICK CANVAS RENDERER ===== */
         function drawCandlestickCanvas() {
             var canvas = document.getElementById('terminalCandleCanvas');
@@ -3041,7 +4068,7 @@
             var h = rect.height;
             var topPadding = 15;
             var bottomPadding = 25;
-            var rightPadding = 55;
+            var rightPadding = 60;
             var chartH = (h - topPadding - bottomPadding) * 0.75;
             var volH = (h - topPadding - bottomPadding) * 0.22;
             var volTop = topPadding + chartH + 8;
@@ -3096,7 +4123,8 @@
                 ctx.fillStyle = '#64748b';
                 ctx.font = '9px "JetBrains Mono", monospace';
                 ctx.textAlign = 'left';
-                ctx.fillText(pVal.toFixed(2), w - rightPadding + 5, py + 3);
+                ctx.textBaseline = 'middle';
+                ctx.fillText(pVal.toFixed(2), w - rightPadding + 5, py);
             }
 
             // 2. Draw Volume Bars
@@ -3160,7 +4188,8 @@
             drawIndicatorLine('ema_21', '#f59e0b', 1.5);  // Amber
             drawIndicatorLine('vwap', '#c084fc', 1.2);    // Purple
 
-            // 5. Draw Execution Markers (BUY / SELL Tags)
+            // 5. Draw Execution Markers (BUY / SELL Tags) with Interactive Hit Boundaries
+            markerHitBoxes = [];
             if (activeMarkers && activeMarkers.length) {
                 activeMarkers.forEach(function(m) {
                     var idx = m.candle_index;
@@ -3168,23 +4197,50 @@
                     var cx = 10 + idx * candleGap + candleGap / 2;
                     var cy = getY(m.price);
                     var isBuy = m.side === 'BUY';
+                    var isHovered = (activeHoverMarker && (activeHoverMarker.id === m.id || String(activeHoverMarker.id).replace('#','') === String(m.id).replace('#','')));
 
                     ctx.save();
                     if (isBuy) {
-                        // Tag below candle
                         var tagY = cy + 18;
-                        ctx.fillStyle = 'rgba(16, 185, 129, 0.9)';
-                        ctx.strokeStyle = '#34d399';
-                        ctx.lineWidth = 1;
-                        var tagText = 'B #' + m.id.slice(-4) + ' ' + (m.bps || '-0.2 bps');
+                        var tagText = 'B #' + String(m.id).replace('#','').slice(-4) + ' ' + (m.bps || '-0.2 bps');
                         ctx.font = 'bold 8.5px "JetBrains Mono", monospace';
                         var tw = ctx.measureText(tagText).width;
-                        ctx.beginPath();
-                        ctx.roundRect(cx - tw / 2 - 4, tagY, tw + 8, 14, 3);
-                        ctx.fill();
-                        ctx.stroke();
+                        var tagW = tw + 10;
+                        var tagH = 15;
+                        var tagX = cx - tagW / 2;
+
+                        markerHitBoxes.push({
+                            marker: m,
+                            candle: activeCandles[idx],
+                            candle_index: idx,
+                            cx: cx,
+                            cy: cy,
+                            tagX: tagX,
+                            tagY: tagY,
+                            tagW: tagW,
+                            tagH: tagH,
+                            isBuy: true
+                        });
+
+                        // Anchor point halo when hovered
+                        if (isHovered) {
+                            ctx.beginPath();
+                            ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+                            ctx.fillStyle = 'rgba(16, 185, 129, 0.35)';
+                            ctx.fill();
+                            ctx.lineWidth = 1.5;
+                            ctx.strokeStyle = '#34d399';
+                            ctx.stroke();
+
+                            ctx.beginPath();
+                            ctx.arc(cx, cy, 14, 0, Math.PI * 2);
+                            ctx.strokeStyle = 'rgba(52, 211, 153, 0.5)';
+                            ctx.lineWidth = 1;
+                            ctx.stroke();
+                        }
 
                         // Arrow pointer
+                        ctx.fillStyle = isHovered ? '#34d399' : 'rgba(16, 185, 129, 0.95)';
                         ctx.beginPath();
                         ctx.moveTo(cx, cy + 4);
                         ctx.lineTo(cx - 4, tagY);
@@ -3192,68 +4248,229 @@
                         ctx.closePath();
                         ctx.fill();
 
-                        ctx.fillStyle = '#0f172a';
-                        ctx.textAlign = 'center';
-                        ctx.fillText(tagText, cx, tagY + 10);
-                    } else {
-                        // Tag above candle
-                        var tagY = cy - 22;
-                        ctx.fillStyle = 'rgba(244, 63, 94, 0.9)';
-                        ctx.strokeStyle = '#fb7185';
-                        ctx.lineWidth = 1;
-                        var tagText = 'S #' + m.id.slice(-4) + ' ' + (m.bps || '-0.3 bps');
-                        ctx.font = 'bold 8.5px "JetBrains Mono", monospace';
-                        var tw = ctx.measureText(tagText).width;
+                        // Tag Box
                         ctx.beginPath();
-                        ctx.roundRect(cx - tw / 2 - 4, tagY, tw + 8, 14, 3);
+                        ctx.roundRect(tagX, tagY, tagW, tagH, 3);
+                        ctx.fillStyle = isHovered ? 'rgba(5, 150, 105, 0.95)' : 'rgba(16, 185, 129, 0.9)';
                         ctx.fill();
+                        ctx.lineWidth = isHovered ? 2 : 1;
+                        ctx.strokeStyle = isHovered ? '#ffffff' : '#34d399';
+                        if (isHovered) {
+                            ctx.shadowColor = '#10b981';
+                            ctx.shadowBlur = 10;
+                        }
                         ctx.stroke();
 
+                        ctx.shadowBlur = 0;
+                        ctx.fillStyle = isHovered ? '#ffffff' : '#042f2e';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(tagText, cx, tagY + tagH / 2);
+                    } else {
+                        var tagY = cy - 23;
+                        var tagText = 'S #' + String(m.id).replace('#','').slice(-4) + ' ' + (m.bps || '-0.3 bps');
+                        ctx.font = 'bold 8.5px "JetBrains Mono", monospace';
+                        var tw = ctx.measureText(tagText).width;
+                        var tagW = tw + 10;
+                        var tagH = 15;
+                        var tagX = cx - tagW / 2;
+
+                        markerHitBoxes.push({
+                            marker: m,
+                            candle: activeCandles[idx],
+                            candle_index: idx,
+                            cx: cx,
+                            cy: cy,
+                            tagX: tagX,
+                            tagY: tagY,
+                            tagW: tagW,
+                            tagH: tagH,
+                            isBuy: false
+                        });
+
+                        if (isHovered) {
+                            ctx.beginPath();
+                            ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+                            ctx.fillStyle = 'rgba(244, 63, 94, 0.35)';
+                            ctx.fill();
+                            ctx.lineWidth = 1.5;
+                            ctx.strokeStyle = '#fb7185';
+                            ctx.stroke();
+
+                            ctx.beginPath();
+                            ctx.arc(cx, cy, 14, 0, Math.PI * 2);
+                            ctx.strokeStyle = 'rgba(251, 113, 133, 0.5)';
+                            ctx.lineWidth = 1;
+                            ctx.stroke();
+                        }
+
                         // Arrow pointer
+                        ctx.fillStyle = isHovered ? '#fb7185' : 'rgba(244, 63, 94, 0.95)';
                         ctx.beginPath();
                         ctx.moveTo(cx, cy - 4);
-                        ctx.lineTo(cx - 4, tagY + 14);
-                        ctx.lineTo(cx + 4, tagY + 14);
+                        ctx.lineTo(cx - 4, tagY + tagH);
+                        ctx.lineTo(cx + 4, tagY + tagH);
                         ctx.closePath();
                         ctx.fill();
 
+                        // Tag Box
+                        ctx.beginPath();
+                        ctx.roundRect(tagX, tagY, tagW, tagH, 3);
+                        ctx.fillStyle = isHovered ? 'rgba(225, 29, 72, 0.95)' : 'rgba(244, 63, 94, 0.9)';
+                        ctx.fill();
+                        ctx.lineWidth = isHovered ? 2 : 1;
+                        ctx.strokeStyle = isHovered ? '#ffffff' : '#fb7185';
+                        if (isHovered) {
+                            ctx.shadowColor = '#f43f5e';
+                            ctx.shadowBlur = 10;
+                        }
+                        ctx.stroke();
+
+                        ctx.shadowBlur = 0;
                         ctx.fillStyle = '#ffffff';
                         ctx.textAlign = 'center';
-                        ctx.fillText(tagText, cx, tagY + 10);
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(tagText, cx, tagY + tagH / 2);
                     }
                     ctx.restore();
                 });
             }
 
-            // 6. Draw Hover Crosshair if mouse active
+            // 6. Draw Synced Hover Crosshair & Highlights if active
             if (activeHoverCandle) {
-                var hcx = 10 + activeHoverCandle.index * candleGap + candleGap / 2;
-                var hcy = getY(activeHoverCandle.candle.close);
+                var cIdx = activeHoverCandle.index;
+                if (cIdx >= 0 && cIdx < activeCandles.length) {
+                    var hcx = 10 + cIdx * candleGap + candleGap / 2;
+                    var candle = activeCandles[cIdx];
+                    var mHover = activeHoverMarker || (activeMarkers ? activeMarkers.find(function(m) { return m.candle_index === cIdx; }) : null);
 
-                ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
-                ctx.setLineDash([3, 3]);
-                ctx.lineWidth = 1;
+                    var hcy;
+                    if (mHover) {
+                        hcy = getY(mHover.price);
+                    } else if (activeHoverCandle.y != null) {
+                        hcy = Math.max(topPadding, Math.min(topPadding + chartH, activeHoverCandle.y));
+                    } else {
+                        hcy = getY(candle.close);
+                    }
 
-                // Vertical crosshair line
-                ctx.beginPath();
-                ctx.moveTo(hcx, topPadding);
-                ctx.lineTo(hcx, h - bottomPadding);
-                ctx.stroke();
+                    // A. Highlight Candle Column Band
+                    ctx.fillStyle = mHover 
+                        ? (mHover.side === 'BUY' ? 'rgba(16, 185, 129, 0.14)' : 'rgba(244, 63, 94, 0.14)')
+                        : 'rgba(56, 189, 248, 0.08)';
+                    ctx.fillRect(hcx - candleGap / 2, topPadding, candleGap, chartH + volH + 8);
 
-                // Horizontal crosshair line
-                ctx.beginPath();
-                ctx.moveTo(10, hcy);
-                ctx.lineTo(w - rightPadding, hcy);
-                ctx.stroke();
-                ctx.setLineDash([]);
+                    // B. Vertical Crosshair Line
+                    ctx.save();
+                    ctx.strokeStyle = mHover 
+                        ? (mHover.side === 'BUY' ? '#34d399' : '#fb7185') 
+                        : 'rgba(56, 189, 248, 0.5)';
+                    ctx.setLineDash([3, 3]);
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(hcx, topPadding);
+                    ctx.lineTo(hcx, topPadding + chartH + volH + 8);
+                    ctx.stroke();
+
+                    // C. Horizontal Crosshair Line
+                    ctx.beginPath();
+                    ctx.moveTo(10, hcy);
+                    ctx.lineTo(w - rightPadding, hcy);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    ctx.restore();
+
+                    // D. Bottom Time Badge on X-Axis
+                    var timeTxt = candle.time || '';
+                    if (timeTxt) {
+                        ctx.font = 'bold 8.5px "JetBrains Mono", monospace';
+                        var timeTw = ctx.measureText(timeTxt).width;
+                        var timeW = timeTw + 10;
+                        var timeH = 14;
+                        var tbx = hcx - timeW / 2;
+                        var tby = topPadding + chartH + volH + 10;
+                        ctx.fillStyle = '#0f172a';
+                        ctx.fillRect(tbx, tby, timeW, timeH);
+                        ctx.strokeStyle = mHover ? (mHover.side === 'BUY' ? '#10b981' : '#f43f5e') : '#38bdf8';
+                        ctx.lineWidth = 1;
+                        ctx.strokeRect(tbx, tby, timeW, timeH);
+                        ctx.fillStyle = '#ffffff';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(timeTxt, hcx, tby + timeH / 2);
+                    }
+
+                    // E. Right Price Badge on Y-Axis
+                    var priceVal = mHover ? mHover.price : (minPrice + ((topPadding + chartH - hcy) / chartH) * priceRange);
+                    var priceTxt = (mHover ? (mHover.side === 'BUY' ? 'BUY ' : 'SELL ') : '') + priceVal.toFixed(2);
+                    ctx.font = 'bold 8.5px "JetBrains Mono", monospace';
+                    var pTw = ctx.measureText(priceTxt).width;
+                    var pW = pTw + 8;
+                    var pH = 14;
+                    var pbx = w - rightPadding + 2;
+                    var pby = hcy - pH / 2;
+                    ctx.fillStyle = mHover ? (mHover.side === 'BUY' ? '#059669' : '#e11d48') : '#0284c7';
+                    ctx.fillRect(pbx, pby, pW, pH);
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(pbx, pby, pW, pH);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(priceTxt, pbx + 4, pby + pH / 2);
+                }
             }
         }
 
-        // Setup Canvas Mousemove Tooltip & Crosshair
+        // Setup Canvas Mousemove Tooltip, Synced Crosshair, and Clickable Interactive Markers
         (function setupCanvasInteractions() {
             var canvas = document.getElementById('terminalCandleCanvas');
             var tip = document.getElementById('candle-tooltip');
             if (!canvas) return;
+
+            // Click listener for interactive markers & pinned detail card
+            canvas.addEventListener('click', function(e) {
+                if (!activeCandles || !activeCandles.length) return;
+                var rect = canvas.getBoundingClientRect();
+                var mouseX = e.clientX - rect.left;
+                var mouseY = e.clientY - rect.top;
+
+                // 1. Check if clicking directly on a marker hit box (tag or anchor circle)
+                var clickedMarkerBox = null;
+                for (var i = 0; i < markerHitBoxes.length; i++) {
+                    var box = markerHitBoxes[i];
+                    var inTag = (mouseX >= box.tagX && mouseX <= box.tagX + box.tagW && mouseY >= box.tagY && mouseY <= box.tagY + box.tagH);
+                    var distAnchor = Math.hypot(mouseX - box.cx, mouseY - box.cy);
+                    if (inTag || distAnchor <= 18) {
+                        clickedMarkerBox = box;
+                        break;
+                    }
+                }
+
+                if (clickedMarkerBox) {
+                    showClickedMarkerDetails(clickedMarkerBox.marker, clickedMarkerBox.candle, clickedMarkerBox.candle_index, clickedMarkerBox.cx, clickedMarkerBox.cy);
+                    return;
+                }
+
+                // 2. Check if clicking on a candle column that contains an execution marker
+                var plotWidth = rect.width - 65;
+                var numCandles = activeCandles.length;
+                var candleGap = plotWidth / numCandles;
+                var idx = Math.floor((mouseX - 10) / candleGap);
+
+                if (idx >= 0 && idx < numCandles) {
+                    var candleMarker = activeMarkers ? activeMarkers.find(function(item) { return item.candle_index === idx; }) : null;
+                    if (candleMarker) {
+                        var cx = 10 + idx * candleGap + candleGap / 2;
+                        showClickedMarkerDetails(candleMarker, activeCandles[idx], idx, cx, mouseY);
+                        return;
+                    }
+                }
+
+                // 3. Clicked on chart background / empty space: close pinned details if open
+                if (activeClickedMarker) {
+                    closeClickedMarker();
+                }
+            });
 
             canvas.addEventListener('mousemove', function(e) {
                 if (!activeCandles || !activeCandles.length) return;
@@ -3261,6 +4478,37 @@
                 var mouseX = e.clientX - rect.left;
                 var mouseY = e.clientY - rect.top;
 
+                // 1. Check if hovering directly over an execution marker tag or anchor point
+                var hitMarkerBox = null;
+                for (var i = 0; i < markerHitBoxes.length; i++) {
+                    var box = markerHitBoxes[i];
+                    var inTag = (mouseX >= box.tagX && mouseX <= box.tagX + box.tagW && mouseY >= box.tagY && mouseY <= box.tagY + box.tagH);
+                    var distAnchor = Math.hypot(mouseX - box.cx, mouseY - box.cy);
+                    if (inTag || distAnchor <= 16) {
+                        hitMarkerBox = box;
+                        break;
+                    }
+                }
+
+                if (hitMarkerBox) {
+                    var m = hitMarkerBox.marker;
+                    var idx = hitMarkerBox.candle_index;
+                    var c = hitMarkerBox.candle;
+
+                    activeHoverMarker = m;
+                    activeHoverCandle = { index: idx, candle: c, x: hitMarkerBox.cx, y: hitMarkerBox.cy, marker: m };
+                    canvas.style.cursor = 'pointer';
+
+                    highlightOhlcData(c, m);
+                    drawCandlestickCanvas();
+                    if (!activeClickedMarker) {
+                        renderMarkerTooltip(m, c, idx, hitMarkerBox.cx, hitMarkerBox.cy);
+                    }
+                    highlightPillsAndFills(m.id);
+                    return;
+                }
+
+                // 2. Otherwise check candle column hover
                 var plotWidth = rect.width - 65;
                 var numCandles = activeCandles.length;
                 var candleGap = plotWidth / numCandles;
@@ -3268,27 +4516,70 @@
 
                 if (idx >= 0 && idx < numCandles) {
                     var c = activeCandles[idx];
-                    activeHoverCandle = { index: idx, candle: c, x: mouseX, y: mouseY };
-                    drawCandlestickCanvas();
+                    var candleMarker = activeMarkers ? activeMarkers.find(function(item) { return item.candle_index === idx; }) : null;
 
-                    if (tip) {
-                        tip.classList.remove('hidden');
-                        tip.style.left = Math.min(rect.width - 160, Math.max(10, mouseX + 15)) + 'px';
-                        tip.style.top = Math.min(rect.height - 110, Math.max(10, mouseY - 40)) + 'px';
-                        var isUp = c.close >= c.open;
-                        tip.innerHTML = '<div class="font-bold ' + (isUp ? 'text-emerald-400' : 'text-rose-400') + '">' + esc(c.time) + '</div>' +
-                            '<div>O: <b class="text-white">' + c.open.toFixed(2) + '</b> H: <b class="text-white">' + c.high.toFixed(2) + '</b></div>' +
-                            '<div>L: <b class="text-white">' + c.low.toFixed(2) + '</b> C: <b class="text-white">' + c.close.toFixed(2) + '</b></div>' +
-                            '<div class="text-[9px] text-muted">EMA9: ' + (c.ema_9 ? c.ema_9.toFixed(1) : '-') + ' | VWAP: ' + (c.vwap ? c.vwap.toFixed(1) : '-') + '</div>' +
-                            '<div class="text-[9px] text-muted">Vol: ' + c.volume.toLocaleString() + '</div>';
+                    if (candleMarker) {
+                        // Marker is on this candle column
+                        activeHoverMarker = candleMarker;
+                        activeHoverCandle = { index: idx, candle: c, x: mouseX, y: mouseY, marker: candleMarker };
+                        canvas.style.cursor = 'pointer';
+                        highlightOhlcData(c, candleMarker);
+                        drawCandlestickCanvas();
+                        if (!activeClickedMarker) {
+                            renderMarkerTooltip(candleMarker, c, idx, mouseX, mouseY);
+                        }
+                        highlightPillsAndFills(candleMarker.id);
+                    } else {
+                        // Regular candle hover
+                        if (!activeClickedMarker) {
+                            activeHoverMarker = null;
+                            activeHoverCandle = { index: idx, candle: c, x: mouseX, y: mouseY };
+                            canvas.style.cursor = 'crosshair';
+                            highlightOhlcData(c, null);
+                            drawCandlestickCanvas();
+                            clearPillsAndFillsHighlights();
+
+                            if (tip) {
+                                tip.classList.remove('hidden');
+                                var tipWidth = 200;
+                                var left = Math.min(rect.width - tipWidth, Math.max(10, mouseX + 15));
+                                var top = Math.min(rect.height - 110, Math.max(10, mouseY - 40));
+                                tip.style.left = left + 'px';
+                                tip.style.top = top + 'px';
+                                var isUp = c.close >= c.open;
+                                var chg = +(((c.close - c.open) / (c.open || 1)) * 100);
+                                tip.innerHTML = 
+                                    '<div class="flex items-center justify-between pb-1 border-b border-slate-700/60 font-bold ' + (isUp ? 'text-emerald-400' : 'text-rose-400') + '">' +
+                                        '<span>' + esc(c.time || '') + '</span>' +
+                                        '<span class="text-[9px]">' + (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%</span>' +
+                                    '</div>' +
+                                    '<div class="pt-1 grid grid-cols-2 gap-x-2 text-[9.5px] text-slate-200">' +
+                                        '<div>O: <b class="text-white">' + Number(c.open).toFixed(2) + '</b></div>' +
+                                        '<div>H: <b class="text-white">' + Number(c.high).toFixed(2) + '</b></div>' +
+                                        '<div>L: <b class="text-white">' + Number(c.low).toFixed(2) + '</b></div>' +
+                                        '<div>C: <b class="text-white">' + Number(c.close).toFixed(2) + '</b></div>' +
+                                    '</div>' +
+                                    '<div class="pt-1 text-[8.5px] text-muted flex justify-between">' +
+                                        '<span>EMA9: ' + (c.ema_9 != null ? Number(c.ema_9).toFixed(1) : '-') + '</span>' +
+                                        '<span>VWAP: ' + (c.vwap != null ? Number(c.vwap).toFixed(1) : '-') + '</span>' +
+                                        '<span>Vol: ' + Number(c.volume || 0).toLocaleString() + '</span>' +
+                                    '</div>';
+                            }
+                        }
                     }
                 }
             });
 
             canvas.addEventListener('mouseleave', function() {
-                activeHoverCandle = null;
                 if (tip) tip.classList.add('hidden');
-                drawCandlestickCanvas();
+                if (!activeClickedMarker) {
+                    activeHoverCandle = null;
+                    activeHoverMarker = null;
+                    canvas.style.cursor = 'crosshair';
+                    restoreOhlcData();
+                    clearPillsAndFillsHighlights();
+                    drawCandlestickCanvas();
+                }
             });
 
             window.addEventListener('resize', function() {
@@ -4989,6 +6280,7 @@
         /* ===== POLLING ===== */
         function pollAll() {
             fetchState(); fetchLogs();
+            pollPriceAlerts();
             var activeTab = document.querySelector('.tab-btn[active]');
             if (!activeTab) return;
             var t = activeTab.dataset.tab;
@@ -5007,6 +6299,9 @@
         setInterval(function(){ document.getElementById('clock').textContent = new Date().toTimeString().slice(0,8); }, 1000);
         renderCriticalEventsHistory();
         applyRadarDensity();
+        setupTerminalTableSorting();
+        renderPriceAlertsUI();
+        setInterval(pollPriceAlerts, 4000);
 
         // Restore active tab from LocalStorage if available
         var savedActiveTab = localStorage.getItem('sniper_active_tab');
@@ -5018,13 +6313,18 @@
         }
 
         fetchState(); fetchLogs(); fetchTerminalOverview(); fetchTrades(); fetchBlocked(); fetchExecStats(); fetchEquity(); fetchIntelligence(); fetchCorrelation(); fetchRegimes(); fetchConfigEnv();
+        pollPriceAlerts();
         setInterval(pollAll, 5000);
         refreshIcons();
         window.addEventListener('DOMContentLoaded', function() {
             refreshIcons();
+            setupTerminalTableSorting();
+            renderPriceAlertsUI();
         });
         window.addEventListener('load', function() {
             refreshIcons();
+            setupTerminalTableSorting();
+            renderPriceAlertsUI();
         });
     </script>
 </body>
