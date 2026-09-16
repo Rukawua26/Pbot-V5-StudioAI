@@ -7,7 +7,13 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pandas as pd
 
-from core import bot_balance_ops, bot_cycles, bot_main_loop, bot_market_state, market_intelligence
+from core import (
+    bot_balance_ops,
+    bot_cycles,
+    bot_main_loop,
+    bot_market_state,
+    market_intelligence,
+)
 from core.strategy.regime_hmm import DynamicHMMRegime
 
 
@@ -45,7 +51,9 @@ def _build_market_bot(tickers, *, fetch_tickers_error=None):
     brain = SimpleNamespace(
         get_symbol_performance=MagicMock(
             side_effect=lambda sym: (
-                {"wr": 85, "trades": 10} if sym.startswith("ALPHA") else {"wr": 45, "trades": 10}
+                {"wr": 85, "trades": 10}
+                if sym.startswith("ALPHA")
+                else {"wr": 45, "trades": 10}
             )
         ),
         get_symbol_blacklist=MagicMock(return_value=[]),
@@ -53,7 +61,9 @@ def _build_market_bot(tickers, *, fetch_tickers_error=None):
     return SimpleNamespace(
         execution=execution,
         brain=brain,
-        data_service=SimpleNamespace(audit_symbol_maturity=MagicMock(return_value=True)),
+        data_service=SimpleNamespace(
+            audit_symbol_maturity=MagicMock(return_value=True)
+        ),
         risk_engine=SimpleNamespace(
             check_anti_revenge_blacklist=MagicMock(return_value=(True, ""))
         ),
@@ -99,7 +109,9 @@ class MarketIntelligencePipelineTests(unittest.TestCase):
             bot.pairs_to_scan.index("BETA/USDT"),
         )
         self.assertEqual(bot.market_btc_price, 65_000.0)
-        self.assertTrue(any(item["symbol"] == "ALPHA/USDT" for item in bot.scanner_history))
+        self.assertTrue(
+            any(item["symbol"] == "ALPHA/USDT" for item in bot.scanner_history)
+        )
         bot.execution.fetch_tickers.assert_not_called()
 
     @patch.object(market_intelligence.Config, "MAX_REAL_PAIRS", 10)
@@ -135,7 +147,11 @@ class MarketIntelligencePipelineTests(unittest.TestCase):
 
     @patch.object(market_intelligence.Config, "TRIAGE_SPREAD_MAX", 0.002)
     @patch.object(market_intelligence.Config, "TRIAGE_RVOL_EMA_ALPHA", 0.5)
+    @patch.object(market_intelligence.Config, "TRIAGE_MIN_24H_VOL_USD", 50_000_000.0)
     def test_get_active_market_snapshot_builds_ranked_pairs_from_stream_snapshot(self):
+        # ALPHA ($80M) y BETA ($60M) superan el Suelo de Seguridad → deben aparecer.
+        # BULL se filtra por nombre ("BULL" en la lista de exclusión de símbolos).
+        # LOWVOL ($1M) está por debajo de TRIAGE_MIN_24H_VOL_USD=50M → excluido por Capa 1.
         tickers = {
             "ALPHA/USDT": {
                 **_ticker("ALPHA/USDT", volume=80_000_000, price=1.0),
@@ -176,8 +192,10 @@ class MarketIntelligencePipelineTests(unittest.TestCase):
         symbols = [item["symbol"] for item in ranked]
         self.assertIn("ALPHA/USDT", symbols)
         self.assertIn("BETA/USDT", symbols)
+        # BULL excluido por regex de nombre de símbolo
         self.assertNotIn("BULL/USDT", symbols)
-        self.assertIn("LOWVOL/USDT", symbols)
+        # LOWVOL excluido por Capa 1: vol $1M < TRIAGE_MIN_24H_VOL_USD $50M
+        self.assertNotIn("LOWVOL/USDT", symbols)
         alpha = next(item for item in ranked if item["symbol"] == "ALPHA/USDT")
         beta = next(item for item in ranked if item["symbol"] == "BETA/USDT")
         self.assertAlmostEqual(alpha["spread"], 0.001)
@@ -186,7 +204,9 @@ class MarketIntelligencePipelineTests(unittest.TestCase):
 
     @patch.object(market_intelligence.Config, "TOP_TRIAGE_COUNT", 2)
     @patch.object(market_intelligence.Config, "TRIAGE_SPREAD_MAX", 0.002)
-    def test_get_active_market_snapshot_caps_dynamic_pair_list_to_top_triage_count(self):
+    def test_get_active_market_snapshot_caps_dynamic_pair_list_to_top_triage_count(
+        self,
+    ):
         tickers = {
             f"SYM{i}/USDT": {
                 **_ticker(f"SYM{i}/USDT", volume=90_000_000 - i, price=1.0),
@@ -234,7 +254,9 @@ class MarketIntelligencePipelineTests(unittest.TestCase):
     @patch.object(market_intelligence.Config, "TRIAGE_CANDIDATE_POOL_MULTIPLIER", 2)
     @patch.object(market_intelligence.Config, "TRIAGE_MAX_CANDIDATE_POOL", 60)
     def test_candidate_pool_default_sprint4_profile_is_2x_capped_at_60(self):
-        bot = SimpleNamespace(weight_tracker=None, market_regime="UNKNOWN", log=MagicMock())
+        bot = SimpleNamespace(
+            weight_tracker=None, market_regime="UNKNOWN", log=MagicMock()
+        )
 
         self.assertEqual(market_intelligence.get_candidate_pool_limit(bot), 60)
 
@@ -304,7 +326,9 @@ class MarketIntelligencePipelineTests(unittest.TestCase):
                 get_symbol_performance=MagicMock(return_value={"wr": 50, "trades": 0}),
                 get_symbol_blacklist=MagicMock(return_value=[]),
             ),
-            data_service=SimpleNamespace(audit_symbol_maturity=MagicMock(return_value=True)),
+            data_service=SimpleNamespace(
+                audit_symbol_maturity=MagicMock(return_value=True)
+            ),
             risk_engine=SimpleNamespace(
                 check_anti_revenge_blacklist=MagicMock(return_value=(True, ""))
             ),
@@ -337,7 +361,9 @@ class MarketIntelligencePipelineTests(unittest.TestCase):
                 get_symbol_performance=MagicMock(return_value={"wr": 50, "trades": 0}),
                 get_symbol_blacklist=MagicMock(return_value=[]),
             ),
-            data_service=SimpleNamespace(audit_symbol_maturity=MagicMock(return_value=True)),
+            data_service=SimpleNamespace(
+                audit_symbol_maturity=MagicMock(return_value=True)
+            ),
             risk_engine=SimpleNamespace(
                 check_anti_revenge_blacklist=MagicMock(return_value=(True, ""))
             ),
@@ -352,15 +378,23 @@ class MarketIntelligencePipelineTests(unittest.TestCase):
 
         triage_snapshot, _ = bot_cycles.run_triage_cycle(bot)
 
-        self.assertEqual([item["symbol"] for item in triage_snapshot], ["B/USDT", "C/USDT"])
+        self.assertEqual(
+            [item["symbol"] for item in triage_snapshot], ["B/USDT", "C/USDT"]
+        )
         self.assertEqual(bot.pairs_to_scan, ["B/USDT", "C/USDT"])
         bot._get_active_market_snapshot.assert_called_once_with(pool_limit=4)
 
     @patch.object(market_intelligence.Config, "TOP_TRIAGE_COUNT", 2)
     def test_hard_operability_filter_skips_symbol_errors(self):
         snapshot = [
-            {"symbol": "BROKEN/USDT", "ticker": _ticker("BROKEN/USDT", volume=90_000_000)},
-            {"symbol": "HEALTHY/USDT", "ticker": _ticker("HEALTHY/USDT", volume=80_000_000)},
+            {
+                "symbol": "BROKEN/USDT",
+                "ticker": _ticker("BROKEN/USDT", volume=90_000_000),
+            },
+            {
+                "symbol": "HEALTHY/USDT",
+                "ticker": _ticker("HEALTHY/USDT", volume=80_000_000),
+            },
         ]
         bot = SimpleNamespace(
             pairs_to_scan=[],
@@ -369,7 +403,9 @@ class MarketIntelligencePipelineTests(unittest.TestCase):
                 get_symbol_blacklist=MagicMock(return_value=[]),
             ),
             data_service=SimpleNamespace(
-                audit_symbol_maturity=MagicMock(side_effect=[RuntimeError("maturity down"), True])
+                audit_symbol_maturity=MagicMock(
+                    side_effect=[RuntimeError("maturity down"), True]
+                )
             ),
             risk_engine=SimpleNamespace(
                 check_anti_revenge_blacklist=MagicMock(return_value=(True, ""))
@@ -385,14 +421,18 @@ class MarketIntelligencePipelineTests(unittest.TestCase):
         targets = market_intelligence.build_operable_targets(bot, snapshot)
 
         self.assertEqual([item["symbol"] for item in targets], ["HEALTHY/USDT"])
-        bot.log.assert_any_call("⚠️ Error en filtros duros para BROKEN/USDT: maturity down")
+        bot.log.assert_any_call(
+            "⚠️ Error en filtros duros para BROKEN/USDT: maturity down"
+        )
 
     @patch("core.bot_balance_ops.Config.PAPER_MODE", False)
     def test_real_balance_failure_halts_and_raises(self):
         from core.bot_balance_ops import get_current_balance
 
         bot = SimpleNamespace(
-            execution=SimpleNamespace(get_balance=MagicMock(side_effect=RuntimeError("auth down"))),
+            execution=SimpleNamespace(
+                get_balance=MagicMock(side_effect=RuntimeError("auth down"))
+            ),
             log=MagicMock(),
             is_paused=False,
             integrity_lock_active=False,
@@ -421,14 +461,20 @@ class MarketIntelligencePipelineTests(unittest.TestCase):
             check_weekly_maintenance_utc=MagicMock(),
             daily_initial_balance=1000.0,
             balance=1000.0,
-            brain=SimpleNamespace(get_daily_real_pnl=MagicMock(return_value=(0.0, 0.0))),
+            brain=SimpleNamespace(
+                get_daily_real_pnl=MagicMock(return_value=(0.0, 0.0))
+            ),
             check_safety_and_goals=MagicMock(),
             last_radar_update=0,
             _run_market_refresh_cycle=MagicMock(),
-            _run_triage_cycle=MagicMock(return_value=([], {"BTC/USDT": {"last": 65000.0}})),
+            _run_triage_cycle=MagicMock(
+                return_value=([], {"BTC/USDT": {"last": 65000.0}})
+            ),
             last_pm_check=time.time(),
             _perform_post_mortem=MagicMock(),
-            _run_periodic_housekeeping=MagicMock(side_effect=lambda now, a, b, c: (a, b, c)),
+            _run_periodic_housekeeping=MagicMock(
+                side_effect=lambda now, a, b, c: (a, b, c)
+            ),
             _run_btc_panic_cycle=MagicMock(),
             ml_healthy=True,
             pairs_to_scan=[],
@@ -461,7 +507,9 @@ class MarketIntelligencePipelineTests(unittest.TestCase):
             check_weekly_maintenance_utc=MagicMock(),
             daily_initial_balance=1000.0,
             balance=1000.0,
-            brain=SimpleNamespace(get_daily_real_pnl=MagicMock(return_value=(0.0, 0.0))),
+            brain=SimpleNamespace(
+                get_daily_real_pnl=MagicMock(return_value=(0.0, 0.0))
+            ),
             check_safety_and_goals=MagicMock(),
             last_radar_update=0,
             _run_market_refresh_cycle=MagicMock(),
@@ -470,7 +518,9 @@ class MarketIntelligencePipelineTests(unittest.TestCase):
             ),
             last_pm_check=time.time(),
             _perform_post_mortem=MagicMock(),
-            _run_periodic_housekeeping=MagicMock(side_effect=lambda now, a, b, c: (a, b, c)),
+            _run_periodic_housekeeping=MagicMock(
+                side_effect=lambda now, a, b, c: (a, b, c)
+            ),
             _run_btc_panic_cycle=MagicMock(),
             ml_healthy=True,
             pairs_to_scan=["BTC/USDT"],
@@ -526,7 +576,9 @@ class MarketIntelligencePipelineTests(unittest.TestCase):
         self.assertIn("KEEP/USDT", symbols)
         self.assertNotIn("WIDE/USDT", symbols)
         self.assertNotIn("MISSING/USDT", symbols)
-        keep_ticker = next(item["ticker"] for item in ranked if item["symbol"] == "KEEP/USDT")
+        keep_ticker = next(
+            item["ticker"] for item in ranked if item["symbol"] == "KEEP/USDT"
+        )
         self.assertEqual(keep_ticker["last"], 1.0)
         self.assertEqual(keep_ticker["quoteVolume"], 50_000_000.0)
         self.assertNotIn("info", keep_ticker)
@@ -535,7 +587,9 @@ class MarketIntelligencePipelineTests(unittest.TestCase):
 class BalanceOpsPressureTests(unittest.TestCase):
     def test_get_current_balance_returns_cached_balance_on_api_failure(self):
         bot = SimpleNamespace(
-            execution=SimpleNamespace(get_balance=MagicMock(side_effect=RuntimeError("API Error"))),
+            execution=SimpleNamespace(
+                get_balance=MagicMock(side_effect=RuntimeError("API Error"))
+            ),
             available_balance=100.0,
             log=MagicMock(),
         )
@@ -559,7 +613,9 @@ class BalanceOpsPressureTests(unittest.TestCase):
         def _stop_after_first_sleep(_seconds):
             bot.is_running = False
 
-        with patch.object(bot_balance_ops.time, "sleep", side_effect=_stop_after_first_sleep):
+        with patch.object(
+            bot_balance_ops.time, "sleep", side_effect=_stop_after_first_sleep
+        ):
             bot_balance_ops.start_silent_sync(bot)
 
         self.assertEqual(bot.balance, 1_000.0)
@@ -589,7 +645,9 @@ class BalanceOpsPressureTests(unittest.TestCase):
         def _stop_after_first_sleep(_seconds):
             bot.is_running = False
 
-        with patch.object(bot_balance_ops.time, "sleep", side_effect=_stop_after_first_sleep):
+        with patch.object(
+            bot_balance_ops.time, "sleep", side_effect=_stop_after_first_sleep
+        ):
             bot_balance_ops.start_silent_sync(bot)
 
         self.assertEqual(bot.available_balance, 0.0)
