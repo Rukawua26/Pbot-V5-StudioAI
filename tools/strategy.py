@@ -7,6 +7,7 @@ SNIPER AI v118-PRO - STRATEGY ENGINE (MODULAR ARCHITECTURE)
 - Utilidades centralizadas en StrategyUtils
 """
 
+import math
 import numpy as np
 import logging
 from datetime import datetime, timedelta
@@ -149,34 +150,42 @@ class Strategy:
             bias_res = evaluate_bias_1h(df_1h=df_1h_target)
 
             # Capa 2: RVol Adaptativo – vetar par dormido antes de gastar API en 5M/1M
-            if bool(getattr(Config, "TRIAGE_ADAPTIVE_RVOL_ENABLED", True)):
+            # Solo aplicar cuando df_1h es el DataFrame real de 1H (no el fallback base_df)
+            _df_1h_real = (
+                df_1h
+                if df_1h is not None and not getattr(df_1h, "empty", True)
+                else None
+            )
+            if (
+                bool(getattr(Config, "TRIAGE_ADAPTIVE_RVOL_ENABLED", True))
+                and _df_1h_real is not None
+            ):
                 try:
                     min_rvol = float(getattr(Config, "TRIAGE_MIN_RVOL", 0.8) or 0.8)
                     min_1h_vol_usd = float(
                         getattr(Config, "TRIAGE_MIN_1H_VOL_USD", 3_000_000.0)
                         or 3_000_000.0
                     )
-                    if (
-                        df_1h_target is not None
-                        and not getattr(df_1h_target, "empty", True)
-                        and len(df_1h_target) >= 2
-                    ):
-                        last_candle = df_1h_target.iloc[-1]
-                        close_price = float(
-                            last_candle.get("close", last_candle["close"])
-                            if hasattr(last_candle, "get")
-                            else last_candle["close"]
-                        )
-                        vol_base = float(last_candle["volume"])
+                    if len(_df_1h_real) >= 2:
+                        last_candle = _df_1h_real.iloc[-1]
+                        # Acceso directo a pd.Series con guarda contra NaN
+                        close_price = float(last_candle["close"] or 0)
+                        vol_base = float(last_candle["volume"] or 0)
+                        if math.isnan(close_price) or math.isnan(vol_base):
+                            close_price = 0.0
+                            vol_base = 0.0
                         vol_1h = vol_base * close_price
                         # Promedio horario basado en las últimas 24 velas 1H disponibles
-                        recent_24 = df_1h_target.tail(24)
+                        recent_24 = _df_1h_real.tail(24)
+                        hourly_series = recent_24["volume"] * recent_24["close"]
                         avg_hourly = (
-                            (recent_24["volume"] * recent_24["close"]).mean()
+                            float(hourly_series.dropna().mean())
                             if len(recent_24) >= 6
-                            else 1.0
+                            else 0.0
                         )
-                        rvol_1h = vol_1h / avg_hourly if avg_hourly > 0 else 1.0
+                        if avg_hourly <= 0 or math.isnan(avg_hourly):
+                            avg_hourly = 1.0
+                        rvol_1h = vol_1h / avg_hourly
                         if rvol_1h < min_rvol and vol_1h < min_1h_vol_usd:
                             dormant_votos = {
                                 "TTF_1H": 50.0,
