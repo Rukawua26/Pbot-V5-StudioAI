@@ -52,9 +52,7 @@ def _resolve_signal_from_agents(
     if not bool(getattr(Config, "SIGNAL_AGENT_OVERRIDE_ENABLED", True)):
         return base_signal, 0.0, False
 
-    override_threshold = float(
-        getattr(Config, "SIGNAL_AGENT_OVERRIDE_THRESHOLD", 15.0)
-    )
+    override_threshold = float(getattr(Config, "SIGNAL_AGENT_OVERRIDE_THRESHOLD", 15.0))
 
     # Convertir cada voto a dirección (-100 a +100)
     directional: dict[str, float] = {}
@@ -62,9 +60,7 @@ def _resolve_signal_from_agents(
         directional[agent] = (float(vote) - 50.0) * 2.0
 
     # Promedio ponderado
-    weighted_dir = sum(
-        directional[a] * weights.get(a, 0.0) for a in votes
-    )
+    weighted_dir = sum(directional[a] * weights.get(a, 0.0) for a in votes)
 
     # Decidir dirección
     if weighted_dir >= override_threshold:
@@ -129,20 +125,98 @@ class Strategy:
                 cls._inmature_blacklist.pop(symbol, None)
 
         # Dispatch para nueva estrategia Triple Timeframe (1H / 5M / 1M)
-        strategy_engine = str(getattr(Config, "STRATEGY_ENGINE", "triple_tf") or "triple_tf").lower()
+        strategy_engine = str(
+            getattr(Config, "STRATEGY_ENGINE", "triple_tf") or "triple_tf"
+        ).lower()
         if strategy_engine == "triple_tf":
             from core.strategy.triple_tf.bias_1h import evaluate_bias_1h
             from core.strategy.triple_tf.structure_5m import evaluate_structure_5m
             from core.strategy.triple_tf.trigger_1m import evaluate_trigger_1m
 
-            data_service = kwargs.get("data_service") or getattr(brain_instance, "data_service", None)
-            df_1h_target = df_1h if df_1h is not None and not getattr(df_1h, "empty", True) else base_df
+            data_service = kwargs.get("data_service") or getattr(
+                brain_instance, "data_service", None
+            )
+            df_1h_target = (
+                df_1h
+                if df_1h is not None and not getattr(df_1h, "empty", True)
+                else base_df
+            )
             df_5m = kwargs.get("df_5m")
             df_1m = kwargs.get("df_1m")
             spread_val = float(kwargs.get("spread", 0.0) or 0.0)
 
             # Paso 1: Evaluar Sesgo en 1H
             bias_res = evaluate_bias_1h(df_1h=df_1h_target)
+
+            # Capa 2: RVol Adaptativo – vetar par dormido antes de gastar API en 5M/1M
+            if bool(getattr(Config, "TRIAGE_ADAPTIVE_RVOL_ENABLED", True)):
+                try:
+                    min_rvol = float(getattr(Config, "TRIAGE_MIN_RVOL", 0.8) or 0.8)
+                    min_1h_vol_usd = float(
+                        getattr(Config, "TRIAGE_MIN_1H_VOL_USD", 3_000_000.0)
+                        or 3_000_000.0
+                    )
+                    if (
+                        df_1h_target is not None
+                        and not getattr(df_1h_target, "empty", True)
+                        and len(df_1h_target) >= 2
+                    ):
+                        last_candle = df_1h_target.iloc[-1]
+                        close_price = float(
+                            last_candle.get("close", last_candle["close"])
+                            if hasattr(last_candle, "get")
+                            else last_candle["close"]
+                        )
+                        vol_base = float(last_candle["volume"])
+                        vol_1h = vol_base * close_price
+                        # Promedio horario basado en las últimas 24 velas 1H disponibles
+                        recent_24 = df_1h_target.tail(24)
+                        avg_hourly = (
+                            (recent_24["volume"] * recent_24["close"]).mean()
+                            if len(recent_24) >= 6
+                            else 1.0
+                        )
+                        rvol_1h = vol_1h / avg_hourly if avg_hourly > 0 else 1.0
+                        if rvol_1h < min_rvol and vol_1h < min_1h_vol_usd:
+                            dormant_votos = {
+                                "TTF_1H": 50.0,
+                                "TTF_5M": 50.0,
+                                "RVOL": 0.0,
+                            }
+                            dormant_telemetry = {
+                                "regime": "VOL_DORMIDO",
+                                "reason": (
+                                    f"VOL_DORMIDO: RVol={rvol_1h:.2f}x < {min_rvol}x "
+                                    f"y vol_1h=${vol_1h:,.0f} < ${min_1h_vol_usd:,.0f}"
+                                ),
+                                "bias_1h": bias_res.bias,
+                                "setup_5m_valid": False,
+                                "trigger_1m_ready": False,
+                                "stop_loss": 0.0,
+                                "votos": dormant_votos,
+                                "rvol_1h": rvol_1h,
+                                "vol_1h_usd": vol_1h,
+                                "ttf_metrics": {"bias_1h": bias_res.__dict__},
+                                "atr_pct": 0.01,
+                                "adx": 0.0,
+                                "rsi": {"val": 50.0},
+                                "trend": "RANGE",
+                                "base_trend": "DOWN",
+                                "agent_direction_score": 0.0,
+                                "agent_signal_override": False,
+                                "agent_signal_resolved": "WAIT",
+                            }
+                            return (
+                                "NEUTRAL",
+                                "NONE",
+                                precio,
+                                0.0,
+                                dormant_telemetry,
+                                dormant_votos,
+                            )
+                except Exception:
+                    pass  # Si falla el cálculo de RVol, continuar sin vetar
+
             if bias_res.bias not in {"BUY", "SELL"}:
                 # Retorno temprano: si 1H es NEUTRAL, evitamos llamadas a 5M y 1M para ahorrar API
                 votos = {"TTF_1H": 50.0, "TTF_5M": 50.0}
@@ -167,9 +241,13 @@ class Strategy:
                 return "WAIT", "NONE", precio, 0.0, telemetry, votos
 
             # Paso 2: Si 1H es direccional (BUY o SELL), obtener y evaluar 5M
-            if (df_5m is None or getattr(df_5m, "empty", True)) and data_service is not None:
+            if (
+                df_5m is None or getattr(df_5m, "empty", True)
+            ) and data_service is not None:
                 try:
-                    df_5m = data_service.fetch_and_update_data(symbol, "5m", fast_mode=True)
+                    df_5m = data_service.fetch_and_update_data(
+                        symbol, "5m", fast_mode=True
+                    )
                 except Exception:
                     df_5m = None
 
@@ -204,9 +282,13 @@ class Strategy:
                 return "WAIT", "NONE", precio, 40.0, telemetry, votos
 
             # Paso 3: Si 5M confirmó setup, obtener y evaluar 1M para el gatillo
-            if (df_1m is None or getattr(df_1m, "empty", True)) and data_service is not None:
+            if (
+                df_1m is None or getattr(df_1m, "empty", True)
+            ) and data_service is not None:
                 try:
-                    df_1m = data_service.fetch_and_update_data(symbol, "1m", fast_mode=True)
+                    df_1m = data_service.fetch_and_update_data(
+                        symbol, "1m", fast_mode=True
+                    )
                 except Exception:
                     df_1m = None
 
@@ -248,14 +330,20 @@ class Strategy:
                 "rsi": {"val": 50.0},
                 "trend": "UP" if bias_res.bias == "BUY" else "DOWN",
                 "base_trend": "UP" if bias_res.bias == "BUY" else "DOWN",
-                "agent_direction_score": 50.0 if sig == "BUY" else (-50.0 if sig == "SELL" else 0.0),
+                "agent_direction_score": 50.0
+                if sig == "BUY"
+                else (-50.0 if sig == "SELL" else 0.0),
                 "agent_signal_override": False,
                 "agent_signal_resolved": sig,
             }
             exec_price = float(
                 trigger_res.entry_price
                 if trigger_res.entry_price > 0
-                else (df_1m["close"].iloc[-1] if df_1m is not None and len(df_1m) > 0 else precio)
+                else (
+                    df_1m["close"].iloc[-1]
+                    if df_1m is not None and len(df_1m) > 0
+                    else precio
+                )
             )
             return sig, "NONE", exec_price, conf, telemetry, votos
 
@@ -338,8 +426,8 @@ class Strategy:
         # 6. Filtros finales (Sello Institucional 1H)
         score_final = max(0.0, min(100.0, score_final))
 
-        signal, agent_direction_score, agent_signal_override = _resolve_signal_from_agents(
-            votos, agent_weights, base_trend
+        signal, agent_direction_score, agent_signal_override = (
+            _resolve_signal_from_agents(votos, agent_weights, base_trend)
         )
 
         # Veto direccional macro 4H (duro, no suma puntaje)

@@ -17,7 +17,11 @@ def get_effective_triage_count(bot):
     try:
         if getattr(bot, "market_regime", "UNKNOWN") == "BEAR_TREND":
             bear_max = max(
-                1, int(getattr(Config, "BEAR_TREND_MAX_PAIRS", target_count) or target_count)
+                1,
+                int(
+                    getattr(Config, "BEAR_TREND_MAX_PAIRS", target_count)
+                    or target_count
+                ),
             )
             return min(target_count, bear_max)
     except Exception:
@@ -27,8 +31,12 @@ def get_effective_triage_count(bot):
 
 def get_candidate_pool_limit(bot):
     target_count = get_effective_triage_count(bot)
-    multiplier = max(1, int(getattr(Config, "TRIAGE_CANDIDATE_POOL_MULTIPLIER", 2) or 2))
-    max_pool = max(target_count, int(getattr(Config, "TRIAGE_MAX_CANDIDATE_POOL", 60) or 60))
+    multiplier = max(
+        1, int(getattr(Config, "TRIAGE_CANDIDATE_POOL_MULTIPLIER", 2) or 2)
+    )
+    max_pool = max(
+        target_count, int(getattr(Config, "TRIAGE_MAX_CANDIDATE_POOL", 60) or 60)
+    )
 
     if hasattr(bot, "weight_tracker") and bot.weight_tracker:
         try:
@@ -48,7 +56,9 @@ def _compact_ticker(ticker, vol_24h=None, last=None):
     """Keep only fields consumed downstream; CCXT raw tickers retain large info blobs."""
     compact = {
         "last": float(last if last is not None else ticker.get("last", 0) or 0),
-        "quoteVolume": float(vol_24h if vol_24h is not None else ticker.get("quoteVolume", 0) or 0),
+        "quoteVolume": float(
+            vol_24h if vol_24h is not None else ticker.get("quoteVolume", 0) or 0
+        ),
     }
     for key in ("ask", "bid", "markPrice", "percentage"):
         value = ticker.get(key)
@@ -87,7 +97,11 @@ def apply_hard_operability_filters(bot, snapshot):
 
         if bot.restricted_sectors:
             sector = next(
-                (k for k, v in Config.SECTORS.items() if any(s.lower() in base.lower() for s in v)),
+                (
+                    k
+                    for k, v in Config.SECTORS.items()
+                    if any(s.lower() in base.lower() for s in v)
+                ),
                 "OTHE",
             )
             if sector in bot.restricted_sectors:
@@ -102,7 +116,9 @@ def apply_hard_operability_filters(bot, snapshot):
             continue
 
         if not is_safe:
-            bot.log(f"🚫 [v118] ANTI-REVENGE: {symbol} bloqueado temporalmente: {ar_reason}")
+            bot.log(
+                f"🚫 [v118] ANTI-REVENGE: {symbol} bloqueado temporalmente: {ar_reason}"
+            )
             continue
 
         try:
@@ -177,7 +193,9 @@ def apply_tactical_priority(bot, candidates):
             item for item in prioritized if item["symbol"].split("/")[0] in preferred
         ]
         other_items = [
-            item for item in prioritized if item["symbol"].split("/")[0] not in preferred
+            item
+            for item in prioritized
+            if item["symbol"].split("/")[0] not in preferred
         ]
         prioritized = preferred_items + other_items
         if preferred_items:
@@ -206,7 +224,11 @@ def seed_targets_state(bot, targets, snapshot):
                 continue
             base = symbol.split("/")[0]
             sector = next(
-                (k for k, v in Config.SECTORS.items() if any(s.lower() in base.lower() for s in v)),
+                (
+                    k
+                    for k, v in Config.SECTORS.items()
+                    if any(s.lower() in base.lower() for s in v)
+                ),
                 "OTHE",
             )
             item = snapshot_by_symbol.get(symbol, {})
@@ -232,9 +254,9 @@ def seed_targets_state(bot, targets, snapshot):
                 }
             )
 
-    btc_ticker = _snapshot_tickers(snapshot).get("BTC/USDT") or _snapshot_tickers(snapshot).get(
-        "BTC/USDT:USDT"
-    )
+    btc_ticker = _snapshot_tickers(snapshot).get("BTC/USDT") or _snapshot_tickers(
+        snapshot
+    ).get("BTC/USDT:USDT")
     if btc_ticker:
         bot.market_btc_price = float(btc_ticker["last"])
 
@@ -250,10 +272,14 @@ def acquire_targets(bot):
     try:
         now = utc_now()
         # Limpieza de blacklists expiradas
-        bot.blacklist = {s: e for s, e in bot.blacklist.items() if _is_not_expired_until(e, now)}
+        bot.blacklist = {
+            s: e for s, e in bot.blacklist.items() if _is_not_expired_until(e, now)
+        }
         cleanup_expired_cooldowns(bot)
 
-        snapshot = bot._get_active_market_snapshot(pool_limit=get_candidate_pool_limit(bot))
+        snapshot = bot._get_active_market_snapshot(
+            pool_limit=get_candidate_pool_limit(bot)
+        )
         tickers = _snapshot_tickers(snapshot)
         if not snapshot:
             bot.log("⚠️ Snapshot dinámico vacío en acquire_targets.")
@@ -262,7 +288,9 @@ def acquire_targets(bot):
                     btc_t = bot.execution.fetch_ticker("BTC/USDT")
                     bot.market_btc_price = float(btc_t["last"])
                 except Exception as error:
-                    bot.log(f"⚠️ No se pudo rescatar BTC ticker con snapshot vacío: {error}")
+                    bot.log(
+                        f"⚠️ No se pudo rescatar BTC ticker con snapshot vacío: {error}"
+                    )
             return {}
 
         targets = build_operable_targets(bot, snapshot)
@@ -297,7 +325,9 @@ def acquire_targets(bot):
         bot.log(f"⚠️ Error en acquire_targets: {e}")
         # Fallback resiliente: reutilizar snapshot dinámico si está disponible.
         try:
-            ranked = bot._get_active_market_snapshot(pool_limit=get_candidate_pool_limit(bot))
+            ranked = bot._get_active_market_snapshot(
+                pool_limit=get_candidate_pool_limit(bot)
+            )
             targets = build_operable_targets(bot, ranked) if ranked else []
             if targets:
                 seed_targets_state(bot, targets, ranked)
@@ -341,7 +371,9 @@ def get_active_market_snapshot(bot, pool_limit=None):
             bot._market_cache_ts = 0
 
         requested_limit = (
-            pool_limit if pool_limit is not None else getattr(Config, "TOP_TRIAGE_COUNT", 25)
+            pool_limit
+            if pool_limit is not None
+            else getattr(Config, "TOP_TRIAGE_COUNT", 25)
         )
         MAX_PAIRS = max(1, int(requested_limit or 25))
         # [BEAR_TREND] Reducir universo de pares en régimen bajista
@@ -385,17 +417,22 @@ def get_active_market_snapshot(bot, pool_limit=None):
                     and bot.weight_tracker
                     and bot.weight_tracker.should_block("market")
                 ):
-                    bot.log("🛑 [TRIAJE] Saltando refresh mercado por presión de API Weight")
+                    bot.log(
+                        "🛑 [TRIAJE] Saltando refresh mercado por presión de API Weight"
+                    )
                 else:
                     raw_tickers = bot.execution.fetch_tickers(params={"type": "future"})
 
                     # Construir pool de candidatos inicial
                     all_candidates = []
                     for symbol, ticker in raw_tickers.items():
-                        if not (symbol.endswith("/USDT") or symbol.endswith("/USDT:USDT")):
+                        if not (
+                            symbol.endswith("/USDT") or symbol.endswith("/USDT:USDT")
+                        ):
                             continue
                         if any(
-                            x in symbol for x in ["DOWN", "UP", "BEAR", "BULL", "_", "BUSD", "USDC"]
+                            x in symbol
+                            for x in ["DOWN", "UP", "BEAR", "BULL", "_", "BUSD", "USDC"]
                         ):
                             continue
                         clean_sym = Config.sanitize_symbol(symbol)
@@ -405,7 +442,16 @@ def get_active_market_snapshot(bot, pool_limit=None):
                             if vol_24h <= 0:
                                 base_vol = float(ticker.get("baseVolume", 0) or 0)
                                 vol_24h = base_vol * last
-                            compact_ticker = _compact_ticker(ticker, vol_24h=vol_24h, last=last)
+                            # Capa 1: Suelo de Seguridad – eliminar pares sin liquidez mínima
+                            min_24h_vol = float(
+                                getattr(Config, "TRIAGE_MIN_24H_VOL_USD", 50_000_000.0)
+                                or 50_000_000.0
+                            )
+                            if vol_24h < min_24h_vol:
+                                continue
+                            compact_ticker = _compact_ticker(
+                                ticker, vol_24h=vol_24h, last=last
+                            )
                             all_candidates.append(
                                 {
                                     "symbol": clean_sym,
@@ -419,7 +465,9 @@ def get_active_market_snapshot(bot, pool_limit=None):
                         "candidates": all_candidates,
                     }
                     bot._market_cache_ts = now
-                    bot.log(f"✅ [TRIAJE] {len(all_candidates)} candidatos liquidez cacheados")
+                    bot.log(
+                        f"✅ [TRIAJE] {len(all_candidates)} candidatos liquidez cacheados"
+                    )
             except Exception as e_tickers:
                 bot.log(f"⚠️ [TRIAJE] fetch_tickers falló: {e_tickers}")
                 if getattr(bot, "_market_cache", None) is None:
@@ -476,7 +524,8 @@ def get_active_market_snapshot(bot, pool_limit=None):
             del bot._market_scan_offset
 
         top_symbols = [
-            f"{item['symbol']} (${item['vol_24h'] / 1_000_000:.0f}M)" for item in ranked[:5]
+            f"{item['symbol']} (${item['vol_24h'] / 1_000_000:.0f}M)"
+            for item in ranked[:5]
         ]
         bot.log(
             f"🎯 ELITE TRIAJE: {len(ranked)}/{MAX_PAIRS} pares activos (Pura Liquidez) | "
