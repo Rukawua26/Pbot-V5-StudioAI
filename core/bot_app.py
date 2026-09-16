@@ -713,6 +713,9 @@ class Bot:
         exit_price,
         exit_confidence=0.0,
         latency_context=None,
+        side=None,
+        trade_key=None,
+        **kwargs,
     ):
         tm_close_trade(
             self,
@@ -721,6 +724,9 @@ class Bot:
             exit_price=exit_price,
             exit_confidence=exit_confidence,
             latency_context=latency_context,
+            side=side,
+            trade_key=trade_key,
+            **kwargs,
         )
 
     def abort_partial_trade(self, symbol, reason, exit_price):

@@ -128,6 +128,137 @@ class Strategy:
             else:
                 cls._inmature_blacklist.pop(symbol, None)
 
+        # Dispatch para nueva estrategia Triple Timeframe (1H / 5M / 1M)
+        strategy_engine = str(getattr(Config, "STRATEGY_ENGINE", "triple_tf") or "triple_tf").lower()
+        if strategy_engine == "triple_tf":
+            from core.strategy.triple_tf.bias_1h import evaluate_bias_1h
+            from core.strategy.triple_tf.structure_5m import evaluate_structure_5m
+            from core.strategy.triple_tf.trigger_1m import evaluate_trigger_1m
+
+            data_service = kwargs.get("data_service") or getattr(brain_instance, "data_service", None)
+            df_1h_target = df_1h if df_1h is not None and not getattr(df_1h, "empty", True) else base_df
+            df_5m = kwargs.get("df_5m")
+            df_1m = kwargs.get("df_1m")
+            spread_val = float(kwargs.get("spread", 0.0) or 0.0)
+
+            # Paso 1: Evaluar Sesgo en 1H
+            bias_res = evaluate_bias_1h(df_1h=df_1h_target)
+            if bias_res.bias not in {"BUY", "SELL"}:
+                # Retorno temprano: si 1H es NEUTRAL, evitamos llamadas a 5M y 1M para ahorrar API
+                votos = {"TTF_1H": 50.0, "TTF_5M": 50.0}
+                telemetry = {
+                    "regime": "TTF_NEUTRAL",
+                    "reason": f"1H:{bias_res.reason}",
+                    "bias_1h": "NEUTRAL",
+                    "setup_5m_valid": False,
+                    "trigger_1m_ready": False,
+                    "stop_loss": 0.0,
+                    "votos": votos,
+                    "ttf_metrics": {"bias_1h": bias_res.__dict__},
+                    "atr_pct": 0.01,
+                    "adx": 20.0,
+                    "rsi": {"val": 50.0},
+                    "trend": "RANGE",
+                    "base_trend": "DOWN",
+                    "agent_direction_score": 0.0,
+                    "agent_signal_override": False,
+                    "agent_signal_resolved": "WAIT",
+                }
+                return "WAIT", "NONE", precio, 0.0, telemetry, votos
+
+            # Paso 2: Si 1H es direccional (BUY o SELL), obtener y evaluar 5M
+            if (df_5m is None or getattr(df_5m, "empty", True)) and data_service is not None:
+                try:
+                    df_5m = data_service.fetch_and_update_data(symbol, "5m", fast_mode=True)
+                except Exception:
+                    df_5m = None
+
+            struct_res = evaluate_structure_5m(df_5m=df_5m, bias_1h=bias_res.bias)
+            if not struct_res.valid_setup:
+                # Retorno temprano: si no hay MSS o toque a EMA 50 en 5M, no consultamos 1M
+                votos = {
+                    "TTF_1H": 100.0 if bias_res.bias == "BUY" else 0.0,
+                    "TTF_5M": 50.0,
+                }
+                telemetry = {
+                    "regime": f"TTF_{bias_res.bias}",
+                    "reason": f"1H:{bias_res.reason} | 5M:{struct_res.reason}",
+                    "bias_1h": bias_res.bias,
+                    "setup_5m_valid": False,
+                    "trigger_1m_ready": False,
+                    "stop_loss": struct_res.suggested_sl,
+                    "votos": votos,
+                    "ttf_metrics": {
+                        "bias_1h": bias_res.__dict__,
+                        "structure_5m": struct_res.__dict__,
+                    },
+                    "atr_pct": 0.01,
+                    "adx": 25.0,
+                    "rsi": {"val": 50.0},
+                    "trend": "UP" if bias_res.bias == "BUY" else "DOWN",
+                    "base_trend": "UP" if bias_res.bias == "BUY" else "DOWN",
+                    "agent_direction_score": 25.0 if bias_res.bias == "BUY" else -25.0,
+                    "agent_signal_override": False,
+                    "agent_signal_resolved": "WAIT",
+                }
+                return "WAIT", "NONE", precio, 40.0, telemetry, votos
+
+            # Paso 3: Si 5M confirmó setup, obtener y evaluar 1M para el gatillo
+            if (df_1m is None or getattr(df_1m, "empty", True)) and data_service is not None:
+                try:
+                    df_1m = data_service.fetch_and_update_data(symbol, "1m", fast_mode=True)
+                except Exception:
+                    df_1m = None
+
+            trigger_res = evaluate_trigger_1m(
+                df_1m=df_1m,
+                bias_1h=bias_res.bias,
+                setup_5m_valid=True,
+                spread=spread_val,
+            )
+
+            if trigger_res.triggered and trigger_res.side in {"BUY", "SELL"}:
+                sig = trigger_res.side
+                conf = 85.0
+                reason = f"TTF_ENTRY_CONFIRMED: 1H={bias_res.bias}, 5M=MSS+Pullback, 1M={trigger_res.reason}"
+            else:
+                sig = "WAIT"
+                conf = 50.0
+                reason = f"1H:{bias_res.reason} | 5M:{struct_res.reason} | 1M:{trigger_res.reason}"
+
+            votos = {
+                "TTF_1H": 100.0 if bias_res.bias == "BUY" else 0.0,
+                "TTF_5M": 100.0,
+            }
+            telemetry = {
+                "regime": f"TTF_{bias_res.bias}",
+                "reason": reason,
+                "bias_1h": bias_res.bias,
+                "setup_5m_valid": True,
+                "trigger_1m_ready": trigger_res.triggered,
+                "stop_loss": float(struct_res.suggested_sl or 0.0),
+                "votos": votos,
+                "ttf_metrics": {
+                    "bias_1h": bias_res.__dict__,
+                    "structure_5m": struct_res.__dict__,
+                    "trigger_1m": trigger_res.__dict__,
+                },
+                "atr_pct": 0.01,
+                "adx": 25.0,
+                "rsi": {"val": 50.0},
+                "trend": "UP" if bias_res.bias == "BUY" else "DOWN",
+                "base_trend": "UP" if bias_res.bias == "BUY" else "DOWN",
+                "agent_direction_score": 50.0 if sig == "BUY" else (-50.0 if sig == "SELL" else 0.0),
+                "agent_signal_override": False,
+                "agent_signal_resolved": sig,
+            }
+            exec_price = float(
+                trigger_res.entry_price
+                if trigger_res.entry_price > 0
+                else (df_1m["close"].iloc[-1] if df_1m is not None and len(df_1m) > 0 else precio)
+            )
+            return sig, "NONE", exec_price, conf, telemetry, votos
+
         # 2. Preprocesamiento (Utilidad)
         base_df = StrategyUtils.preprocess_data(base_df, mode="full")
         if base_df is None:

@@ -37,6 +37,19 @@ Fuente versionada para cambios criticos, decisiones de diseno, invariantes y reg
 
 ## Cambios Criticos Registrados
 
+### 2026-09-04 - Trinidad sin modelo ML, calibración de confianza y RRR robusto
+
+Cambios:
+- `core/strategy/orchestrator.py`: cuando `context` no tiene modelo ML (`model is None` o `bootstrap_heuristic_mode=True`), el peso de `GhostAgent` se fija en `0.0` y se re-normaliza hacia `MT` y `SR` (Tendencia 75/25, Rango 15/85), eliminando la dilución artificial del voto 50.0.
+- `core/signals/filters.py`: se calibra `_evaluate_bootstrap_heuristic` para que confluencias tardías no sobrecompren techos ni vendan suelos, otorgando bonificación por zona de bajo riesgo y penalizando RSI sobreextendido. Si `hit_count == 0`, confianza es `0.0`.
+- `core/config/manager.py` y `core/trade_entry.py`: `MIN_RISK_REWARD_RATIO` elevado de `1.5` a `1.8` y volatilidad alta a `2.0`, garantizando esperanza matemática positiva frente al spread real y slippage.
+- `.env`: habilitada telemetría de validación `SHADOW_VALIDATION_ENABLED=true` y pausado `SIDE_PARITY_FILTER_ENABLED=false` para evitar parálisis por sobre-filtrado.
+
+Reglas preventivas:
+- No permitir que `GhostAgent` vote con peso positivo si no existe modelo ML válido cargado.
+- No asumir que más reglas de tendencia en bootstrap equivalen a mayor probabilidad en mercados laterales.
+- No aceptar trades con RRR por debajo de 1.8 neto.
+
 ### 2026-08-13 - Loop optimizado y telemetria de slippage adverso
 
 Cambios:

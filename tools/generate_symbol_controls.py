@@ -6,8 +6,31 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
+import os
+import sys
+
 ROOT = Path(__file__).resolve().parents[1]
-DB_PATH = ROOT / "sniper_brain.db"
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+
+def resolve_db_path() -> Path:
+    env_db = os.getenv("SNIPER_DB_PATH")
+    if env_db and Path(env_db).exists():
+        return Path(env_db)
+    tools_db = ROOT / "tools" / "sniper_brain.db"
+    if tools_db.exists():
+        return tools_db
+    try:
+        from core.learning_paths import resolve_default_db_path
+
+        return Path(resolve_default_db_path())
+    except Exception:
+        pass
+    return ROOT / "sniper_brain.db"
+
+
+DB_PATH = resolve_db_path()
 REPORTS_DIR = ROOT / "docs" / "reports"
 CONTROLS_PATH = ROOT / "data_storage" / "symbol_controls.json"
 MIN_DECISION_TRADES = 5
@@ -15,6 +38,11 @@ MIN_DECISION_TRADES = 5
 
 def _rows(conn: sqlite3.Connection):
     conn.row_factory = sqlite3.Row
+    has_trades = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='trades'"
+    ).fetchone()
+    if not has_trades:
+        return []
     q = """
     WITH base AS (
       SELECT
@@ -117,6 +145,9 @@ def _write_controls(rows):
 
 def _sync_blacklist(conn, blocked_symbols):
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS symbol_blacklist (symbol TEXT PRIMARY KEY, reason TEXT, added_date TEXT)"
+    )
     conn.execute("DELETE FROM symbol_blacklist")
     for s in blocked_symbols:
         conn.execute(

@@ -158,6 +158,20 @@ def _analyze_symbol_candidate(bot, symbol_raw, symbol, df_main, df_4h, elapsed):
         if bot.global_rag_impact > 10.0:
             min_score = max(min_score, 8.8)
 
+        spread = 0.0
+        try:
+            raw_sym = symbol.replace("/", "").replace(":USDT", "")
+            snapshot_tk = (
+                getattr(bot, "_snapshot_tickers", {}).get(raw_sym)
+                or getattr(bot, "_snapshot_tickers", {}).get(symbol, {})
+            )
+            bid_p = float(snapshot_tk.get("bidPrice", 0) or snapshot_tk.get("bid", 0) or 0)
+            ask_p = float(snapshot_tk.get("askPrice", 0) or snapshot_tk.get("ask", 0) or 0)
+            if ask_p > 0 and bid_p > 0 and ask_p > bid_p:
+                spread = (ask_p - bid_p) / ask_p
+        except Exception:
+            spread = 0.0
+
         with bot.db_lock:
             res = Strategy.analyze(
                 df_main.copy(),
@@ -172,6 +186,8 @@ def _analyze_symbol_candidate(bot, symbol_raw, symbol, df_main, df_4h, elapsed):
                 funding_rate=0.0,
                 df_4h=df_4h,
                 market_regime=market_regime,
+                data_service=getattr(bot, "data_service", None),
+                spread=spread,
             )
 
         if res[3] >= 50.0:
@@ -181,6 +197,11 @@ def _analyze_symbol_candidate(bot, symbol_raw, symbol, df_main, df_4h, elapsed):
                 else:
                     order_book = bot.execution.fetch_order_book(symbol, limit=20)
                 funding_rate = bot._get_cached_funding_rate(symbol)
+                if order_book and order_book.get("bids") and order_book.get("asks"):
+                    best_bid = float(order_book["bids"][0][0])
+                    best_ask = float(order_book["asks"][0][0])
+                    if best_ask > 0 and best_bid > 0 and best_ask > best_bid:
+                        spread = (best_ask - best_bid) / best_ask
             except Exception:
                 order_book = None
                 funding_rate = 0.0
@@ -199,10 +220,18 @@ def _analyze_symbol_candidate(bot, symbol_raw, symbol, df_main, df_4h, elapsed):
                     funding_rate=funding_rate,
                     df_4h=df_4h,
                     market_regime=market_regime,
+                    data_service=getattr(bot, "data_service", None),
+                    spread=spread,
                 )
 
         audit_signal = str(res[0] if isinstance(res, (list, tuple)) and len(res) > 0 else "")
-        fast_veto_reason = _get_fast_coherence_veto_reason(bot, df_main, audit_signal)
+        is_ttf = (
+            isinstance(res, (list, tuple))
+            and len(res) > 4
+            and isinstance(res[4], dict)
+            and "ttf_metrics" in res[4]
+        )
+        fast_veto_reason = None if is_ttf else _get_fast_coherence_veto_reason(bot, df_main, audit_signal)
         allow_conflict_shadow = fast_veto_reason and _allow_fast_regime_conflict_shadow(
             bot, market_regime, audit_signal
         )

@@ -95,7 +95,7 @@ class OperationalConfig:
     }
 
     # --- SISTEMA DE TRIAJE CINÉTICO ---
-    TOP_TRIAGE_COUNT = _env_int("TOP_TRIAGE_COUNT", 30)
+    TOP_TRIAGE_COUNT = _env_int("TOP_TRIAGE_COUNT", 10)
     TRIAGE_SPREAD_MAX = 0.0005
     TRIAGE_TIMEOUT_SECONDS = 4
     TRIAGE_MAX_WORKERS = _env_int("TRIAGE_MAX_WORKERS", 16)

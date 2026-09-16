@@ -470,23 +470,24 @@ class RegimeRangeFilterTests(unittest.TestCase):
         bot = self._build_bot("RANGE")
         bot.execution_mode = "shadow_live"
 
-        with patch.object(filters.Config, "HMM_RANGE_PENALTY", 0.5):
-            with patch.object(filters.Config, "HMM_RANGE_VETO", True):
-                with patch.object(filters.Config, "PAPER_MODE", True):
-                    with patch.object(filters.Config, "SIDE_PARITY_FILTER_ENABLED", False):
-                        with (
-                            patch.object(filters.Config, "BULL_TREND_ENTRY_VETO_ENABLED", False),
-                            patch.object(
-                                filters.Strategy,
-                                "check_entry_filters",
-                                return_value=(
-                                    True,
-                                    "OK",
-                                    "CALM",
-                                    {"DAY_WEIGHT": 1.0, "HOUR_WEIGHT": 1.0},
-                                ),
-                            ),
-                        ):
+        with (
+            patch.object(filters.Config, "HMM_RANGE_PENALTY", 0.5),
+            patch.object(filters.Config, "HMM_RANGE_VETO", True),
+            patch.object(filters.Config, "HMM_RANGE_LEARNING_OVERRIDE_ENABLED", False),
+            patch.object(filters.Config, "PAPER_MODE", True),
+            patch.object(filters.Config, "SIDE_PARITY_FILTER_ENABLED", False),
+            patch.object(filters.Config, "BULL_TREND_ENTRY_VETO_ENABLED", False),
+            patch.object(
+                filters.Strategy,
+                "check_entry_filters",
+                return_value=(
+                    True,
+                    "OK",
+                    "CALM",
+                    {"DAY_WEIGHT": 1.0, "HOUR_WEIGHT": 1.0},
+                ),
+            ),
+        ):
                             prob_final, filter_passed, filter_reason, updated_ctx = (
                                 filters._apply_entry_filters_and_adjust_prob(
                                     bot,
@@ -678,19 +679,22 @@ class RegimeRangeFilterTests(unittest.TestCase):
         }
         bot = self._build_bot("RANGE")
 
-        with patch.object(filters.Config, "HMM_RANGE_VETO", True):
-            with patch.object(filters.Config, "MARKOV_BREAKOUT_MIN", 75.0):
-                with patch.object(filters.Config, "SIDE_PARITY_FILTER_ENABLED", False):
-                    with patch.object(
-                        filters.Strategy,
-                        "check_entry_filters",
-                        return_value=(
-                            True,
-                            "OK",
-                            "CALM",
-                            {"DAY_WEIGHT": 1.0, "HOUR_WEIGHT": 1.0},
-                        ),
-                    ):
+        with (
+            patch.object(filters.Config, "HMM_RANGE_VETO", True),
+            patch.object(filters.Config, "HMM_RANGE_LEARNING_OVERRIDE_ENABLED", False),
+            patch.object(filters.Config, "MARKOV_BREAKOUT_MIN", 75.0),
+            patch.object(filters.Config, "SIDE_PARITY_FILTER_ENABLED", False),
+            patch.object(
+                filters.Strategy,
+                "check_entry_filters",
+                return_value=(
+                    True,
+                    "OK",
+                    "CALM",
+                    {"DAY_WEIGHT": 1.0, "HOUR_WEIGHT": 1.0},
+                ),
+            ),
+        ):
                         prob_final, filter_passed, filter_reason, updated_ctx = (
                             filters._apply_entry_filters_and_adjust_prob(
                                 bot,

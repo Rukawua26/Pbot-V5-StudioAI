@@ -41,7 +41,14 @@ class BotSignalScanCycleTest(unittest.TestCase):
         )
         top_triage = [{"symbol": "BTC/USDT"}]
         results = {"BTC/USDT": {"data": None, "elapsed": -1, "error": "TIMEOUT"}}
-        signal_stats = {"BUY": 0, "SELL": 0, "NEUTRAL": 0, "REAL": 0, "SHADOW": 0, "VETO": 0}
+        signal_stats = {
+            "BUY": 0,
+            "SELL": 0,
+            "NEUTRAL": 0,
+            "REAL": 0,
+            "SHADOW": 0,
+            "VETO": 0,
+        }
 
         run_signal_scan_cycle(bot, top_triage, results, signal_stats, pnl_real_hoy=0.0)
 
@@ -50,7 +57,9 @@ class BotSignalScanCycleTest(unittest.TestCase):
             any("VETO LATENCIA" in str(call.args[0]) for call in bot.log.call_args_list)
         )
         bot.update_radar.assert_called_once()
-        self.assertEqual(bot.update_radar.call_args.args[5]["filter_reason"], "TRIAGE_TIMEOUT")
+        self.assertEqual(
+            bot.update_radar.call_args.args[5]["filter_reason"], "TRIAGE_TIMEOUT"
+        )
 
     def test_cheap_prefilter_blocks_symbol_before_analysis(self):
         bot = self._scan_bot(
@@ -66,10 +75,14 @@ class BotSignalScanCycleTest(unittest.TestCase):
         )
 
         bot._analyze_symbol_candidate.assert_not_called()
-        self.assertEqual(bot.update_radar.call_args.args[5]["filter_reason"], "SYMBOL_BLOCKED")
+        self.assertEqual(
+            bot.update_radar.call_args.args[5]["filter_reason"], "SYMBOL_BLOCKED"
+        )
 
     def test_cheap_prefilter_skips_active_symbol_before_analysis(self):
-        bot = self._scan_bot(active_trades={"BTC/USDT": {"symbol": "BTC/USDT", "status": "OPEN"}})
+        bot = self._scan_bot(
+            active_trades={"BTC/USDT": {"symbol": "BTC/USDT", "status": "OPEN"}}
+        )
 
         run_signal_scan_cycle(
             bot,
@@ -105,7 +118,14 @@ class BotSignalScanCycleTest(unittest.TestCase):
         )
         top_triage = [{"symbol": "ETH/USDT"}]
         results = {"ETH/USDT": {"data": (None, None), "elapsed": 120, "error": None}}
-        signal_stats = {"BUY": 0, "SELL": 0, "NEUTRAL": 0, "REAL": 0, "SHADOW": 0, "VETO": 0}
+        signal_stats = {
+            "BUY": 0,
+            "SELL": 0,
+            "NEUTRAL": 0,
+            "REAL": 0,
+            "SHADOW": 0,
+            "VETO": 0,
+        }
 
         run_signal_scan_cycle(bot, top_triage, results, signal_stats, pnl_real_hoy=0.0)
 
@@ -117,7 +137,9 @@ class BotSignalScanCycleTest(unittest.TestCase):
 
     def test_analysis_exception_is_recorded_and_does_not_abort_cycle(self):
         bot = self._scan_bot(
-            _analyze_symbol_candidate=MagicMock(side_effect=RuntimeError("analysis failed"))
+            _analyze_symbol_candidate=MagicMock(
+                side_effect=RuntimeError("analysis failed")
+            )
         )
 
         with patch("core.bot_signals.append_execution_event") as append_event:
@@ -134,7 +156,9 @@ class BotSignalScanCycleTest(unittest.TestCase):
             "ANALYSIS_ERROR",
             {"symbol": "BTC/USDT", "stage": "sequential", "error": "analysis failed"},
         )
-        self.assertEqual(bot.update_radar.call_args.args[5]["filter_reason"], "ANALYSIS_ERROR")
+        self.assertEqual(
+            bot.update_radar.call_args.args[5]["filter_reason"], "ANALYSIS_ERROR"
+        )
 
     def test_pipeline_exception_is_recorded(self):
         bot = self._scan_bot(
@@ -176,7 +200,12 @@ class BotSignalScanCycleTest(unittest.TestCase):
             ),
             _build_symbol_context=MagicMock(side_effect=build_context),
             _apply_entry_filters_and_adjust_prob=MagicMock(
-                return_value=(80.0, True, "Filter Pass", {"spread": 0.0015, "tier": "IRON"})
+                return_value=(
+                    80.0,
+                    True,
+                    "Filter Pass",
+                    {"spread": 0.0015, "tier": "IRON"},
+                )
             ),
             _resolve_audit_verdict_and_stats=MagicMock(return_value="🧪 SHADOW"),
             _update_signal_diagnostics=MagicMock(),
@@ -201,7 +230,67 @@ class BotSignalScanCycleTest(unittest.TestCase):
 
         self.assertEqual(captured["ind_spread"], 0.0015)
         bot._execute_and_update_symbol.assert_called_once()
-        self.assertEqual(bot._execute_and_update_symbol.call_args.kwargs["ctx"]["spread"], 0.0015)
+        self.assertEqual(
+            bot._execute_and_update_symbol.call_args.kwargs["ctx"]["spread"], 0.0015
+        )
+
+    def test_ttf_signal_bypasses_rsi_na_guard(self):
+        """Señales TTF no deben ser descartadas por el guard de RSI N/A."""
+        bot = self._scan_bot(
+            _analyze_symbol_candidate=MagicMock(
+                return_value=(
+                    "BUY",
+                    "SHADOW",
+                    100.0,
+                    85.0,
+                    {"ttf_metrics": {"bias_1h": {}}, "rsi": {"val": "--"}},
+                    {},
+                )
+            ),
+            _build_symbol_context=MagicMock(
+                return_value=(
+                    {"signal": "BUY", "mode": "SHADOW"},
+                    {"ttf_metrics": {"bias_1h": {}}, "tier": "IRON"},
+                    "⚪",
+                    1.0,
+                )
+            ),
+            _apply_entry_filters_and_adjust_prob=MagicMock(
+                return_value=(
+                    85.0,
+                    True,
+                    "TTF_PASSED",
+                    {"ttf_metrics": {"bias_1h": {}}, "tier": "IRON"},
+                )
+            ),
+            _resolve_audit_verdict_and_stats=MagicMock(return_value="🚀 TTF_BUY"),
+            _update_signal_diagnostics=MagicMock(),
+            _plan_execution_mode=MagicMock(
+                return_value=(True, True, "🚀 TTF_EXECUTE", True, "TTF_PASSED")
+            ),
+            _execute_and_update_symbol=MagicMock(),
+            scanner_history=[],
+            scanner_lock=None,
+            bootstrap_heuristic_mode=True,
+            last_ml_confidence=0.0,
+            last_ghost_weight=0.0,
+        )
+
+        run_signal_scan_cycle(
+            bot,
+            [{"symbol": "SOL/USDT"}],
+            self._valid_results("SOL/USDT"),
+            self._signal_stats(),
+            pnl_real_hoy=0.0,
+        )
+
+        # No debe haber sido descartado con 'RSI N/A'
+        radar_calls = bot.update_radar.call_args_list
+        self.assertFalse(
+            any("RSI N/A" in str(c) for c in radar_calls),
+            "Señal TTF no debió descartarse por RSI N/A",
+        )
+        bot._execute_and_update_symbol.assert_called_once()
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ from config import Config
 from core.cooldown_state import is_symbol_in_cooldown
 from core.execution_telemetry import append_execution_event
 from core.market_breadth import calculate_market_breadth
+from core.strategy.triple_tf import is_ttf_signal
 from core.trade_keys import has_trade
 
 _ANALYSIS_MISSING = object()
@@ -55,7 +56,9 @@ def _passes_cheap_pre_filters(
 
     latency_veto_ms = int(getattr(Config, "LATENCY_VETO_MS", 4500))
     if elapsed is None or elapsed > latency_veto_ms or elapsed == -1:
-        latency_quarantine_seconds = int(getattr(Config, "LATENCY_QUARANTINE_SECONDS", 300))
+        latency_quarantine_seconds = int(
+            getattr(Config, "LATENCY_QUARANTINE_SECONDS", 300)
+        )
         if mutate_latency:
             bot.latency_quarantine[symbol] = now + latency_quarantine_seconds
         return False, "LATENCY_QUARANTINED", "🔌 LATENCIA", elapsed
@@ -191,7 +194,11 @@ def run_signal_scan_cycle(bot, top_triage, results, signal_stats, pnl_real_hoy):
                 append_execution_event(
                     bot,
                     "ANALYSIS_ERROR",
-                    {"symbol": symbol, "stage": "sequential", "error": str(error)[:180]},
+                    {
+                        "symbol": symbol,
+                        "stage": "sequential",
+                        "error": str(error)[:180],
+                    },
                 )
                 analysis = _ANALYSIS_ERROR
         if analysis is _ANALYSIS_ERROR:
@@ -280,7 +287,9 @@ def run_signal_scan_cycle(bot, top_triage, results, signal_stats, pnl_real_hoy):
             bot.last_ml_confidence = prob_final
             ml_pure_prob = 0.0 if bot.bootstrap_heuristic_mode else votos.get("G", 0.0)
             bot.last_ghost_weight = (
-                0.0 if bot.bootstrap_heuristic_mode else getattr(bot, "ghost_weight_override", 35.0)
+                0.0
+                if bot.bootstrap_heuristic_mode
+                else getattr(bot, "ghost_weight_override", 35.0)
             )
 
             audit_verdict = bot._resolve_audit_verdict_and_stats(
@@ -297,12 +306,15 @@ def run_signal_scan_cycle(bot, top_triage, results, signal_stats, pnl_real_hoy):
                 signal_stats=signal_stats,
             )
 
-            if (
+            is_ttf = is_ttf_signal(ctx) or is_ttf_signal(ind)
+            if not is_ttf and (
                 not ind
                 or ind.get("rsi", {}).get("val") == "--"
                 or pd.isna(ind.get("rsi", {}).get("val"))
             ):
-                bot.log(f"⚠️ SKIP {symbol}: RSI={ind.get('rsi', {}).get('val')} ind={bool(ind)}")
+                bot.log(
+                    f"⚠️ SKIP {symbol}: RSI={ind.get('rsi', {}).get('val')} ind={bool(ind)}"
+                )
                 bot.update_radar(
                     symbol_raw,
                     {"signal": "WAIT", "mode": "NONE"},
@@ -359,14 +371,19 @@ def run_signal_scan_cycle(bot, top_triage, results, signal_stats, pnl_real_hoy):
                         "prob_final": prob_final,
                     }
                 )
-                if getattr(bot, "main_loop", None) is not None and bot.main_loop.is_running():
+                if (
+                    getattr(bot, "main_loop", None) is not None
+                    and bot.main_loop.is_running()
+                ):
                     asyncio.run_coroutine_threadsafe(
                         asyncio.to_thread(
                             bot.brain.log_signal_alert,
                             symbol=symbol,
                             alert_type=audit_signal,
                             execution_mode=(
-                                "BOOTSTRAP_NONE" if bot.bootstrap_heuristic_mode else "NONE"
+                                "BOOTSTRAP_NONE"
+                                if bot.bootstrap_heuristic_mode
+                                else "NONE"
                             ),
                             status="DISCARDED",
                             features=payload,
@@ -379,7 +396,9 @@ def run_signal_scan_cycle(bot, top_triage, results, signal_stats, pnl_real_hoy):
                             symbol=symbol,
                             alert_type=audit_signal,
                             execution_mode=(
-                                "BOOTSTRAP_NONE" if bot.bootstrap_heuristic_mode else "NONE"
+                                "BOOTSTRAP_NONE"
+                                if bot.bootstrap_heuristic_mode
+                                else "NONE"
                             ),
                             status="DISCARDED",
                             features=payload,
@@ -407,7 +426,9 @@ def run_signal_scan_cycle(bot, top_triage, results, signal_stats, pnl_real_hoy):
             import traceback
 
             error_str = str(e)
-            bot.log(f"❌ ERROR en {symbol}: {error_str} | {traceback.format_exc(limit=3)}")
+            bot.log(
+                f"❌ ERROR en {symbol}: {error_str} | {traceback.format_exc(limit=3)}"
+            )
             append_execution_event(
                 bot,
                 "ANALYSIS_ERROR",

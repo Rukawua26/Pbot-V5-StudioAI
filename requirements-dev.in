@@ -1,0 +1,11 @@
+-c requirements.lock
+
+# Testing & Security
+coverage
+hypothesis
+pip-audit
+setuptools>=83.0.0
+
+# Static analysis
+ruff
+mypy

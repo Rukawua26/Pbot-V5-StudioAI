@@ -47,7 +47,11 @@ class TestGetAgentPerformance(unittest.TestCase):
         orch = StrategyOrchestrator()
         expected = set(orch.agents.keys())
         brain = MagicMock()
-        brain.get_agent_performance.return_value = {"MT": 100.0, "SR": 100.0, "G": 100.0}
+        brain.get_agent_performance.return_value = {
+            "MT": 100.0,
+            "SR": 100.0,
+            "G": 100.0,
+        }
         perf = brain.get_agent_performance(primary_ids=["MT", "SR", "G"])
         self.assertEqual(set(perf.keys()), expected)
 
@@ -95,6 +99,19 @@ class TestGetAgentPerformance(unittest.TestCase):
         self.assertIn("SR", result)
         self.assertIn("G", result)
 
+    def test_adaptive_weights_no_model_eliminates_ghost_agent(self):
+        """When has_model=False, Ghost Agent weight must be exactly 0.0 and MT/SR re-normalized."""
+        orch = StrategyOrchestrator()
+        weights_trend = orch.get_adaptive_weights("BULL_TREND", has_model=False)
+        self.assertEqual(weights_trend["G"], 0.0)
+        self.assertGreater(weights_trend["MT"], 0.60)
+        self.assertAlmostEqual(weights_trend["MT"] + weights_trend["SR"], 1.0)
+
+        weights_range = orch.get_adaptive_weights("RANGE", has_model=False)
+        self.assertEqual(weights_range["G"], 0.0)
+        self.assertGreater(weights_range["SR"], 0.70)
+        self.assertAlmostEqual(weights_range["MT"] + weights_range["SR"], 1.0)
+
 
 class TestSRAgentKineticModifier(unittest.TestCase):
     """Tests for SRAgent._calculate_kinetic_modifier deceleration logic."""
@@ -125,9 +142,27 @@ class TestSRAgentKineticModifier(unittest.TestCase):
         """Deceleration: small bodies < 40% + long lower wicks >= 50% → boost 1.3x."""
         df = self._make_df(
             [
-                {"open": 100.0, "high": 100.6, "low": 99.0, "close": 100.5, "volume": 1500},
-                {"open": 99.8, "high": 100.3, "low": 98.8, "close": 100.2, "volume": 1800},
-                {"open": 99.5, "high": 100.2, "low": 98.5, "close": 100.0, "volume": 2000},
+                {
+                    "open": 100.0,
+                    "high": 100.6,
+                    "low": 99.0,
+                    "close": 100.5,
+                    "volume": 1500,
+                },
+                {
+                    "open": 99.8,
+                    "high": 100.3,
+                    "low": 98.8,
+                    "close": 100.2,
+                    "volume": 1800,
+                },
+                {
+                    "open": 99.5,
+                    "high": 100.2,
+                    "low": 98.5,
+                    "close": 100.0,
+                    "volume": 2000,
+                },
             ]
         )
         modifier = self.agent._calculate_kinetic_modifier(df, -2.5)
@@ -137,9 +172,27 @@ class TestSRAgentKineticModifier(unittest.TestCase):
         """Acceleration: large bodies > 80% + tiny lower wicks < 20% → penalty 0.7x."""
         df = self._make_df(
             [
-                {"open": 101.0, "high": 101.2, "low": 99.1, "close": 99.2, "volume": 3000},
-                {"open": 100.8, "high": 101.0, "low": 98.9, "close": 99.0, "volume": 3500},
-                {"open": 100.6, "high": 100.8, "low": 98.7, "close": 98.8, "volume": 4000},
+                {
+                    "open": 101.0,
+                    "high": 101.2,
+                    "low": 99.1,
+                    "close": 99.2,
+                    "volume": 3000,
+                },
+                {
+                    "open": 100.8,
+                    "high": 101.0,
+                    "low": 98.9,
+                    "close": 99.0,
+                    "volume": 3500,
+                },
+                {
+                    "open": 100.6,
+                    "high": 100.8,
+                    "low": 98.7,
+                    "close": 98.8,
+                    "volume": 4000,
+                },
             ]
         )
         modifier = self.agent._calculate_kinetic_modifier(df, -2.5)
@@ -149,9 +202,27 @@ class TestSRAgentKineticModifier(unittest.TestCase):
         """Acceleration in SELL zone: large bodies + tiny upper wicks → penalty 0.7x."""
         df = self._make_df(
             [
-                {"open": 98.0, "high": 100.0, "low": 97.9, "close": 99.8, "volume": 3000},
-                {"open": 98.2, "high": 100.2, "low": 98.1, "close": 100.0, "volume": 3500},
-                {"open": 98.4, "high": 100.4, "low": 98.3, "close": 100.2, "volume": 4000},
+                {
+                    "open": 98.0,
+                    "high": 100.0,
+                    "low": 97.9,
+                    "close": 99.8,
+                    "volume": 3000,
+                },
+                {
+                    "open": 98.2,
+                    "high": 100.2,
+                    "low": 98.1,
+                    "close": 100.0,
+                    "volume": 3500,
+                },
+                {
+                    "open": 98.4,
+                    "high": 100.4,
+                    "low": 98.3,
+                    "close": 100.2,
+                    "volume": 4000,
+                },
             ]
         )
         modifier = self.agent._calculate_kinetic_modifier(df, 2.5)
@@ -161,9 +232,27 @@ class TestSRAgentKineticModifier(unittest.TestCase):
         """Deceleration in SELL zone: small bodies + long upper wicks → boost 1.3x."""
         df = self._make_df(
             [
-                {"open": 100.0, "high": 101.5, "low": 99.8, "close": 100.2, "volume": 1500},
-                {"open": 100.2, "high": 101.8, "low": 100.0, "close": 100.3, "volume": 1800},
-                {"open": 100.3, "high": 102.0, "low": 100.1, "close": 100.5, "volume": 2000},
+                {
+                    "open": 100.0,
+                    "high": 101.5,
+                    "low": 99.8,
+                    "close": 100.2,
+                    "volume": 1500,
+                },
+                {
+                    "open": 100.2,
+                    "high": 101.8,
+                    "low": 100.0,
+                    "close": 100.3,
+                    "volume": 1800,
+                },
+                {
+                    "open": 100.3,
+                    "high": 102.0,
+                    "low": 100.1,
+                    "close": 100.5,
+                    "volume": 2000,
+                },
             ]
         )
         modifier = self.agent._calculate_kinetic_modifier(df, 2.5)
@@ -173,9 +262,27 @@ class TestSRAgentKineticModifier(unittest.TestCase):
         """Mixed candles → no modifier."""
         df = self._make_df(
             [
-                {"open": 100.0, "high": 100.8, "low": 99.5, "close": 100.3, "volume": 1500},
-                {"open": 100.3, "high": 101.0, "low": 99.8, "close": 100.1, "volume": 1800},
-                {"open": 100.1, "high": 100.9, "low": 99.6, "close": 100.4, "volume": 2000},
+                {
+                    "open": 100.0,
+                    "high": 100.8,
+                    "low": 99.5,
+                    "close": 100.3,
+                    "volume": 1500,
+                },
+                {
+                    "open": 100.3,
+                    "high": 101.0,
+                    "low": 99.8,
+                    "close": 100.1,
+                    "volume": 1800,
+                },
+                {
+                    "open": 100.1,
+                    "high": 100.9,
+                    "low": 99.6,
+                    "close": 100.4,
+                    "volume": 2000,
+                },
             ]
         )
         modifier = self.agent._calculate_kinetic_modifier(df, -2.5)
@@ -187,9 +294,27 @@ class TestSRAgentKineticModifier(unittest.TestCase):
             "symbol": "TEST/USDT",
             "df": self._make_df(
                 [
-                    {"open": 100.0, "high": 100.6, "low": 99.0, "close": 100.5, "volume": 1500},
-                    {"open": 99.8, "high": 100.3, "low": 98.8, "close": 100.2, "volume": 1800},
-                    {"open": 99.5, "high": 100.2, "low": 98.5, "close": 100.0, "volume": 2000},
+                    {
+                        "open": 100.0,
+                        "high": 100.6,
+                        "low": 99.0,
+                        "close": 100.5,
+                        "volume": 1500,
+                    },
+                    {
+                        "open": 99.8,
+                        "high": 100.3,
+                        "low": 98.8,
+                        "close": 100.2,
+                        "volume": 1800,
+                    },
+                    {
+                        "open": 99.5,
+                        "high": 100.2,
+                        "low": 98.5,
+                        "close": 100.0,
+                        "volume": 2000,
+                    },
                 ]
             ),
             "z_score": -2.5,

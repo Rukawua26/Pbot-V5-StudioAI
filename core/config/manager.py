@@ -33,7 +33,10 @@ class Config(OperationalConfig, StrategyConfig):
     MAX_SPREAD_THRESHOLD = _env_float("MAX_SPREAD_THRESHOLD", 0.008)
     MAX_SLIPPAGE = _env_float("MAX_SLIPPAGE", 0.001)
     VIRTUAL_FEE = _env_float("VIRTUAL_FEE", 0.001)
-    ENTRY_IOC_CONFIRM_TIMEOUT_SECONDS = _env_float("ENTRY_IOC_CONFIRM_TIMEOUT_SECONDS", 2.0)
+    STRATEGY_ENGINE: str = str(_env_str("STRATEGY_ENGINE", "triple_tf") or "triple_tf")
+    ENTRY_IOC_CONFIRM_TIMEOUT_SECONDS = _env_float(
+        "ENTRY_IOC_CONFIRM_TIMEOUT_SECONDS", 2.0
+    )
     BTC_RISK_MAX_PRICE_AGE_SECONDS = _env_float("BTC_RISK_MAX_PRICE_AGE_SECONDS", 90.0)
     HALT_RECOVERY_MAX_ATTEMPTS = _env_int("HALT_RECOVERY_MAX_ATTEMPTS", 5)
 
@@ -48,9 +51,11 @@ class Config(OperationalConfig, StrategyConfig):
     MAX_MARGIN_PERCENT = _env_float("MAX_MARGIN_PERCENT", 5.0)
     DAILY_LOSS_LIMIT = _env_float("DAILY_LOSS_LIMIT", 2.0)
     RISK_REWARD_FILTER_ENABLED = _env_bool("RISK_REWARD_FILTER_ENABLED", True)
-    MIN_RISK_REWARD_RATIO = _env_float("MIN_RISK_REWARD_RATIO", 1.5)
-    RISK_REWARD_VOLATILITY_BOOST_ENABLED = _env_bool("RISK_REWARD_VOLATILITY_BOOST_ENABLED", True)
-    RISK_REWARD_HIGH_VOL_MIN_RATIO = _env_float("RISK_REWARD_HIGH_VOL_MIN_RATIO", 1.7)
+    MIN_RISK_REWARD_RATIO = _env_float("MIN_RISK_REWARD_RATIO", 1.8)
+    RISK_REWARD_VOLATILITY_BOOST_ENABLED = _env_bool(
+        "RISK_REWARD_VOLATILITY_BOOST_ENABLED", True
+    )
+    RISK_REWARD_HIGH_VOL_MIN_RATIO = _env_float("RISK_REWARD_HIGH_VOL_MIN_RATIO", 2.0)
     GENETIC_BATCH_ENABLED = _env_bool("GENETIC_BATCH_ENABLED", True)
     GENETIC_BATCH_MIN_TRADES = _env_int("GENETIC_BATCH_MIN_TRADES", 50)
 
@@ -58,8 +63,12 @@ class Config(OperationalConfig, StrategyConfig):
     MIN_ATR_PCT = _env_float("MIN_ATR_PCT", 0.006)
     MIN_ATR_PCT_FILTER_ENABLED = _env_bool("MIN_ATR_PCT_FILTER_ENABLED", True)
     BULL_TREND_ENTRY_VETO_ENABLED = _env_bool("BULL_TREND_ENTRY_VETO_ENABLED", True)
-    BULL_TREND_ALIGNED_REAL_ENABLED = _env_bool("BULL_TREND_ALIGNED_REAL_ENABLED", False)
-    HMM_RANGE_LEARNING_OVERRIDE_ENABLED = _env_bool("HMM_RANGE_LEARNING_OVERRIDE_ENABLED", False)
+    BULL_TREND_ALIGNED_REAL_ENABLED = _env_bool(
+        "BULL_TREND_ALIGNED_REAL_ENABLED", False
+    )
+    HMM_RANGE_LEARNING_OVERRIDE_ENABLED = _env_bool(
+        "HMM_RANGE_LEARNING_OVERRIDE_ENABLED", False
+    )
 
     # --- Cap de correlacion por direccion (Fase 1: Torniquete) ---
     MAX_SHADOW_DIRECTIONAL_TRADES = _env_int("MAX_SHADOW_DIRECTIONAL_TRADES", 3)
@@ -121,12 +130,18 @@ class Config(OperationalConfig, StrategyConfig):
     MARKOV_RANGE_STANDARD_WEIGHT = _env_float("MARKOV_RANGE_STANDARD_WEIGHT", 0.75)
     MARKOV_BULL_STRONG_WEIGHT = _env_float("MARKOV_BULL_STRONG_WEIGHT", 1.10)
     MARKOV_BEAR_STRONG_WEIGHT = _env_float("MARKOV_BEAR_STRONG_WEIGHT", 1.10)
-    MARKOV_SNAPSHOT_MAX_AGE_SECONDS = _env_float("MARKOV_SNAPSHOT_MAX_AGE_SECONDS", 2 * 60 * 60)
-    MARKOV_SNAPSHOT_STALE_SECONDS = _env_float("MARKOV_SNAPSHOT_STALE_SECONDS", 6 * 60 * 60)
+    MARKOV_SNAPSHOT_MAX_AGE_SECONDS = _env_float(
+        "MARKOV_SNAPSHOT_MAX_AGE_SECONDS", 2 * 60 * 60
+    )
+    MARKOV_SNAPSHOT_STALE_SECONDS = _env_float(
+        "MARKOV_SNAPSHOT_STALE_SECONDS", 6 * 60 * 60
+    )
     MARKOV_SNAPSHOT_PERSIST_INTERVAL_SECONDS = _env_float(
         "MARKOV_SNAPSHOT_PERSIST_INTERVAL_SECONDS", 5 * 60
     )
-    MARKOV_PREVETO_BEARISH_REVERSAL_MIN = _env_float("MARKOV_PREVETO_BEARISH_REVERSAL_MIN", 85.0)
+    MARKOV_PREVETO_BEARISH_REVERSAL_MIN = _env_float(
+        "MARKOV_PREVETO_BEARISH_REVERSAL_MIN", 85.0
+    )
 
     # [Experimento 2 - Ablacion] Minimo de reglas heuristicas para disparar SHADOW.
     # Default 4 (comportamiento original). Bajar a 3 para acumular data sin modelo ML.
@@ -148,7 +163,9 @@ class Config(OperationalConfig, StrategyConfig):
     BREAKOUT_WATCH_ENABLED = _env_bool("BREAKOUT_WATCH_ENABLED", True)
     BREAKOUT_MIN_IA_PROB = _env_float("BREAKOUT_MIN_IA_PROB", 55.0)
     BREAKOUT_SHOCK_MIN_IA_PROB = _env_float("BREAKOUT_SHOCK_MIN_IA_PROB", 50.0)
-    BREAKOUT_WATCH_COHERENCE_ENABLED = _env_bool("BREAKOUT_WATCH_COHERENCE_ENABLED", True)
+    BREAKOUT_WATCH_COHERENCE_ENABLED = _env_bool(
+        "BREAKOUT_WATCH_COHERENCE_ENABLED", True
+    )
     BREAKOUT_COHERENCE_MIN_IA_PROB = _env_float("BREAKOUT_COHERENCE_MIN_IA_PROB", 50.0)
     BREAKOUT_BUFFER_PCT = _env_float("BREAKOUT_BUFFER_PCT", 0.5)
     BREAKOUT_VOLUME_MULT = _env_float("BREAKOUT_VOLUME_MULT", 1.5)
@@ -209,10 +226,14 @@ class Config(OperationalConfig, StrategyConfig):
 
     # --- Agent Direction Override ---
     SIGNAL_AGENT_OVERRIDE_ENABLED = _env_bool("SIGNAL_AGENT_OVERRIDE_ENABLED", True)
-    SIGNAL_AGENT_OVERRIDE_THRESHOLD = _env_float("SIGNAL_AGENT_OVERRIDE_THRESHOLD", 15.0)
+    SIGNAL_AGENT_OVERRIDE_THRESHOLD = _env_float(
+        "SIGNAL_AGENT_OVERRIDE_THRESHOLD", 15.0
+    )
 
     # --- Regime-Adaptive Trailing ---
-    EXIT_RANGE_BREAKEVEN_PULLBACK_MULT = _env_float("EXIT_RANGE_BREAKEVEN_PULLBACK_MULT", 2.0)
+    EXIT_RANGE_BREAKEVEN_PULLBACK_MULT = _env_float(
+        "EXIT_RANGE_BREAKEVEN_PULLBACK_MULT", 2.0
+    )
     EXIT_RANGE_ACTIVATION_MULT = _env_float("EXIT_RANGE_ACTIVATION_MULT", 1.5)
 
     EXIT_TIME_DECAY_BARS = _env_int("EXIT_TIME_DECAY_BARS", 4)
@@ -237,11 +258,15 @@ class Config(OperationalConfig, StrategyConfig):
     GLOBAL_MARKET_USE_MCP = _env_bool("GLOBAL_MARKET_USE_MCP", False)
 
     # --- Global Market Filters (macro veto/boost en señales) ---
-    GLOBAL_FEAR_GREED_FILTER_ENABLED = _env_bool("GLOBAL_FEAR_GREED_FILTER_ENABLED", True)
+    GLOBAL_FEAR_GREED_FILTER_ENABLED = _env_bool(
+        "GLOBAL_FEAR_GREED_FILTER_ENABLED", True
+    )
     GLOBAL_BTC_DOM_FILTER_ENABLED = _env_bool("GLOBAL_BTC_DOM_FILTER_ENABLED", True)
     GLOBAL_FEAR_VETO_THRESHOLD = _env_int("GLOBAL_FEAR_VETO_THRESHOLD", 20)
     GLOBAL_BTC_DOM_BOOST_THRESHOLD = _env_float("GLOBAL_BTC_DOM_BOOST_THRESHOLD", 65.0)
-    MARKET_BREADTH_FEAR_FILTER_ENABLED = _env_bool("MARKET_BREADTH_FEAR_FILTER_ENABLED", True)
+    MARKET_BREADTH_FEAR_FILTER_ENABLED = _env_bool(
+        "MARKET_BREADTH_FEAR_FILTER_ENABLED", True
+    )
 
     # --- SHADOW validation campaign telemetry (observational only) ---
     SHADOW_VALIDATION_ENABLED = _env_bool("SHADOW_VALIDATION_ENABLED", False)
@@ -264,7 +289,9 @@ class Config(OperationalConfig, StrategyConfig):
     EMA_SLOPE_LOOKBACK = _env_int("EMA_SLOPE_LOOKBACK", 2)
     EMA_SLOPE_COMPARISON_ENABLED = _env_bool("EMA_SLOPE_COMPARISON_ENABLED", True)
     EMA_SLOPE_COMPARISON_LOOKBACK = _env_int("EMA_SLOPE_COMPARISON_LOOKBACK", 4)
-    EMA_COMPRESSION_TELEMETRY_ENABLED = _env_bool("EMA_COMPRESSION_TELEMETRY_ENABLED", True)
+    EMA_COMPRESSION_TELEMETRY_ENABLED = _env_bool(
+        "EMA_COMPRESSION_TELEMETRY_ENABLED", True
+    )
 
     # --- FVG / Gap Tracker (satélite read-only) ---
     FVG_TRACKER_ENABLED = _env_bool("FVG_TRACKER_ENABLED", False)
@@ -340,8 +367,13 @@ class Config(OperationalConfig, StrategyConfig):
                 "REAL_MODE_MAX_TRADES: en modo REAL, MAX_OPEN_TRADES debe estar entre 1 y 3."
             )
         if cls.MAX_RISK_USD <= 0 or cls.MAX_RISK_USD > 50:
-            errors.append("REAL_MODE_MAX_RISK: en modo REAL, MAX_RISK_USD debe estar entre 0 y 50.")
-        if float(cls.RISK_PER_TRADE_PERCENT) <= 0 or float(cls.RISK_PER_TRADE_PERCENT) > 2.0:
+            errors.append(
+                "REAL_MODE_MAX_RISK: en modo REAL, MAX_RISK_USD debe estar entre 0 y 50."
+            )
+        if (
+            float(cls.RISK_PER_TRADE_PERCENT) <= 0
+            or float(cls.RISK_PER_TRADE_PERCENT) > 2.0
+        ):
             errors.append(
                 "REAL_MODE_RISK_PCT: en modo REAL, RISK_PER_TRADE_PERCENT debe estar entre 0% y 2%."
             )
@@ -376,7 +408,9 @@ class Config(OperationalConfig, StrategyConfig):
         if float(cls.MIN_RISK_REWARD_RATIO) <= 0:
             errors.append("MIN_RISK_REWARD_RATIO debe ser positivo")
         if float(cls.RISK_REWARD_HIGH_VOL_MIN_RATIO) < float(cls.MIN_RISK_REWARD_RATIO):
-            errors.append("RISK_REWARD_HIGH_VOL_MIN_RATIO debe ser >= MIN_RISK_REWARD_RATIO")
+            errors.append(
+                "RISK_REWARD_HIGH_VOL_MIN_RATIO debe ser >= MIN_RISK_REWARD_RATIO"
+            )
         if int(cls.GENETIC_BATCH_MIN_TRADES) < 1:
             errors.append("GENETIC_BATCH_MIN_TRADES debe ser >= 1")
         if str(cls.EMA_ALIGNMENT_MODE).lower() not in {"cross", "stack"}:
@@ -406,7 +440,11 @@ class Config(OperationalConfig, StrategyConfig):
             errors.append("FVG_EXPIRATION_BARS debe ser positivo")
 
         total_weight = (
-            cls.XGB_WEIGHT + cls.LGB_WEIGHT + cls.RF_WEIGHT + cls.GB_WEIGHT + cls.LR_WEIGHT
+            cls.XGB_WEIGHT
+            + cls.LGB_WEIGHT
+            + cls.RF_WEIGHT
+            + cls.GB_WEIGHT
+            + cls.LR_WEIGHT
         )
         if not (0.99 <= float(total_weight) <= 1.01):
             errors.append("La suma de pesos ML debe estar cerca de 1.0")

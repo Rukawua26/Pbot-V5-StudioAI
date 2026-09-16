@@ -81,6 +81,8 @@ def _build_symbol_context(bot, symbol_raw, symbol, df_main, price, ind, audit_si
         "agent_direction_score",
         "agent_signal_override",
         "agent_signal_resolved",
+        "stop_loss",
+        "ttf_metrics",
     ):
         if key in ind:
             ctx[key] = ind.get(key)

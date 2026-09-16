@@ -7,6 +7,7 @@ from core.shadow_validation import emit_filter_decision
 from core.signals.cvd_filter import apply_cvd_filter
 from core.signals.mtf.filter import apply_mtf_filter
 from core.signals.oi_filter import fetch_oi_delta, validate_signal_with_oi
+from core.strategy.triple_tf import is_ttf_signal
 from core.time_utils import utc_now, utc_now_iso
 from tools.strategy import Strategy
 
@@ -49,11 +50,13 @@ def _get_markov_snapshot_mode(snapshot):
 def _signal_markov_probability(snapshot, audit_signal):
     if audit_signal == "BUY":
         return float(
-            snapshot.get("bullish_breakout_prob", snapshot.get("breakout_prob", 50.0)) or 0.0
+            snapshot.get("bullish_breakout_prob", snapshot.get("breakout_prob", 50.0))
+            or 0.0
         )
     if audit_signal == "SELL":
         return float(
-            snapshot.get("bearish_reversal_prob", snapshot.get("breakout_prob", 50.0)) or 0.0
+            snapshot.get("bearish_reversal_prob", snapshot.get("breakout_prob", 50.0))
+            or 0.0
         )
     return float(snapshot.get("breakout_prob", 50.0) or 50.0)
 
@@ -130,7 +133,14 @@ def _apply_markov_regime_weight(
             filter_passed,
             filter_reason,
         )
-        return regime_weight, regime_reason, range_veto, filter_passed, filter_reason, btc_regime
+        return (
+            regime_weight,
+            regime_reason,
+            range_veto,
+            filter_passed,
+            filter_reason,
+            btc_regime,
+        )
 
     hmm_state = str(snapshot.get("state") or btc_regime)
     markov_prob = _signal_markov_probability(snapshot, audit_signal)
@@ -150,13 +160,16 @@ def _apply_markov_regime_weight(
         )
         if range_veto and not range_learning_override:
             regime_reason = "RANGE_VETO"
+            regime_weight = 0.0
             decision = "range_hard_veto"
             if filter_passed:
                 filter_reason = "RANGE REGIME VETO"
         else:
             range_veto = False
             if markov_prob >= breakout_min:
-                regime_weight = float(getattr(Config, "MARKOV_RANGE_BREAKOUT_WEIGHT", 0.90))
+                regime_weight = float(
+                    getattr(Config, "MARKOV_RANGE_BREAKOUT_WEIGHT", 0.90)
+                )
                 regime_reason = "RANGE_BREAKOUT_ANTICIPATION"
                 decision = "range_breakout_allowed"
                 if filter_passed:
@@ -164,22 +177,34 @@ def _apply_markov_regime_weight(
             elif markov_prob < dead_zone_max:
                 # [HOTFIX v118.1] Dead zone: aplicar penalización standard en lugar de veto total
                 # El mercado lateral estancado reduce probabilidades pero no bloquea señales válidas
-                regime_weight = float(getattr(Config, "MARKOV_RANGE_STANDARD_WEIGHT", 0.75))
+                regime_weight = float(
+                    getattr(Config, "MARKOV_RANGE_STANDARD_WEIGHT", 0.75)
+                )
                 regime_reason = "HMM_RANGE_PENALTY"
                 decision = "range_dead_zone_penalty"
                 if filter_passed:
                     filter_reason = regime_reason
             else:
-                regime_weight = float(getattr(Config, "MARKOV_RANGE_STANDARD_WEIGHT", 0.75))
+                regime_weight = float(
+                    getattr(Config, "MARKOV_RANGE_STANDARD_WEIGHT", 0.75)
+                )
                 regime_reason = "RANGE_MARKOV_PENALTY"
                 decision = "range_standard_penalty"
                 if filter_passed:
                     filter_reason = regime_reason
-    elif hmm_state in {"BULL_STRONG", "BULL_TREND"} and audit_signal == "BUY" and allow_boost:
+    elif (
+        hmm_state in {"BULL_STRONG", "BULL_TREND"}
+        and audit_signal == "BUY"
+        and allow_boost
+    ):
         regime_weight = float(getattr(Config, "MARKOV_BULL_STRONG_WEIGHT", 1.10))
         regime_reason = "MARKOV_BULL_ALIGNED"
         decision = "trend_boost"
-    elif hmm_state in {"BEAR_STRONG", "BEAR_TREND"} and audit_signal == "SELL" and allow_boost:
+    elif (
+        hmm_state in {"BEAR_STRONG", "BEAR_TREND"}
+        and audit_signal == "SELL"
+        and allow_boost
+    ):
         regime_weight = float(getattr(Config, "MARKOV_BEAR_STRONG_WEIGHT", 1.10))
         regime_reason = "MARKOV_BEAR_ALIGNED"
         decision = "trend_boost"
@@ -204,7 +229,14 @@ def _apply_markov_regime_weight(
             filter_reason,
         )
 
-    return regime_weight, regime_reason, range_veto, filter_passed, filter_reason, hmm_state
+    return (
+        regime_weight,
+        regime_reason,
+        range_veto,
+        filter_passed,
+        filter_reason,
+        hmm_state,
+    )
 
 
 def _evaluate_bootstrap_heuristic(audit_signal, ctx):
@@ -224,7 +256,9 @@ def _evaluate_bootstrap_heuristic(audit_signal, ctx):
     ema = float(ctx.get("ema", close) or close)
 
     hits = []
-    if (audit_signal == "BUY" and close >= ema) or (audit_signal == "SELL" and close <= ema):
+    if (audit_signal == "BUY" and close >= ema) or (
+        audit_signal == "SELL" and close <= ema
+    ):
         hits.append("EMA_ALIGN")
     if adx >= 18.0:
         hits.append("ADX_OK")
@@ -239,9 +273,30 @@ def _evaluate_bootstrap_heuristic(audit_signal, ctx):
 
     hit_count = len(hits)
     bootstrap_shadow_min = int(getattr(Config, "BOOTSTRAP_SHADOW_MIN_HITS", 4))
+
+    # Ponderación calibrada: evitar que 5 hits sobrecompren fuerza tardía (Fase 2 Plan Edge)
+    # Base 52.0, +4.0 por hit para confluencia moderada (4 hits = 68.0, 5 hits = 72.0)
+    # Si RSI está en zona de bajo riesgo / rebote (BUY 40-58, SELL 42-60), bonus de calidad +4.0
+    quality_bonus = 0.0
+    if (audit_signal == "BUY" and 40.0 <= rsi <= 58.0) or (
+        audit_signal == "SELL" and 42.0 <= rsi <= 60.0
+    ):
+        quality_bonus = 4.0
+    # Si RSI está extendido (BUY > 65, SELL < 35), restar penalización de techo/suelo
+    elif (audit_signal == "BUY" and rsi > 65.0) or (
+        audit_signal == "SELL" and rsi < 35.0
+    ):
+        quality_bonus = -4.0
+
+    if hit_count == 0:
+        calibrated_confidence = 0.0
+    else:
+        raw_conf = 50.0 + (hit_count * 4.0) + quality_bonus
+        calibrated_confidence = max(50.0, min(80.0, raw_conf))
+
     return {
         "heuristic_hits": hits,
-        "heuristic_confidence": min(90.0, 48.0 + (hit_count * 8.0)),
+        "heuristic_confidence": calibrated_confidence,
         "bootstrap_ready_shadow": hit_count >= bootstrap_shadow_min,
         "bootstrap_ready_real": hit_count >= 5,
     }
@@ -270,7 +325,9 @@ def _resolve_btc_regime_adjustment(audit_signal, btc_regime):
     elif btc_regime == "RANGE":
         regime_weight = max(0.0, float(getattr(Config, "HMM_RANGE_PENALTY", 0.5)))
         regime_reason = "RANGE_PENALTY"
-        range_veto = bool(getattr(Config, "HMM_RANGE_VETO", False)) and audit_signal in [
+        range_veto = bool(
+            getattr(Config, "HMM_RANGE_VETO", False)
+        ) and audit_signal in [
             "BUY",
             "SELL",
         ]
@@ -287,7 +344,9 @@ def _is_shadow_learning_runtime(bot) -> bool:
     execution_mode = str(getattr(bot, "execution_mode", "") or "").lower()
     backend = str(getattr(Config, "EXECUTION_BACKEND", "live") or "live").lower()
     paper_mode = bool(getattr(Config, "PAPER_MODE", True))
-    return paper_mode and (execution_mode in {"shadow", "shadow_live"} or backend == "shadow_live")
+    return paper_mode and (
+        execution_mode in {"shadow", "shadow_live"} or backend == "shadow_live"
+    )
 
 
 def _apply_side_quality_parity_filter(
@@ -348,7 +407,9 @@ def _apply_side_quality_parity_filter(
     return True, None
 
 
-def _apply_ema_alignment_filter(audit_signal: str, ctx: dict) -> tuple[bool, str | None]:
+def _apply_ema_alignment_filter(
+    audit_signal: str, ctx: dict
+) -> tuple[bool, str | None]:
     if not bool(getattr(Config, "EMA_ALIGNMENT_FILTER_ENABLED", False)):
         return True, None
     if audit_signal not in {"BUY", "SELL"} or not isinstance(ctx, dict):
@@ -392,6 +453,17 @@ def _apply_ema_alignment_filter(audit_signal: str, ctx: dict) -> tuple[bool, str
 def _apply_entry_filters_and_adjust_prob(
     bot, symbol, symbol_raw, df_main, audit_signal, prob_final, ctx, vol_rel, votos=None
 ):
+    # Bypass para la estrategia determinista Triple Timeframe (1H / 5M / 1M)
+    is_triple_tf = is_ttf_signal(ctx)
+    if is_triple_tf:
+        btc_regime = bot._get_market_regime()
+        ctx["btc_regime"] = btc_regime
+        ctx["regime_weight"] = 1.0
+        ctx["regime_reason"] = "TTF_PURE"
+        if audit_signal in {"BUY", "SELL"}:
+            return prob_final, True, "TTF_PASSED", ctx
+        return prob_final, False, "WAIT_NO_TRIGGER", ctx
+
     # Aplicar filtros de RSI, ADX y horario antes de evaluar.
     rsi_val = ctx.get("rsi", 50)
     adx_val = ctx.get("adx", 20)
@@ -470,29 +542,43 @@ def _apply_entry_filters_and_adjust_prob(
 
     # [HURST] Ajuste por memoria de mercado en la probabilidad de señal
     hurst_value = ctx.get("hurst") if isinstance(ctx, dict) else None
-    if filter_passed and hurst_value is not None and bool(getattr(Config, "HURST_ENABLED", True)):
+    if (
+        filter_passed
+        and hurst_value is not None
+        and bool(getattr(Config, "HURST_ENABLED", True))
+    ):
         persistent_th = float(getattr(Config, "HURST_PERSISTENT_THRESHOLD", 0.55))
-        antipersistent_th = float(getattr(Config, "HURST_ANTIPERSISTENT_THRESHOLD", 0.45))
+        antipersistent_th = float(
+            getattr(Config, "HURST_ANTIPERSISTENT_THRESHOLD", 0.45)
+        )
         aligned_boost = float(getattr(Config, "HURST_ALIGNED_BOOST", 1.05))
         counter_penalty = float(getattr(Config, "HURST_COUNTER_PENALTY", 0.90))
         random_penalty = float(getattr(Config, "HURST_RANDOM_PENALTY", 0.95))
 
         if hurst_value >= persistent_th:
-            if (audit_signal == "BUY" and btc_regime in ("BULL_TREND", "BULL_STRONG")) or (
+            if (
+                audit_signal == "BUY" and btc_regime in ("BULL_TREND", "BULL_STRONG")
+            ) or (
                 audit_signal == "SELL" and btc_regime in ("BEAR_TREND", "BEAR_STRONG")
             ):
                 prob_final = min(100.0, prob_final * aligned_boost)
                 ctx["hurst_boost"] = "PERSISTENT_ALIGNED"
-                bot.log(f"📈 {symbol}: Hurst persistente + régimen alineado → x{aligned_boost:.2f}")
+                bot.log(
+                    f"📈 {symbol}: Hurst persistente + régimen alineado → x{aligned_boost:.2f}"
+                )
             else:
                 prob_final = max(0.0, prob_final * counter_penalty)
                 ctx["hurst_boost"] = "PERSISTENT_COUNTER"
-                bot.log(f"⚠️ {symbol}: Hurst persistente + contra-régimen → x{counter_penalty:.2f}")
+                bot.log(
+                    f"⚠️ {symbol}: Hurst persistente + contra-régimen → x{counter_penalty:.2f}"
+                )
         elif hurst_value <= antipersistent_th:
             if btc_regime == "RANGE":
                 prob_final = min(100.0, prob_final * aligned_boost)
                 ctx["hurst_boost"] = "ANTIPERSISTENT_RANGE"
-                bot.log(f"📈 {symbol}: Hurst antipersistente + RANGE → x{aligned_boost:.2f}")
+                bot.log(
+                    f"📈 {symbol}: Hurst antipersistente + RANGE → x{aligned_boost:.2f}"
+                )
         else:
             prob_final = max(0.0, prob_final * random_penalty)
             ctx["hurst_boost"] = "RANDOM_PENALTY"
@@ -501,7 +587,10 @@ def _apply_entry_filters_and_adjust_prob(
     allow_range_learning = (
         range_veto
         and bool(getattr(Config, "HMM_RANGE_LEARNING_OVERRIDE_ENABLED", False))
-        and (bool(getattr(Config, "PAPER_MODE", True)) or _is_shadow_learning_runtime(bot))
+        and (
+            bool(getattr(Config, "PAPER_MODE", True))
+            or _is_shadow_learning_runtime(bot)
+        )
     )
     if allow_range_learning:
         range_veto = False
@@ -525,6 +614,7 @@ def _apply_entry_filters_and_adjust_prob(
     if range_veto:
         filter_passed = False
         filter_reason = "RANGE REGIME VETO"
+        prob_final = 0.0
         bot.log(f"⛔ {symbol}: veto por régimen BTC={btc_regime} [{regime_reason}]")
         append_execution_event(
             bot,
@@ -539,7 +629,9 @@ def _apply_entry_filters_and_adjust_prob(
 
     if filter_passed and bool(getattr(Config, "BULL_TREND_ENTRY_VETO_ENABLED", True)):
         bull_regime = btc_regime in {"BULL_TREND", "BULL_STRONG"}
-        aligned_real_enabled = bool(getattr(Config, "BULL_TREND_ALIGNED_REAL_ENABLED", False))
+        aligned_real_enabled = bool(
+            getattr(Config, "BULL_TREND_ALIGNED_REAL_ENABLED", False)
+        )
         block_bull_entry = audit_signal == "SELL" or (
             not bool(getattr(Config, "PAPER_MODE", True)) and not aligned_real_enabled
         )
@@ -582,7 +674,9 @@ def _apply_entry_filters_and_adjust_prob(
         atr_pct_val = float(ctx.get("atr_pct", 0.0) or 0.0)
         if atr_pct_val < min_atr:
             filter_passed = False
-            filter_reason = f"MIN_ATR_PCT: ATR {atr_pct_val * 100:.3f}% < {min_atr * 100:.3f}%"
+            filter_reason = (
+                f"MIN_ATR_PCT: ATR {atr_pct_val * 100:.3f}% < {min_atr * 100:.3f}%"
+            )
             bot.log(f"⛔ {symbol}: {filter_reason}")
             append_execution_event(
                 bot,
@@ -597,15 +691,15 @@ def _apply_entry_filters_and_adjust_prob(
 
     # [BEAR_TREND PREVETO] Veto directo si hay alta probabilidad de reversión alcista
     if filter_passed and audit_signal == "BUY" and btc_regime == "BEAR_TREND":
-        bearish_reversal_min = float(getattr(Config, "MARKOV_PREVETO_BEARISH_REVERSAL_MIN", 85.0))
+        bearish_reversal_min = float(
+            getattr(Config, "MARKOV_PREVETO_BEARISH_REVERSAL_MIN", 85.0)
+        )
         hmm_data = ctx.get("hmm_data") if isinstance(ctx, dict) else None
         if isinstance(hmm_data, dict) and hmm_data.get("is_ready"):
             reversal_prob = float(hmm_data.get("bearish_reversal_prob", 0.0) or 0.0)
             if reversal_prob >= bearish_reversal_min:
                 filter_passed = False
-                filter_reason = (
-                    f"BEAR_REVERSAL_VETO ({reversal_prob:.1f}% >= {bearish_reversal_min:.1f}%)"
-                )
+                filter_reason = f"BEAR_REVERSAL_VETO ({reversal_prob:.1f}% >= {bearish_reversal_min:.1f}%)"
                 bot.log(
                     f"⛔ {symbol}: veto BUY en BEAR_TREND por reversión alcista "
                     f"prob={reversal_prob:.1f}% [{regime_reason}]"
@@ -616,7 +710,9 @@ def _apply_entry_filters_and_adjust_prob(
         and audit_signal == "BUY"
         and str(ctx.get("market_breadth_sentiment", "")).upper() == "FEAR"
     ):
-        fear_threshold = float(getattr(Config, "MARKET_BREADTH_FEAR_THRESHOLD", 0.70) or 0.70)
+        fear_threshold = float(
+            getattr(Config, "MARKET_BREADTH_FEAR_THRESHOLD", 0.70) or 0.70
+        )
         dump_ratio = float(ctx.get("market_breadth_dump_ratio", 0.0) or 0.0)
         if dump_ratio < fear_threshold:
             ctx["market_breadth_fear_ignored"] = True
@@ -634,10 +730,18 @@ def _apply_entry_filters_and_adjust_prob(
             btc_dom = float(ctx.get("btc_dominance", 0.0) or 0.0)
             fg_veto = int(getattr(Config, "GLOBAL_FEAR_VETO_THRESHOLD", 20))
             dom_boost = float(getattr(Config, "GLOBAL_BTC_DOM_BOOST_THRESHOLD", 65.0))
-            FEAR_GREED_ENABLED = bool(getattr(Config, "GLOBAL_FEAR_GREED_FILTER_ENABLED", True))
-            BTC_DOM_FILTER_ENABLED = bool(getattr(Config, "GLOBAL_BTC_DOM_FILTER_ENABLED", True))
+            FEAR_GREED_ENABLED = bool(
+                getattr(Config, "GLOBAL_FEAR_GREED_FILTER_ENABLED", True)
+            )
+            BTC_DOM_FILTER_ENABLED = bool(
+                getattr(Config, "GLOBAL_BTC_DOM_FILTER_ENABLED", True)
+            )
 
-            if FEAR_GREED_ENABLED and audit_signal == "BUY" and 0 < fear_greed < fg_veto:
+            if (
+                FEAR_GREED_ENABLED
+                and audit_signal == "BUY"
+                and 0 < fear_greed < fg_veto
+            ):
                 filter_passed = False
                 filter_reason = f"FEAR_{fear_greed}_VETO: pánico extremo"
                 bot.log(f"⛔ {symbol}: {filter_reason} (Fear & Greed={fear_greed})")
@@ -664,15 +768,25 @@ def _apply_entry_filters_and_adjust_prob(
             if isinstance(ctx, dict):
                 ctx["oi_delta_pct"] = oi_delta_pct
                 ctx["oi_current"] = oi_current
-            if oi_delta_pct is not None and bool(getattr(Config, "OI_FILTER_ENABLED", False)):
+            if oi_delta_pct is not None and bool(
+                getattr(Config, "OI_FILTER_ENABLED", False)
+            ):
                 delta_price_pct = 0.0
-                oi_price_lookback = max(2, int(getattr(Config, "OI_PRICE_LOOKBACK_BARS", 2) or 2))
-                if df_main is not None and not df_main.empty and len(df_main) >= oi_price_lookback:
+                oi_price_lookback = max(
+                    2, int(getattr(Config, "OI_PRICE_LOOKBACK_BARS", 2) or 2)
+                )
+                if (
+                    df_main is not None
+                    and not df_main.empty
+                    and len(df_main) >= oi_price_lookback
+                ):
                     price_now = float(df_main["close"].iloc[-1])
                     price_prev = float(df_main["close"].iloc[-oi_price_lookback])
                     if price_prev > 0:
                         delta_price_pct = (price_now - price_prev) / price_prev
-                oi_verdict = validate_signal_with_oi(audit_signal, delta_price_pct, oi_delta_pct)
+                oi_verdict = validate_signal_with_oi(
+                    audit_signal, delta_price_pct, oi_delta_pct
+                )
                 if isinstance(ctx, dict):
                     ctx["oi_verdict"] = oi_verdict
                 if oi_verdict == "VETO":
@@ -753,7 +867,9 @@ def _apply_entry_filters_and_adjust_prob(
                         f"shock={float(shock_level):.6f} dist={shock_dist_pct:.2f}%"
                     )
             filter_passed = False
-            filter_reason = f"SHOCK DEMASIADO CERCA ({shock_dist_pct:.2f}% < {min_shock_dist:.2f}%)"
+            filter_reason = (
+                f"SHOCK DEMASIADO CERCA ({shock_dist_pct:.2f}% < {min_shock_dist:.2f}%)"
+            )
 
     # [MTF FILTER] 1h mantiene ownership; 15m/5m solo confirman o vetan entrada.
     if filter_passed and audit_signal in ["BUY", "SELL"]:
@@ -774,7 +890,9 @@ def _apply_entry_filters_and_adjust_prob(
     breakout_ready = False
     breakout_info = None
     if not range_veto and bool(getattr(Config, "BREAKOUT_WATCH_ENABLED", True)):
-        breakout_ready, breakout_info = bot.breakout_agent.evaluate_breakout(symbol, df_main)
+        breakout_ready, breakout_info = bot.breakout_agent.evaluate_breakout(
+            symbol, df_main
+        )
         if breakout_ready and breakout_info is not None:
             bot.log(
                 f"🚀 BREAKOUT_READY {symbol} side={breakout_info['side']} "
@@ -804,7 +922,9 @@ def _apply_entry_filters_and_adjust_prob(
 
     # Loguear pesos
     if day_weight > 1.1 or hour_weight > 1.1:
-        bot.log(f"⚡ {symbol}: Día x{day_weight:.2f}, Hora x{hour_weight:.2f} - MEJOR MOMENTO!")
+        bot.log(
+            f"⚡ {symbol}: Día x{day_weight:.2f}, Hora x{hour_weight:.2f} - MEJOR MOMENTO!"
+        )
 
     # Aplicar pesos de día/hora.
     day_weight = ctx.get("day_weight", 1.0)
@@ -820,7 +940,9 @@ def _apply_entry_filters_and_adjust_prob(
     original_prob = prob_final
     tier_current = ctx.get("tier", "IRON")
 
-    if (
+    if not filter_passed or range_veto:
+        prob_final = 0.0
+    elif (
         tier_current in ["ELITE", "GOLD"]
         and original_prob >= 80.0
         and regime_reason not in ["RANGE_PENALTY", "RANGE_VETO"]
@@ -834,13 +956,18 @@ def _apply_entry_filters_and_adjust_prob(
         prob_final = min(original_prob * final_weight, 100)
 
     if final_weight != 1.0:
-        bot.log(f"⚖️ {symbol}: Prob {original_prob:.1f} → {prob_final:.1f} (x{final_weight:.2f})")
+        bot.log(
+            f"⚖️ {symbol}: Prob {original_prob:.1f} → {prob_final:.1f} (x{final_weight:.2f})"
+        )
 
     if bool(getattr(bot, "bootstrap_heuristic_mode", False)):
         bootstrap = _evaluate_bootstrap_heuristic(audit_signal, ctx)
         ctx.update(bootstrap)
         ctx["execution_mode"] = "BOOTSTRAP"
-        prob_final = float(bootstrap["heuristic_confidence"])
+        if not filter_passed or range_veto:
+            prob_final = 0.0
+        else:
+            prob_final = float(bootstrap["heuristic_confidence"])
 
     ctx["filter_passed"] = bool(filter_passed)
     ctx["filter_reason"] = filter_reason
@@ -855,7 +982,9 @@ def _apply_entry_filters_and_adjust_prob(
             "prob_final": float(prob_final),
             "btc_regime": btc_regime,
             "current_sentiment": str(getattr(bot, "current_sentiment", ("",))[0]),
-            "market_regime_source": str(getattr(bot, "market_regime_source", "UNKNOWN")),
+            "market_regime_source": str(
+                getattr(bot, "market_regime_source", "UNKNOWN")
+            ),
             "regime_reason": regime_reason,
             "regime_weight": float(regime_weight),
             "markov_prob": ctx.get("markov_prob"),
@@ -867,7 +996,9 @@ def _apply_entry_filters_and_adjust_prob(
             "cvd_weight": ctx.get("cvd_weight"),
         },
     )
-    emit_filter_decision(symbol, audit_signal, filter_passed, filter_reason, prob_final, ctx)
+    emit_filter_decision(
+        symbol, audit_signal, filter_passed, filter_reason, prob_final, ctx
+    )
 
     return prob_final, filter_passed, filter_reason, ctx
 
@@ -885,10 +1016,35 @@ def _plan_execution_mode(
     is_shadow_exec = True
     should_execute = False
 
+    is_ttf = is_ttf_signal(ctx)
+    if is_ttf and audit_signal in ["BUY", "SELL"] and filter_passed:
+        is_paper = bool(getattr(Config, "PAPER_MODE", True))
+        is_shadow = bool(getattr(Config, "SHADOW_MODE", True))
+        is_shadow_exec = is_paper or is_shadow
+        if not is_shadow_exec:
+            bot.log("⚠️ TTF Fast-Track: modo REAL requiere filtros de capital y riesgo")
+        else:
+            should_execute = True
+            audit_verdict = f"🚀 TTF_EXECUTE ({prob_final:.1f}%)"
+            filter_reason = "TTF_PASSED"
+            return (
+                should_execute,
+                is_shadow_exec,
+                audit_verdict,
+                filter_passed,
+                filter_reason,
+            )
+
     if filter_passed and "VETO" in str(audit_verdict).upper():
         filter_passed = False
         filter_reason = filter_reason or audit_verdict
-        return should_execute, is_shadow_exec, audit_verdict, filter_passed, filter_reason
+        return (
+            should_execute,
+            is_shadow_exec,
+            audit_verdict,
+            filter_passed,
+            filter_reason,
+        )
 
     REAL_THRESHOLD = Config.REAL_CONFIDENCE_MIN * 100
 
@@ -915,14 +1071,18 @@ def _plan_execution_mode(
         and bool(ctx.get("breakout_ready", False))
         and "SHOCK DEMASIADO CERCA" in str(filter_reason)
         and prob_final
-        >= max(SHADOW_MIN_THRESHOLD, float(getattr(Config, "BREAKOUT_MIN_IA_PROB", 60.0)))
+        >= max(
+            SHADOW_MIN_THRESHOLD, float(getattr(Config, "BREAKOUT_MIN_IA_PROB", 60.0))
+        )
     ):
         breakout_shadow_override = True
         is_shadow_exec = True
         should_execute = True
         bot.breakout_overrides_today += 1
         audit_verdict = f"🧪 BREAKOUT SHADOW READY (IA {prob_final:.1f}%)"
-        bot.log(f"🧨 BREAKOUT OVERRIDE SHADOW: {symbol} [{audit_signal}] IA={prob_final:.1f}%")
+        bot.log(
+            f"🧨 BREAKOUT OVERRIDE SHADOW: {symbol} [{audit_signal}] IA={prob_final:.1f}%"
+        )
 
     if bool(getattr(Config, "DIRECTIONAL_COHERENCE_FILTER", True)):
         sentiment_label = str(bot.current_sentiment[0])
@@ -932,10 +1092,19 @@ def _plan_execution_mode(
             str(getattr(bot, "market_regime_source", "")).upper() == "HMM"
             and str(ctx.get("markov_snapshot_mode") or "").lower() == "fresh"
             and (
-                (audit_signal == "BUY" and btc_regime_exec in {"BULL_TREND", "BULL_STRONG"})
-                or (audit_signal == "SELL" and btc_regime_exec in {"BEAR_TREND", "BEAR_STRONG"})
+                (
+                    audit_signal == "BUY"
+                    and btc_regime_exec in {"BULL_TREND", "BULL_STRONG"}
+                )
+                or (
+                    audit_signal == "SELL"
+                    and btc_regime_exec in {"BEAR_TREND", "BEAR_STRONG"}
+                )
             )
-            and ((audit_signal == "BUY" and is_bear) or (audit_signal == "SELL" and is_bull))
+            and (
+                (audit_signal == "BUY" and is_bear)
+                or (audit_signal == "SELL" and is_bull)
+            )
         )
         regime_conflict_shadow_override = (
             bool(getattr(Config, "PAPER_MODE", True))
@@ -950,7 +1119,9 @@ def _plan_execution_mode(
             is_shadow_exec = True
             ctx["regime_conflict_shadow_override"] = True
             ctx["current_sentiment"] = sentiment_label
-            ctx["market_regime_source"] = str(getattr(bot, "market_regime_source", "UNKNOWN"))
+            ctx["market_regime_source"] = str(
+                getattr(bot, "market_regime_source", "UNKNOWN")
+            )
             bot.log(
                 f"🧪 REGIME_CONFLICT_SHADOW {symbol}: HMM={btc_regime_exec} "
                 f"sentiment={sentiment_label} side={audit_signal}"
@@ -963,7 +1134,9 @@ def _plan_execution_mode(
                     "side": audit_signal,
                     "btc_regime": btc_regime_exec,
                     "sentiment": sentiment_label,
-                    "market_regime_source": str(getattr(bot, "market_regime_source", "UNKNOWN")),
+                    "market_regime_source": str(
+                        getattr(bot, "market_regime_source", "UNKNOWN")
+                    ),
                 },
             )
         elif audit_signal == "SELL" and is_bull and not extreme_breakout_ok:
@@ -984,7 +1157,9 @@ def _plan_execution_mode(
                         trend=str(ctx.get("trend", "RANGO")) if ctx else "RANGO",
                         metadata={
                             "source": "COHERENCE_VETO",
-                            "shock_dist_pct": ctx.get("shock_dist_pct") if ctx else None,
+                            "shock_dist_pct": ctx.get("shock_dist_pct")
+                            if ctx
+                            else None,
                             "regime": bot._get_market_regime(),
                             "sentiment": sentiment_label,
                             "reason": filter_reason,
@@ -1019,7 +1194,9 @@ def _plan_execution_mode(
                         trend=str(ctx.get("trend", "RANGO")) if ctx else "RANGO",
                         metadata={
                             "source": "COHERENCE_VETO",
-                            "shock_dist_pct": ctx.get("shock_dist_pct") if ctx else None,
+                            "shock_dist_pct": ctx.get("shock_dist_pct")
+                            if ctx
+                            else None,
                             "regime": bot._get_market_regime(),
                             "sentiment": sentiment_label,
                             "reason": filter_reason,
@@ -1044,7 +1221,9 @@ def _plan_execution_mode(
                 is_shadow_exec = bool(regime_conflict_shadow_override)
                 should_execute = True
                 if regime_conflict_shadow_override:
-                    audit_verdict = f"🧪 BOOTSTRAP SHADOW CONFLICT ({hit_count}/5 reglas)"
+                    audit_verdict = (
+                        f"🧪 BOOTSTRAP SHADOW CONFLICT ({hit_count}/5 reglas)"
+                    )
                 else:
                     audit_verdict = f"🛠️ BOOTSTRAP REAL ({hit_count}/5 reglas)"
             elif bool(ctx.get("bootstrap_ready_shadow", False)):
@@ -1054,14 +1233,22 @@ def _plan_execution_mode(
             else:
                 should_execute = False
                 audit_verdict = f"⏭️ BOOTSTRAP NO_FIRE ({hit_count}/5 reglas)"
-        return should_execute, is_shadow_exec, audit_verdict, filter_passed, filter_reason
+        return (
+            should_execute,
+            is_shadow_exec,
+            audit_verdict,
+            filter_passed,
+            filter_reason,
+        )
 
     if not breakout_shadow_override and audit_signal != "NEUTRAL" and filter_passed:
         if prob_final >= REAL_THRESHOLD:
             is_shadow_exec = bool(regime_conflict_shadow_override)
             should_execute = True
             if regime_conflict_shadow_override:
-                bot.log(f"🧪 DISPARO SHADOW POR CONFLICTO: {symbol} confianza {prob_final:.1f}%")
+                bot.log(
+                    f"🧪 DISPARO SHADOW POR CONFLICTO: {symbol} confianza {prob_final:.1f}%"
+                )
             else:
                 bot.log(f"🔥 DISPARO REAL: {symbol} confianza {prob_final:.1f}%")
         elif prob_final >= SHADOW_MIN_THRESHOLD:
@@ -1069,8 +1256,16 @@ def _plan_execution_mode(
             should_execute = True
             bot.log(f"🧪 DISPARO SHADOW: {symbol} confianza {prob_final:.1f}%")
 
-    if not should_execute and audit_signal != "NEUTRAL" and prob_final >= SHADOW_MIN_THRESHOLD:
-        if "SCOUT" in audit_verdict or "OK" in audit_verdict or "CONCESIÓN" in audit_verdict:
+    if (
+        not should_execute
+        and audit_signal != "NEUTRAL"
+        and prob_final >= SHADOW_MIN_THRESHOLD
+    ):
+        if (
+            "SCOUT" in audit_verdict
+            or "OK" in audit_verdict
+            or "CONCESIÓN" in audit_verdict
+        ):
             is_shadow_exec = True
             should_execute = True
             bot.log(f"🔍 DEGRADACION A SHADOW: {symbol} (Veredicto: {audit_verdict})")
@@ -1092,6 +1287,13 @@ def _resolve_audit_verdict_and_stats(
     ml_pure_prob,
     signal_stats,
 ):
+    is_ttf = is_ttf_signal(ctx)
+    if is_ttf and audit_signal in ["BUY", "SELL"] and filter_passed:
+        audit_verdict = f"🚀 TTF_{audit_signal} ({prob_final:.1f}%)"
+        if isinstance(signal_stats, dict):
+            signal_stats["OK"] = signal_stats.get("OK", 0) + 1
+        return audit_verdict
+
     prob_ia_consensus = prob_final / 100.0
     audit_verdict = bot.get_audit_verdict(
         symbol,

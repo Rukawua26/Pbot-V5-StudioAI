@@ -29,7 +29,9 @@ class StrategyOrchestrator:
     def __init__(self):
         self.adx_threshold = float(getattr(Config, "ADX_TREND_THRESHOLD", 20))
         self.hurst_enabled = bool(getattr(Config, "HURST_ENABLED", True))
-        self.hurst_persistent_threshold = float(getattr(Config, "HURST_PERSISTENT_THRESHOLD", 0.55))
+        self.hurst_persistent_threshold = float(
+            getattr(Config, "HURST_PERSISTENT_THRESHOLD", 0.55)
+        )
         self.hurst_antipersistent_threshold = float(
             getattr(Config, "HURST_ANTIPERSISTENT_THRESHOLD", 0.45)
         )
@@ -43,10 +45,32 @@ class StrategyOrchestrator:
         self.consensus_nn = AgentConsensusNN()
         self._base_weights = self._initialize_base_weights()
         # Historial para cálculo de correlación de Pearson.
-        self.vote_history = {name: deque(maxlen=CORRELATION_VETO_WINDOW) for name in self.agents}
+        self.vote_history = {
+            name: deque(maxlen=CORRELATION_VETO_WINDOW) for name in self.agents
+        }
 
-    def _initialize_base_weights(self) -> dict[str, dict[str, float]]:
-        """Pesos base para la Trinidad (MT/SR/G)."""
+    def _initialize_base_weights(
+        self, has_model: bool = True
+    ) -> dict[str, dict[str, float]]:
+        """Pesos base para la Trinidad (MT/SR/G). Si no hay modelo ML, G tiene peso 0.0."""
+        if not has_model:
+            return {
+                "BULL_TREND": {
+                    "MT": 0.75,
+                    "SR": 0.25,
+                    "G": 0.0,
+                },
+                "BEAR_TREND": {
+                    "MT": 0.60,
+                    "SR": 0.40,
+                    "G": 0.0,
+                },
+                "RANGE": {
+                    "MT": 0.15,
+                    "SR": 0.85,
+                    "G": 0.0,
+                },
+            }
         return {
             "BULL_TREND": {
                 "MT": 0.50,
@@ -99,15 +123,22 @@ class StrategyOrchestrator:
                     a1, a2 = agent_names[i], agent_names[j]
                     h1, h2 = list(self.vote_history[a1]), list(self.vote_history[a2])
 
-                    if len(h1) >= CORRELATION_VETO_WINDOW and len(h2) >= CORRELATION_VETO_WINDOW:
+                    if (
+                        len(h1) >= CORRELATION_VETO_WINDOW
+                        and len(h2) >= CORRELATION_VETO_WINDOW
+                    ):
                         corr = np.corrcoef(h1, h2)[0, 1]
                         if not np.isnan(corr) and abs(corr) > 0.90:
                             # Excluir el agente correlacionado con menor rendimiento.
                             perf1 = (
-                                agent_performances.get(a1, 100.0) if agent_performances else 100.0
+                                agent_performances.get(a1, 100.0)
+                                if agent_performances
+                                else 100.0
                             )
                             perf2 = (
-                                agent_performances.get(a2, 100.0) if agent_performances else 100.0
+                                agent_performances.get(a2, 100.0)
+                                if agent_performances
+                                else 100.0
                             )
 
                             if perf1 < perf2:
@@ -126,14 +157,16 @@ class StrategyOrchestrator:
         adx: float | None = None,
         rsi: float | None = None,
         hurst: float | None = None,
+        has_model: bool = True,
     ) -> dict[str, float]:
         """Calcula los pesos finales basados en el régimen, rendimiento y Hurst."""
-        target_regime = regime if regime in self._base_weights else "RANGE"
+        base_weights = self._initialize_base_weights(has_model=has_model)
+        target_regime = regime if regime in base_weights else "RANGE"
         adx_value = float(adx) if adx is not None else None
         rsi_value = float(rsi) if rsi is not None else None
         hurst_value = float(hurst) if hurst is not None else None
 
-        weights = self._base_weights.get(target_regime, self._base_weights["RANGE"]).copy()
+        weights = base_weights.get(target_regime, base_weights["RANGE"]).copy()
 
         # El HMM define el régimen; ADX/RSI solo ajustan la agresividad interna.
         if adx_value is not None:
@@ -146,7 +179,10 @@ class StrategyOrchestrator:
                     weights["SR"] += 0.05
             elif target_regime == "RANGE" and adx_value >= self.adx_threshold:
                 weights["MT"] += 0.05
-                weights["G"] = max(0.35, weights["G"] - 0.05)
+                if has_model:
+                    weights["G"] = max(0.35, weights["G"] - 0.05)
+                else:
+                    weights["SR"] = max(0.60, weights["SR"] - 0.05)
 
         if target_regime == "RANGE" and rsi_value is not None:
             if rsi_value <= 35.0 or rsi_value >= 65.0:
@@ -180,7 +216,9 @@ class StrategyOrchestrator:
         total_adjusted = sum(weights[a] * perf_factor.get(a, 1.0) for a in weights)
         if total_adjusted > 0:
             for agent in weights:
-                weights[agent] = (weights[agent] * perf_factor.get(agent, 1.0)) / total_adjusted
+                weights[agent] = (
+                    weights[agent] * perf_factor.get(agent, 1.0)
+                ) / total_adjusted
 
         return weights
 
@@ -209,7 +247,13 @@ class StrategyOrchestrator:
         adx = context.get("adx")
         rsi = context.get("rsi")
         hurst = context.get("hurst")
-        weights = self.get_adaptive_weights(regime, agent_performances, adx, rsi, hurst)
+        has_model = bool(
+            context.get("model") is not None
+            and not context.get("bootstrap_heuristic_mode", False)
+        )
+        weights = self.get_adaptive_weights(
+            regime, agent_performances, adx, rsi, hurst, has_model=has_model
+        )
 
         # Telemetría Asíncrona (Shadow Logging v118)
         shadow_logger.log(

@@ -136,6 +136,38 @@ def handle_basic_command(bot, text: str) -> bool:
         send_telegram_msg(f"{prefix} *RECOVER HALT*\n{message}")
         return True
 
+    if text.startswith("/close_trade ") or text.startswith("/close "):
+        parts = text.split(maxsplit=1)
+        if len(parts) == 2:
+            target_symbol = parts[1].strip().upper()
+            _handle_manual_close(bot, target_symbol)
+            return True
+
+    if text.startswith("/breakeven ") or text.startswith("/be "):
+        parts = text.split(maxsplit=1)
+        if len(parts) == 2:
+            target_symbol = parts[1].strip().upper()
+            _handle_manual_breakeven(bot, target_symbol)
+            return True
+
+    if text in ("/sync_wallet", "/sync"):
+        from tools.notifier import send_telegram_msg
+
+        sync_fn = getattr(bot, "sync_wallet", None)
+        if callable(sync_fn):
+            sync_fn()
+            send_telegram_msg("🔄 *WALLET SYNC*: Sincronización con Binance completada.")
+        else:
+            send_telegram_msg("⚠️ sync_wallet no disponible.")
+        return True
+
+    if text in ("/scan", "/force_scan"):
+        from tools.notifier import send_telegram_msg
+
+        setattr(bot, "_force_scan_requested", True)
+        send_telegram_msg("⚡ *SCAN FORZADO*: Ciclo de escaneo solicitado.")
+        return True
+
     if text == "/test":
         from tools.notifier import send_telegram_msg
 
@@ -145,3 +177,89 @@ def handle_basic_command(bot, text: str) -> bool:
         return True
 
     return False
+
+
+def _handle_manual_close(bot, symbol: str) -> None:
+    from tools.notifier import send_telegram_msg
+
+    with bot.lock:
+        active_trades = dict(getattr(bot, "active_trades", {}))
+    clean_target = symbol.replace("/", "").replace("_", "").upper()
+    matched_key = None
+    matched_trade = None
+    for key, tr in active_trades.items():
+        tr_sym = str(tr.get("symbol") or "").replace("/", "").replace("_", "").upper()
+        if clean_target in (key.upper(), tr_sym):
+            matched_key = key
+            matched_trade = tr
+            break
+    if not matched_trade:
+        send_telegram_msg(f"⚠️ No hay posición activa para {symbol}.")
+        return
+
+    entry_price = float(
+        matched_trade.get("entry_price")
+        or matched_trade.get("entry")
+        or matched_trade.get("current_price")
+        or 0.0
+    )
+    current_price = float(
+        matched_trade.get("current_price")
+        or matched_trade.get("last_price")
+        or entry_price
+    )
+    fetch_ticker = getattr(getattr(bot, "execution", None), "fetch_ticker", None)
+    if callable(fetch_ticker):
+        try:
+            ticker_data = fetch_ticker(matched_trade.get("symbol", symbol))
+            if ticker_data and ticker_data.get("last"):
+                current_price = float(ticker_data["last"])
+        except Exception as err:
+            bot.log(f"[WARN] Error al obtener ticker para cierre manual de {symbol}: {err}")
+
+    bot.log(f"🛑 Cierre manual solicitado desde dashboard para {symbol} @ {current_price}")
+    close_fn = getattr(bot, "close_trade", None)
+    if callable(close_fn):
+        close_fn(
+            symbol=matched_trade.get("symbol", symbol),
+            reason="MANUAL_DASHBOARD_CLOSE",
+            exit_price=current_price,
+            trade_key=matched_key,
+        )
+        send_telegram_msg(f"✅ Posición {symbol} cerrada manualmente desde Dashboard.")
+    else:
+        send_telegram_msg("❌ Error: bot.close_trade no disponible.")
+
+
+def _handle_manual_breakeven(bot, symbol: str) -> None:
+    from tools.notifier import send_telegram_msg
+
+    with bot.lock:
+        active_trades = dict(getattr(bot, "active_trades", {}))
+    clean_target = symbol.replace("/", "").replace("_", "").upper()
+    matched_key = None
+    matched_trade = None
+    for key, tr in active_trades.items():
+        tr_sym = str(tr.get("symbol") or "").replace("/", "").replace("_", "").upper()
+        if clean_target in (key.upper(), tr_sym):
+            matched_key = key
+            matched_trade = tr
+            break
+    if not matched_trade:
+        send_telegram_msg(f"⚠️ No hay posición activa para {symbol}.")
+        return
+
+    entry_price = float(matched_trade.get("entry_price") or matched_trade.get("entry") or 0.0)
+    if entry_price <= 0:
+        send_telegram_msg(f"⚠️ Precio de entrada inválido para {symbol}.")
+        return
+
+    with bot.lock:
+        matched_trade["sl"] = entry_price
+        matched_trade["break_even_activated"] = True
+    with bot.db_lock:
+        bot.brain.save_active_trade_state(matched_key, matched_trade)
+
+    bot.log(f"🛡️ SL movido a Break-Even para {symbol} @ {entry_price}")
+    send_telegram_msg(f"🛡️ *BREAK-EVEN*: {symbol} SL ajustado a ${entry_price:.4f}.")
+

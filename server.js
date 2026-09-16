@@ -12,9 +12,20 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0';
 
+app.disable('x-powered-by');
+
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10kb' }));
 app.use(cookieParser());
+
+// Security Headers Middleware
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
 
 // Static files directory
 const staticDir = path.join(__dirname, 'dashboard', 'static');
@@ -227,6 +238,58 @@ app.get('/api/v1/state', (req, res) => {
   });
 });
 
+app.get(['/api/v1/ttf_candles/:symbol', '/api/ttf_candles/:symbol'], (req, res) => {
+  const symbol = (req.params.symbol || 'BTC/USDT').toUpperCase().replace('-', '/');
+  const nowTs = Date.now();
+  
+  function makeCandles(tfMinutes, count, basePrice) {
+    const list = [];
+    let p = basePrice;
+    for (let i = count; i >= 0; i--) {
+      const time = nowTs - i * tfMinutes * 60 * 1000;
+      const change = (Math.random() - 0.48) * (basePrice * 0.003);
+      const open = p;
+      const close = p + change;
+      const high = Math.max(open, close) + Math.random() * (basePrice * 0.001);
+      const low = Math.min(open, close) - Math.random() * (basePrice * 0.001);
+      p = close;
+      list.push({ time, open, high, low, close, volume: Math.floor(Math.random() * 500 + 100), ema50: p * 0.998 });
+    }
+    return list;
+  }
+
+  const basePrice = symbol.includes('BTC') ? 75000 : (symbol.includes('ETH') ? 3500 : 150);
+
+  res.json({
+    symbol,
+    bias_1h: {
+      bias: 'BUY',
+      ema50: basePrice * 0.995,
+      slope_pct: 0.12,
+      deceleration: false,
+      rejection_side: null,
+      wick_ratio: 0.22,
+      reason: '1H_PRICE_ABOVE_EMA50'
+    },
+    structure_5m: {
+      valid_setup: true,
+      reason: '5M_PULLBACK_TOUCH_VALIDATED',
+      swing_high: basePrice * 1.008,
+      swing_low: basePrice * 0.992,
+      suggested_sl: basePrice * 0.991
+    },
+    trigger_1m: {
+      triggered: true,
+      side: 'BUY',
+      reason: '1M_TRIGGER_BOUNCE_READY',
+      ema50: basePrice * 0.997
+    },
+    candles_1h: makeCandles(60, 60, basePrice * 0.97),
+    candles_5m: makeCandles(5, 60, basePrice * 0.99),
+    candles_1m: makeCandles(1, 60, basePrice)
+  });
+});
+
 app.get('/api/v1/consensus', (req, res) => {
   res.json({
     latest: consensusRounds[0],
@@ -259,19 +322,24 @@ app.get('/api/v1/logs', (req, res) => {
 });
 
 app.post('/api/v1/command', (req, res) => {
-  const { action } = req.body;
-  if (action === '/pause') {
+  const { action } = req.body || {};
+  const allowedActions = ['/pause', '/resume', '/panic', '/recover_halt'];
+  if (!action || typeof action !== 'string' || !allowedActions.includes(action.trim())) {
+    return res.status(400).json({ ok: false, error: 'Invalid or disallowed action' });
+  }
+  const cleanAction = action.trim();
+  if (cleanAction === '/pause') {
     botState.is_paused = true;
-  } else if (action === '/resume') {
+  } else if (cleanAction === '/resume') {
     botState.is_paused = false;
-  } else if (action === '/panic') {
+  } else if (cleanAction === '/panic') {
     botState.halt_system_active = true;
     botState.is_paused = true;
-  } else if (action === '/recover_halt') {
+  } else if (cleanAction === '/recover_halt') {
     botState.halt_system_active = false;
     botState.is_paused = false;
   }
-  res.json({ ok: true, action });
+  res.json({ ok: true, action: cleanAction });
 });
 
 app.get('/api/v1/trades', (req, res) => {
@@ -1223,6 +1291,17 @@ app.get('/api/v1/terminal/prices', (req, res) => {
     timestamp: new Date().toISOString(),
     prices
   });
+});
+
+// Centralized 404 Handler
+app.use((req, res) => {
+  res.status(404).json({ ok: false, error: 'Endpoint not found' });
+});
+
+// Centralized 500 Error Handler
+app.use((err, req, res, next) => {
+  console.error('[SERVER ERROR]:', err.message || err);
+  res.status(500).json({ ok: false, error: 'Internal Server Error' });
 });
 
 app.listen(PORT, HOST, () => {

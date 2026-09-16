@@ -39,6 +39,7 @@ class PortablePathsTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             env = {"SNIPER_PORTABLE_BASE_DIR": tmpdir}
             with patch.dict(os.environ, env, clear=False):
+                os.environ.pop("SNIPER_DB_PATH", None)
                 base = portable_paths.configure_runtime_environment()
                 db_path = os.environ.get("SNIPER_DB_PATH")
 

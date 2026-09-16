@@ -1229,17 +1229,26 @@
                         <span class="text-[9px] mono px-2 py-0.5 rounded font-bold bg-inset border border-theme text-muted tracking-wider">DISPATCHER</span>
                     </div>
                     <div class="grid grid-cols-2 gap-2">
-                        <button onclick="sendCmd('/pause')" class="btn-ctrl btn-ctrl-pause" title="Pausar escáner y nuevas entradas">
+                        <button onclick="sendCmd('/pause')" class="btn-ctrl btn-ctrl-pause cursor-pointer" title="Pausar escáner y nuevas entradas">
                             <i data-lucide="pause" class="w-3.5 h-3.5"></i> PAUSAR
                         </button>
-                        <button onclick="sendCmd('/resume')" class="btn-ctrl btn-ctrl-resume" title="Reanudar escáner y ejecución">
+                        <button onclick="sendCmd('/resume')" class="btn-ctrl btn-ctrl-resume cursor-pointer" title="Reanudar escáner y ejecución">
                             <i data-lucide="play" class="w-3.5 h-3.5"></i> REANUDAR
                         </button>
-                        <button onclick="sendCmd('/panic')" class="btn-panic col-span-2" title="Parada de emergencia y cierre preventivo">
-                            <i data-lucide="alert-octagon" class="w-3.5 h-3.5"></i> PÁNICO (HALT INMEDIATO)
+                        <button onclick="sendCmd('/scan')" class="btn-ctrl cursor-pointer" title="Forzar ciclo inmediato de escaneo en los 30 pares">
+                            <i data-lucide="zap" class="w-3.5 h-3.5 text-amber-400"></i> ESCANEAR
                         </button>
-                        <button onclick="sendCmd('/recover_halt')" class="btn-ctrl btn-ctrl-recover col-span-2" title="Reanudar estado tras parada de emergencia">
-                            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> REANUDAR DESDE HALT
+                        <button onclick="sendCmd('/sync_wallet')" class="btn-ctrl cursor-pointer" title="Sincronizar balance y posiciones con Binance">
+                            <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-cyan-400"></i> SYNC WALLET
+                        </button>
+                        <button onclick="openRebaseModal()" class="btn-ctrl col-span-2 cursor-pointer" title="Reanclar capital y liberar integrity lock si el estado es seguro">
+                            <i data-lucide="scale" class="w-3.5 h-3.5 text-sky-400"></i> REBASE CAPITAL
+                        </button>
+                        <button onclick="sendCmd('/recover_halt')" class="btn-ctrl btn-ctrl-recover col-span-2 cursor-pointer" title="Reanudar estado tras parada de emergencia">
+                            <i data-lucide="shield-check" class="w-3.5 h-3.5"></i> REANUDAR DESDE HALT
+                        </button>
+                        <button onclick="openPanicModal()" class="btn-panic col-span-2 cursor-pointer" title="Parada de emergencia, cierre inmediato a mercado y HALT">
+                            <i data-lucide="alert-octagon" class="w-3.5 h-3.5"></i> PÁNICO (HALT TOTAL)
                         </button>
                     </div>
                 </div>
@@ -1283,32 +1292,19 @@
                 <!-- TAB NAV -->
                 <div class="tab-nav bg-thead rounded-t-xl" style="padding-left:4px;">
                     <button class="tab-btn" active data-tab="terminal">
-                        <i data-lucide="layout-grid" class="w-3.5 h-3.5"></i> Terminal Institucional
+                        <i data-lucide="zap" class="w-3.5 h-3.5 text-amber-400"></i> Terminal & Operaciones
                     </button>
                     <button class="tab-btn" data-tab="radar">
-                        <i data-lucide="radar" class="w-3.5 h-3.5"></i> Radar
+                        <i data-lucide="radar" class="w-3.5 h-3.5 text-emerald-400"></i> Radar (10 Pares)
                     </button>
-                    <button class="tab-btn" data-tab="consensus">
-                        <i data-lucide="compass" class="w-3.5 h-3.5"></i> Votos / Consenso
+                    <button class="tab-btn" data-tab="cockpit">
+                        <i data-lucide="line-chart" class="w-3.5 h-3.5 text-cyan-400"></i> Cockpit Triple TF (1H / 5M / 1M)
                     </button>
                     <button class="tab-btn" data-tab="trades">
-                        <i data-lucide="history" class="w-3.5 h-3.5"></i> Historial
-                    </button>
-                    <button class="tab-btn" data-tab="blocked">
-                        <i data-lucide="shield-alert" class="w-3.5 h-3.5"></i> Bloqueados
-                    </button>
-                    <button class="tab-btn" data-tab="executed">
-                        <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i> Ejecutados
-                    </button>
-                    <button class="tab-btn" data-tab="equity">
-                        <i data-lucide="trending-up" class="w-3.5 h-3.5"></i> Equity
-                    </button>
-                    <button class="tab-btn" data-tab="intelligence">
-                        <i data-lucide="brain" class="w-3.5 h-3.5"></i> Intelligence & Correlación
-                        <span id="intel-spinner" class="tab-spinner ml-1 hidden"></span>
+                        <i data-lucide="history" class="w-3.5 h-3.5 text-indigo-400"></i> Historial & Equity
                     </button>
                     <button class="tab-btn" data-tab="config">
-                        <i data-lucide="sliders" class="w-3.5 h-3.5"></i> Configuración (.env)
+                        <i data-lucide="sliders" class="w-3.5 h-3.5 text-slate-400"></i> Configuración (.env)
                         <span id="config-spinner" class="tab-spinner ml-1 hidden"></span>
                     </button>
                 </div>
@@ -1316,377 +1312,107 @@
                 <!-- 0. INSTITUTIONAL TERMINAL TAB (QUANTSYNC / SNIPER PRO) -->
                 <div class="tab-pane" active data-pane="terminal">
                     <div class="p-3 space-y-3">
-                        <!-- TERMINAL DASHBOARD HEADER WITH ADX TREND GAUGE & PRICE ALERT CONTROL -->
-                        <div id="terminal-dashboard-header" class="term-panel p-2.5 border border-theme bg-slate-900/70 backdrop-blur rounded-lg shadow-lg">
-                            <div class="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3">
-                                <!-- Left: Institutional Brand & Active Ticker -->
-                                <div class="flex items-center gap-3 shrink-0">
-                                    <div class="w-8 h-8 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 font-black text-xs shrink-0">
-                                        QS
-                                    </div>
-                                    <div>
-                                        <div class="flex items-center gap-2">
-                                            <span class="text-[9.5px] font-bold tracking-widest text-muted uppercase">QUANTSYNC TERMINAL</span>
-                                            <span class="px-1.5 py-0.2 rounded text-[8.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">REALTIME DMA</span>
-                                        </div>
-                                        <div class="flex items-center gap-2 mt-0.5">
-                                            <span id="term-header-symbol-badge" class="font-extrabold text-xs text-white mono">BTCUSDT</span>
-                                            <span id="term-header-price-badge" class="text-xs font-black text-cyan-300 mono">$64,884.03</span>
-                                            <span id="term-header-change-badge" class="text-[9.5px] font-bold text-emerald-400 mono">+2.45%</span>
-                                        </div>
-                                    </div>
+                        <!-- TOP OPERATIONS HEADER STRIP -->
+                        <div class="p-3 rounded-xl border border-theme bg-slate-900/80 backdrop-blur shadow-lg flex flex-wrap items-center justify-between gap-3">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 font-extrabold text-sm shrink-0">
+                                    <i data-lucide="activity" class="w-5 h-5 text-cyan-400"></i>
                                 </div>
-
-                                <!-- Center: ADX Trend Strength Gauge Component -->
-                                <div id="terminal-adx-gauge-card" class="flex items-center gap-3 bg-black/40 border border-theme px-3 py-1.5 rounded-lg shrink-0" title="Average Directional Index (14): &gt;25 Strong Trend, 20-25 Neutral Chop, &lt;20 Weak/Ranging">
-                                    <div class="flex items-center gap-2.5">
-                                        <!-- ADX Semi-circle Arc Canvas / Visual -->
-                                        <div class="relative flex items-center justify-center w-[50px] h-[34px]">
-                                            <canvas id="adxGaugeCanvas" width="50" height="34" class="block"></canvas>
-                                            <span id="adx-gauge-val-num" class="absolute bottom-0 text-[11px] font-black text-white mono">33.8</span>
-                                        </div>
-                                        <div>
-                                            <div class="flex items-center gap-1.5">
-                                                <span class="text-[9px] font-bold tracking-wider text-muted">ADX TREND:</span>
-                                                <span id="adx-gauge-status" class="px-1.5 py-0.2 rounded text-[9px] font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">STRONG</span>
-                                            </div>
-                                            <div class="flex items-center gap-2 mt-0.5 text-[8.5px] mono">
-                                                <span class="text-emerald-400 font-semibold">+DI: <b id="adx-plus-di-val" class="font-bold">29.2</b></span>
-                                                <span class="text-rose-400 font-semibold">-DI: <b id="adx-minus-di-val" class="font-bold">13.8</b></span>
-                                                <span id="adx-bias-badge" class="px-1 py-0.2 rounded text-[8px] font-bold bg-cyan-500/20 text-cyan-300">BULLISH</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Right: Price Alert Quick Controls -->
-                                <div class="flex flex-wrap items-center gap-1.5 bg-black/40 border border-theme px-2.5 py-1.5 rounded-lg shrink-0">
-                                    <div class="flex items-center gap-1 text-muted text-[9.5px] mono mr-1">
-                                        <i data-lucide="bell" class="w-3 h-3 text-amber-400"></i>
-                                        <span class="font-bold text-slate-300">ALERTA:</span>
-                                    </div>
-                                    <select id="alert-symbol-input" class="bg-inset text-[9.5px] mono text-cyan-300 border border-cyan-500/30 rounded px-1.5 py-0.5 outline-none cursor-pointer">
-                                        <option value="BTCUSDT">BTCUSDT</option>
-                                        <option value="ETHUSDT">ETHUSDT</option>
-                                        <option value="SOLUSDT">SOLUSDT</option>
-                                        <option value="NVDA">NVDA</option>
-                                        <option value="EUR/USD">EUR/USD</option>
-                                    </select>
-                                    <div class="relative">
-                                        <span class="absolute left-1.5 top-0.5 text-muted text-[9px]">$</span>
-                                        <input type="number" step="any" id="alert-price-input" placeholder="Precio obj..." class="input-lite mono pl-4 pr-1 py-0.5 text-[9.5px] w-24" />
-                                    </div>
-                                    <button type="button" onclick="setQuickAlertOffset(0)" title="Usar precio actual" class="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 text-[8.5px] mono text-slate-300 rounded border border-slate-700">Actual</button>
-                                    <button type="button" onclick="setQuickAlertOffset(0.01)" title="+1% por encima" class="px-1.5 py-0.5 bg-emerald-950/60 hover:bg-emerald-900 text-[8.5px] mono text-emerald-300 rounded border border-emerald-800/60">+1%</button>
-                                    <button type="button" onclick="setQuickAlertOffset(-0.01)" title="-1% por debajo" class="px-1.5 py-0.5 bg-rose-950/60 hover:bg-rose-900 text-[8.5px] mono text-rose-300 rounded border border-rose-800/60">-1%</button>
-                                    <button type="button" id="btn-set-alert" onclick="handleSetAlertFromUI()" class="btn-primary text-[9.5px] font-bold px-2 py-0.5 flex items-center gap-1">
-                                        <i data-lucide="bell-ring" class="w-3 h-3"></i> Crear
-                                    </button>
-                                    <button type="button" onclick="openAlertsModal()" class="relative px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[9.5px] rounded border border-slate-700 flex items-center gap-1 font-bold">
-                                        Ver
-                                        <span id="alerts-active-badge" class="px-1 py-0.2 rounded-full text-[8px] font-black bg-amber-500/25 text-amber-300 border border-amber-500/40">0</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Price Alerts Manager Modal -->
-                        <div id="price-alerts-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-                            <div class="term-panel max-w-md w-full p-4 border border-cyan-500/40 shadow-2xl rounded-xl bg-slate-900/95 space-y-3">
-                                <div class="flex items-center justify-between pb-2 border-b border-theme">
+                                <div>
                                     <div class="flex items-center gap-2">
-                                        <div class="w-6 h-6 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300 text-xs">🔔</div>
-                                        <h3 class="text-xs font-bold text-white tracking-wide">ALERTAS DE PRECIO ACTIVAS</h3>
+                                        <h2 class="font-extrabold text-xs uppercase tracking-wider text-white">Centro de Operaciones & Posiciones en Vivo</h2>
+                                        <span id="live-ops-mode-badge" class="px-2 py-0.5 rounded text-[9px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">PAPER LIVE</span>
                                     </div>
-                                    <button onclick="closeAlertsModal()" class="text-muted hover:text-white mono text-sm p-1">✕</button>
+                                    <p class="text-[10px] text-muted mt-0.5">Control directo de posiciones, barras de excursión MAE/MFE y visualización del radar de Binance Futures.</p>
                                 </div>
-                                <div class="text-[9.5px] text-muted leading-relaxed">
-                                    Las alertas se almacenan en <span class="mono text-cyan-300">localStorage</span> y monitorean los precios de mercado periódicamente, activando notificaciones Toast en tiempo real al cruzarse.
+                            </div>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <div class="bg-inset px-3 py-1.5 rounded-lg border border-theme flex items-center gap-2 text-xs mono">
+                                    <span class="text-muted text-[10px]">Margen en Uso:</span>
+                                    <span id="ops-margin-in-use" class="font-bold text-white">$0.00</span>
                                 </div>
-                                <div class="max-h-56 overflow-y-auto space-y-1.5 pr-1 select-text" id="price-alerts-list">
-                                    <!-- Populated dynamically -->
+                                <div class="bg-inset px-3 py-1.5 rounded-lg border border-theme flex items-center gap-2 text-xs mono">
+                                    <span class="text-muted text-[10px]">PnL Flotante Total:</span>
+                                    <span id="ops-floating-pnl" class="font-bold text-slate-300">$0.00 (0.00%)</span>
                                 </div>
-                                <div class="pt-2 border-t border-theme flex items-center justify-between">
-                                    <button onclick="simulatePriceAlertHit()" class="px-2 py-1 bg-sky-950/60 hover:bg-sky-900 border border-sky-800/60 rounded text-[9px] mono text-sky-300 font-bold flex items-center gap-1" title="Dispara inmediatamente la primera alerta activa para pruebas">
-                                        ⚡ Simular Cruce
+                                <button onclick="sendCmd('/scan')" class="btn-primary text-xs px-3 py-1.5 flex items-center gap-1.5 font-bold cursor-pointer">
+                                    <i data-lucide="zap" class="w-3.5 h-3.5 text-amber-300"></i> Escanear Ahora
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- ACTIVE POSITIONS SECTION -->
+                        <div class="panel p-3.5 border border-theme bg-slate-900/60 flex flex-col space-y-3">
+                            <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-theme">
+                                <div class="flex items-center gap-2">
+                                    <i data-lucide="layers" class="w-4 h-4 text-cyan-400"></i>
+                                    <h3 class="font-extrabold text-xs uppercase tracking-wider text-theme">
+                                        Posiciones Abiertas (<span id="ops-total-trades-cnt">0</span>)
+                                    </h3>
+                                </div>
+                                <div class="flex items-center gap-1.5 text-xs">
+                                    <button class="btn-filter active text-[10px] py-0.5 px-2.5 cursor-pointer" id="filter-pos-all" onclick="filterPositionsView('all')">Todas (<span id="ops-filter-cnt-all">0</span>)</button>
+                                    <button class="btn-filter text-[10px] py-0.5 px-2.5 cursor-pointer" id="filter-pos-real" onclick="filterPositionsView('real')">Reales (<span id="ops-filter-cnt-real">0</span>)</button>
+                                    <button class="btn-filter text-[10px] py-0.5 px-2.5 cursor-pointer" id="filter-pos-shadow" onclick="filterPositionsView('shadow')">Shadow (<span id="ops-filter-cnt-shadow">0</span>)</button>
+                                </div>
+                            </div>
+
+                            <!-- DYNAMIC POSITIONS CONTAINER -->
+                            <div id="active-positions-grid" class="space-y-3">
+                                <div class="p-8 text-center bg-inset rounded-xl border border-theme text-muted text-xs flex flex-col items-center justify-center space-y-2">
+                                    <i data-lucide="inbox" class="w-8 h-8 text-slate-600"></i>
+                                    <p class="font-bold text-slate-400 text-sm">Sin posiciones abiertas actualmente</p>
+                                    <p class="text-[11px] text-slate-500 max-w-md">El motor de escaneo está analizando los 30 pares de futuros en segundo plano buscando setups de alta probabilidad (RRR &ge; 1.8).</p>
+                                    <button onclick="sendCmd('/scan')" class="mt-2 btn-ctrl text-xs px-3 py-1 flex items-center gap-1 cursor-pointer">
+                                        <i data-lucide="zap" class="w-3.5 h-3.5 text-amber-400"></i> Disparar Escaneo Inmediato
                                     </button>
-                                    <div class="flex items-center gap-2">
-                                        <button onclick="clearTriggeredAlerts()" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-[9px] mono text-slate-300">Limpiar Disparadas</button>
-                                        <button onclick="closeAlertsModal()" class="btn-primary text-[9.5px] px-3 py-1">Cerrar</button>
-                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="terminal-grid">
-                            <!-- COLUMN 1: ORDER EXECUTION MONITOR & BLOTTER -->
-                            <div class="space-y-3 flex flex-col">
-                                <!-- Working Orders Blotter -->
-                                <div class="term-panel flex-1">
-                                    <div class="term-header">
-                                        <span class="flex items-center gap-1.5 text-cyan-400">
-                                            <i data-lucide="activity" class="w-3.5 h-3.5"></i> ORDER EXECUTION MONITOR
-                                        </span>
-                                        <div class="flex items-center gap-2">
-                                            <!-- Terminal Search Input -->
-                                            <div class="relative flex items-center min-w-[150px] max-w-[210px]">
-                                                <span class="absolute left-2 text-muted text-xs flex items-center">
-                                                    <i data-lucide="search" class="w-3 h-3 text-muted"></i>
-                                                </span>
-                                                <input type="text" id="terminal-search-input" placeholder="Buscar orden/par..." 
-                                                    class="input-lite mono pl-7 pr-6 py-0.5 text-[10px] w-full" 
-                                                    oninput="handleTerminalSearch(this.value)" />
-                                                <button id="terminal-clear-search" onclick="clearTerminalSearch()" class="hidden absolute right-2 text-muted hover:text-white text-xs">✕</button>
-                                            </div>
-                                            <span class="text-[9px] mono text-muted">WORKING ORDERS</span>
-                                        </div>
-                                    </div>
-                                    <div class="overflow-x-auto">
-                                        <table class="term-table" id="terminal-working-orders-table">
-                                            <thead>
-                                                <tr>
-                                                    <th class="cursor-pointer select-none hover:text-cyan-300 sortable-header" data-table="working" data-col="order_id" title="Ordenar por ID">
-                                                        <div class="flex items-center gap-1">ID <span class="sort-indicator text-[8px] opacity-60">↕</span></div>
-                                                    </th>
-                                                    <th class="cursor-pointer select-none hover:text-cyan-300 sortable-header" data-table="working" data-col="strategy" title="Ordenar por Estrategia">
-                                                        <div class="flex items-center gap-1">STRATEGY <span class="sort-indicator text-[8px] opacity-60">↕</span></div>
-                                                    </th>
-                                                    <th class="cursor-pointer select-none hover:text-cyan-300 sortable-header" data-table="working" data-col="symbol" title="Ordenar por Symbol">
-                                                        <div class="flex items-center gap-1">SYMBOL <span class="sort-indicator text-[8px] opacity-60">↕</span></div>
-                                                    </th>
-                                                    <th>STATUS</th>
-                                                    <th class="cursor-pointer select-none hover:text-cyan-300 sortable-header" data-table="working" data-col="qty" title="Ordenar por Qty">
-                                                        <div class="flex items-center gap-1">QTY <span class="sort-indicator text-[8px] opacity-60">↕</span></div>
-                                                    </th>
-                                                    <th class="cursor-pointer select-none hover:text-cyan-300 sortable-header" data-table="working" data-col="price" title="Ordenar por Price">
-                                                        <div class="flex items-center gap-1">PRICE <span class="sort-indicator text-[8px] opacity-60">↕</span></div>
-                                                    </th>
-                                                    <th>VENUE</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="terminal-working-orders-body">
-                                                <!-- Populated dynamically -->
-                                            </tbody>
-                                        </table>
-                                    </div>
+                        <!-- LIVE SCANNER QUICK-RADAR PREVIEW -->
+                        <div class="panel p-3.5 border border-theme bg-slate-900/60 flex flex-col space-y-3">
+                            <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-theme">
+                                <div class="flex items-center gap-2">
+                                    <i data-lucide="radar" class="w-4 h-4 text-cyan-400"></i>
+                                    <h3 class="font-extrabold text-xs uppercase tracking-wider text-theme">
+                                        Radar de Oportunidades & Escaneo en Vivo (<span id="quick-radar-cnt">0</span> pares)
+                                    </h3>
                                 </div>
-
-                                <!-- Recent Fills Blotter -->
-                                <div class="term-panel flex-1">
-                                    <div class="term-header">
-                                        <span class="flex items-center gap-1.5 text-emerald-400">
-                                            <i data-lucide="check-check" class="w-3.5 h-3.5"></i> ORDER EXECUTION MONITOR
-                                        </span>
-                                        <span class="text-[9px] mono text-muted">RECENT FILLS</span>
-                                    </div>
-                                    <div class="overflow-x-auto max-h-[300px] overflow-y-auto">
-                                        <table class="term-table" id="terminal-recent-fills-table">
-                                            <thead>
-                                                <tr>
-                                                    <th class="cursor-pointer select-none hover:text-cyan-300 sortable-header" data-table="fills" data-col="order_id" title="Ordenar por ID">
-                                                        <div class="flex items-center gap-1">ID <span class="sort-indicator text-[8px] opacity-60">↕</span></div>
-                                                    </th>
-                                                    <th class="cursor-pointer select-none hover:text-cyan-300 sortable-header" data-table="fills" data-col="symbol" title="Ordenar por Symbol">
-                                                        <div class="flex items-center gap-1">SYMBOL <span class="sort-indicator text-[8px] opacity-60">↕</span></div>
-                                                    </th>
-                                                    <th>STATUS</th>
-                                                    <th class="cursor-pointer select-none hover:text-cyan-300 sortable-header" data-table="fills" data-col="qty" title="Ordenar por Qty">
-                                                        <div class="flex items-center gap-1">QTY <span class="sort-indicator text-[8px] opacity-60">↕</span></div>
-                                                    </th>
-                                                    <th>VENUE</th>
-                                                    <th>SIDE</th>
-                                                    <th class="cursor-pointer select-none hover:text-cyan-300 sortable-header" data-table="fills" data-col="price" title="Ordenar por Price">
-                                                        <div class="flex items-center gap-1">PRICE <span class="sort-indicator text-[8px] opacity-60">↕</span></div>
-                                                    </th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="terminal-recent-fills-body">
-                                                <!-- Populated dynamically -->
-                                            </tbody>
-                                        </table>
-                                    </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[9.5px] text-muted mono">Top Setups Binance Futures</span>
+                                    <button onclick="switchTab('radar')" class="btn-ctrl text-[10px] px-2.5 py-1 flex items-center gap-1 cursor-pointer hover:text-cyan-300">
+                                        Ver Radar Completo <i data-lucide="arrow-right" class="w-3 h-3"></i>
+                                    </button>
                                 </div>
                             </div>
-
-                            <!-- COLUMN 2: REAL-TIME ANALYTICS & LATENCY -->
-                            <div class="space-y-3 flex flex-col">
-                                <!-- Candlestick + Volume Chart Panel -->
-                                <div class="term-panel flex-1">
-                                    <div class="term-header">
-                                        <div class="flex items-center gap-2">
-                                            <span class="text-white font-extrabold tracking-wide text-xs" id="term-ticker-title">EQ: S&P 500 E-mini Fut / BTC-PERP</span>
-                                            <select id="terminal-symbol-select" onchange="changeTerminalSymbol(this.value)" class="bg-inset text-[10px] mono text-cyan-300 border border-cyan-500/30 rounded px-1.5 py-0.5 cursor-pointer outline-none">
-                                                <option value="BTCUSDT">BTCUSDT Perpetual</option>
-                                                <option value="ETHUSDT">ETHUSDT Perpetual</option>
-                                                <option value="SOLUSDT">SOLUSDT Perpetual</option>
-                                                <option value="NVDA">NVDA Equity Alpha</option>
-                                                <option value="EUR/USD">EUR/USD Macro FX</option>
-                                            </select>
-                                        </div>
-                                        <div class="flex items-center gap-1">
-                                            <button class="timeframe-btn" onclick="setCandleTimeframe('1m', this)">1m</button>
-                                            <button class="timeframe-btn" onclick="setCandleTimeframe('5m', this)">5m</button>
-                                            <button class="timeframe-btn active" onclick="setCandleTimeframe('15m', this)">15m</button>
-                                            <button class="timeframe-btn" onclick="setCandleTimeframe('1h', this)">1h</button>
-                                            <button class="timeframe-btn" onclick="setCandleTimeframe('1D', this)">1D</button>
-                                        </div>
-                                    </div>
-
-                                    <!-- OHLC & Indicators Sub-Bar -->
-                                    <div id="terminal-ohlc-bar" class="flex flex-wrap items-center justify-between px-3 py-1.5 bg-inset border-b border-theme text-[10px] mono gap-2 transition-all duration-150">
-                                        <div class="flex items-center gap-2">
-                                            <span id="ohlc-mode-badge" class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-800 text-slate-400 border border-slate-700">LATEST</span>
-                                            <span>O: <b id="cand-open" class="text-white">64,250.00</b></span>
-                                            <span>H: <b id="cand-high" class="text-white">64,755.27</b></span>
-                                            <span>L: <b id="cand-low" class="text-white">63,980.00</b></span>
-                                            <span>C: <b id="cand-close" class="text-white">64,750.27</b></span>
-                                            <span id="cand-change" class="text-rose-400 font-bold">-0.33%</span>
-                                        </div>
-                                        <div class="flex items-center gap-2.5 text-muted">
-                                            <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span> EMA 9: <b id="cand-ema9" class="text-sky-300">--</b></span>
-                                            <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> EMA 21: <b id="cand-ema21" class="text-amber-300">--</b></span>
-                                            <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span> VWAP: <b id="cand-vwap" class="text-purple-300">--</b></span>
-                                            <span>Vol: <b id="cand-vol" class="text-white">--</b></span>
-                                        </div>
-                                    </div>
-
-                                    <!-- Interactive Execution Markers Sync Strip -->
-                                    <div class="flex items-center justify-between px-3 py-1 bg-black/35 border-b border-theme text-[9.5px] mono gap-2 overflow-x-auto">
-                                        <div class="flex items-center gap-1.5 shrink-0 text-muted">
-                                            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
-                                            <span class="font-bold text-cyan-300">EXECUTION MARKERS:</span>
-                                        </div>
-                                        <div id="terminal-markers-pills" class="flex items-center gap-1.5 overflow-x-auto py-0.5">
-                                            <!-- Dynamically populated execution marker chips -->
-                                        </div>
-                                        <div id="terminal-marker-status" class="text-[9px] text-muted shrink-0 hidden md:block">
-                                            Hover over marker on chart or chip to sync crosshair &amp; OHLC
-                                        </div>
-                                    </div>
-
-                                    <!-- Canvas Container for Crisp Candlestick Chart & Execution Tags -->
-                                    <div class="relative w-full p-2 select-none" style="height: 310px;">
-                                        <canvas id="terminalCandleCanvas" class="w-full h-full block cursor-crosshair"></canvas>
-                                        <div id="candle-tooltip" class="hidden absolute pointer-events-none bg-slate-900/95 border border-sky-400/50 p-2.5 rounded-lg text-[10px] mono shadow-2xl z-30 text-white backdrop-blur-md transition-opacity duration-75"></div>
-                                        <div id="marker-clicked-card" class="hidden absolute bg-slate-950/95 border border-cyan-400/80 p-2.5 rounded-lg text-[10px] mono shadow-2xl z-40 text-white backdrop-blur-md transition-all duration-150 max-w-[270px] pointer-events-auto">
-                                            <div class="flex items-center justify-between pb-1.5 border-b border-slate-700/80">
-                                                <div class="flex items-center gap-1.5" id="clicked-marker-title"></div>
-                                                <button onclick="closeClickedMarker()" class="text-muted hover:text-white mono text-xs px-1 hover:bg-slate-800 rounded">✕</button>
-                                            </div>
-                                            <div class="py-1.5 space-y-1" id="clicked-marker-body"></div>
-                                            <div class="pt-1.5 border-t border-slate-700/80 flex items-center justify-between text-[8.5px] text-muted">
-                                                <span id="clicked-marker-time"></span>
-                                                <button onclick="closeClickedMarker()" class="text-cyan-300 hover:underline">Desanclar</button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Execution Latency Histogram -->
-                                <div class="term-panel" style="height: 200px;">
-                                    <div class="term-header">
-                                        <span class="flex items-center gap-1.5 text-cyan-400">
-                                            <i data-lucide="gauge" class="w-3.5 h-3.5"></i> EXECUTION LATENCY
-                                        </span>
-                                        <div class="flex items-center gap-3 text-[10px] mono font-normal">
-                                            <span>Median: <b id="lat-median" class="text-white font-bold">145 µs</b></span>
-                                            <span>Outliers: <b id="lat-outliers" class="text-rose-400 font-bold">145 µs</b></span>
-                                            <span>Samples: <b id="lat-samples" class="text-white">12.4k</b></span>
-                                            <span>Jitter: <b id="lat-jitter" class="text-emerald-400">12 µs</b></span>
-                                        </div>
-                                    </div>
-                                    <div class="flex-1 p-2 relative">
-                                        <canvas id="latencyHistChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- COLUMN 3: RISK MANAGEMENT & EXPOSURE + STRATEGY PERFORMANCE LIVE -->
-                            <div class="space-y-3 flex flex-col">
-                                <!-- Risk Management & Exposure -->
-                                <div class="term-panel">
-                                    <div class="term-header">
-                                        <span class="flex items-center gap-1.5 text-amber-400">
-                                            <i data-lucide="shield-alert" class="w-3.5 h-3.5"></i> RISK MANAGEMENT & EXPOSURE
-                                        </span>
-                                        <span class="text-[9px] mono text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/30">UNDER LIMIT</span>
-                                    </div>
-                                    
-                                    <!-- KPI Metric Rows -->
-                                    <div class="p-2 space-y-1 bg-inset border-b border-theme">
-                                        <div class="kpi-row">
-                                            <span class="text-muted">NET EXPOSURE:</span>
-                                            <span id="term-net-exp" class="font-bold text-cyan-300">$145.7M</span>
-                                        </div>
-                                        <div class="kpi-row">
-                                            <span class="text-muted">VaR (99%/1D):</span>
-                                            <span class="font-bold text-emerald-400" id="term-var">$2.1M (UNDER LIMIT)</span>
-                                        </div>
-                                        <div class="kpi-row">
-                                            <span class="text-muted">MAX DRAWDOWN:</span>
-                                            <span id="term-max-dd" class="font-bold text-rose-400">1.85%</span>
-                                        </div>
-                                        <div class="kpi-row">
-                                            <span class="text-muted">BETA / GAMMA:</span>
-                                            <span class="font-bold text-white"><span id="term-beta" class="text-sky-300">1.15</span> / <span id="term-gamma" class="text-amber-300">-42k</span></span>
-                                        </div>
-                                    </div>
-
-                                    <!-- Sector Concentration Heatmap Treemap -->
-                                    <div class="p-2.5 space-y-1.5">
-                                        <div class="flex items-center justify-between text-[10px] font-bold tracking-wider text-muted uppercase">
-                                            <span>SECTOR CONCENTRATION</span>
-                                            <span class="text-cyan-400">HEATMAP</span>
-                                        </div>
-                                        <div id="term-treemap-grid" class="grid grid-cols-6 gap-1.5 h-[140px]">
-                                            <!-- Dynamically generated Treemap tiles -->
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Strategy Performance Live -->
-                                <div class="term-panel flex-1">
-                                    <div class="term-header">
-                                        <span class="flex items-center gap-1.5 text-emerald-400">
-                                            <i data-lucide="trending-up" class="w-3.5 h-3.5"></i> STRATEGY PERFORMANCE (LIVE)
-                                        </span>
-                                        <span class="text-[9px] mono text-cyan-400 font-bold">ALPHA_v4.2</span>
-                                    </div>
-
-                                    <div class="p-2 space-y-1 bg-inset border-b border-theme">
-                                        <div class="kpi-row">
-                                            <span class="text-muted">TOTAL PnL (Unrealized):</span>
-                                            <span id="term-unreal-pnl" class="font-bold text-emerald-400">+$389.2k</span>
-                                        </div>
-                                        <div class="kpi-row">
-                                            <span class="text-muted">TOTAL PnL (Realized):</span>
-                                            <span id="term-real-pnl" class="font-bold text-emerald-400">+$1.1M</span>
-                                        </div>
-                                        <div class="kpi-row">
-                                            <span class="text-muted">SHARPE RATIO (30D):</span>
-                                            <span id="term-sharpe" class="font-bold text-cyan-300">2.85</span>
-                                        </div>
-                                        <div class="kpi-row">
-                                            <span class="text-muted">PROFIT FACTOR:</span>
-                                            <span id="term-pf" class="font-bold text-amber-300">2.12</span>
-                                        </div>
-                                    </div>
-
-                                    <!-- Cumulative PnL Dual Line Chart -->
-                                    <div class="p-2 flex-1 flex flex-col min-h-[160px]">
-                                        <div class="flex items-center justify-between text-[9.5px] mono text-muted mb-1 px-1">
-                                            <span class="flex items-center gap-1"><span class="w-2 h-0.5 bg-emerald-400 inline-block"></span> Strategy Alpha</span>
-                                            <span class="flex items-center gap-1"><span class="w-2 h-0.5 bg-sky-400 inline-block"></span> Benchmark</span>
-                                        </div>
-                                        <div class="flex-1 relative">
-                                            <canvas id="termCumPnlChart"></canvas>
-                                        </div>
-                                    </div>
-                                </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left text-xs mono">
+                                    <thead>
+                                        <tr class="text-[10px] uppercase text-muted border-b border-theme">
+                                            <th class="py-1.5 px-2">Par / Símbolo</th>
+                                            <th class="py-1.5 px-2">Precio Actual</th>
+                                            <th class="py-1.5 px-2">Dist. Setup</th>
+                                            <th class="py-1.5 px-2">ADX / Vol</th>
+                                            <th class="py-1.5 px-2">RRR Proy.</th>
+                                            <th class="py-1.5 px-2">Estado / Razón</th>
+                                            <th class="py-1.5 px-2 text-right">Acción</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="quick-radar-body" class="divide-y divide-white/5">
+                                        <tr>
+                                            <td colspan="7" class="py-6 text-center text-muted text-[11px]">
+                                                Cargando radar de oportunidades Binance Futures...
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
+
                     </div>
                 </div>
+
 
                 <!-- 1. RADAR TAB -->
                 <div class="tab-pane" data-pane="radar">
@@ -1781,54 +1507,119 @@
                 </div>
 
                 <!-- 2. CONSENSUS TAB -->
-                <div class="tab-pane" data-pane="consensus">
-                    <div class="p-4 pb-2 flex flex-wrap items-center gap-3 justify-between">
-                        <div>
+                <!-- 2. TRIPLE TF COCKPIT TAB -->
+                <div class="tab-pane" data-pane="cockpit">
+                    <div class="p-4 pb-2 flex flex-wrap items-center gap-3 justify-between bg-thead/40 border-b border-theme">
+                        <div class="flex items-center gap-3">
                             <h2 class="font-bold text-sm uppercase tracking-wider flex items-center gap-2">
-                                <i data-lucide="compass" class="w-4 h-4 text-cyan-400"></i> Votos & Consenso Multi-Agente
+                                <i data-lucide="line-chart" class="w-4 h-4 text-cyan-400"></i> Visor Triple Timeframe Cockpit (1H / 5M / 1M)
                             </h2>
-                            <p class="text-[10px] text-muted mt-0.5">Lectura institucional del consenso, pesos por modelo y compuertas de seguridad.</p>
+                            <span id="cockpit-selected-symbol" class="mono text-xs font-black bg-cyan-500/20 text-cyan-400 px-2.5 py-1 rounded border border-cyan-500/40">BTC/USDT</span>
                         </div>
-                        <span id="consensus-state-age" class="code-chip">sin snapshot</span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[11px] text-muted mono">Seleccionar par:</span>
+                            <select id="cockpit-pair-select" onchange="loadCockpitPair(this.value)" class="input-lite mono text-xs py-1 px-2.5 rounded bg-inset border border-theme text-white font-bold cursor-pointer">
+                                <option value="BTC/USDT">BTC/USDT</option>
+                                <option value="ETH/USDT">ETH/USDT</option>
+                                <option value="XRP/USDT">XRP/USDT</option>
+                                <option value="SOL/USDT">SOL/USDT</option>
+                                <option value="ZEC/USDT">ZEC/USDT</option>
+                                <option value="XAU/USDT">XAU/USDT</option>
+                                <option value="SNDK/USDT">SNDK/USDT</option>
+                                <option value="CL/USDT">CL/USDT</option>
+                                <option value="SKHYNIX/USDT">SKHYNIX/USDT</option>
+                                <option value="SOXL/USDT">SOXL/USDT</option>
+                            </select>
+                            <button onclick="refreshCockpitLive()" class="btn-ctrl py-1 px-2.5 text-xs flex items-center gap-1 font-bold text-cyan-400 border-cyan-500/30 hover:bg-cyan-500/10"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refrescar 3-TF</button>
+                        </div>
                     </div>
-                    <div class="px-4 pb-4 grid grid-cols-1 xl:grid-cols-12 gap-3">
-                        <div class="insight-card xl:col-span-4">
-                            <p class="section-title">Consensus Gauge</p>
-                            <div id="consensus-answer" class="consensus-answer neutral mb-3">
-                                <div id="consensus-headline" class="headline glow-blue">Esperando señal</div>
-                                <div id="consensus-explain" class="text-[11px] text-dim mt-1">Aún no hay rondas de consenso disponibles.</div>
+
+                    <!-- DECISION BADGES BANNER -->
+                    <div class="px-4 py-3 bg-inset/50 border-b border-theme grid grid-cols-1 md:grid-cols-4 gap-2">
+                        <div class="p-2.5 rounded-xl border border-theme bg-panel/80 flex flex-col justify-between">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[10px] font-bold uppercase text-muted tracking-wider">1. Sesgo Macro (1H)</span>
+                                <span id="cockpit-badge-1h" class="text-[10px] font-black mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">BUY</span>
                             </div>
-                            <div class="consensus-gauge mb-3">
-                                <div id="consensus-needle" class="consensus-needle" style="transform:rotate(0deg);"></div>
-                                <div class="consensus-hub"></div>
-                            </div>
-                            <div class="text-center">
-                                <div id="consensus-prob" class="mono text-3xl font-black glow-blue">--.-%</div>
-                                <div id="consensus-status" class="text-xs text-muted mt-1">Esperando rondas</div>
-                                <div id="consensus-symbol" class="text-[11px] text-dim mt-0.5 mono">--</div>
-                            </div>
-                            <div id="consensus-model-strip" class="consensus-model-strip"></div>
+                            <div id="cockpit-reason-1h" class="text-[11px] font-mono text-dim mt-1.5 truncate">1H_PRICE_ABOVE_EMA50</div>
                         </div>
-                        <div class="insight-card xl:col-span-5">
-                            <p class="section-title">Agent Voting Breakdown</p>
-                            <div id="consensus-kpis" class="consensus-kpis mb-2"></div>
-                            <div class="tbl-wrap" style="max-height:240px;">
-                                <table>
-                                    <thead><tr><th>Agente</th><th>Voto</th><th>Peso</th><th>Estado</th></tr></thead>
-                                    <tbody id="consensus-votes-body"><tr><td colspan="4" class="empty-state"><strong>Sin votos</strong>Espera una ronda de análisis.</td></tr></tbody>
-                                </table>
+
+                        <div class="p-2.5 rounded-xl border border-theme bg-panel/80 flex flex-col justify-between">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[10px] font-bold uppercase text-muted tracking-wider">2. Estructura (5M)</span>
+                                <span id="cockpit-badge-5m" class="text-[10px] font-black mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">VALID SETUP</span>
+                            </div>
+                            <div id="cockpit-reason-5m" class="text-[11px] font-mono text-dim mt-1.5 truncate">5M_PULLBACK_TOUCH_VALIDATED</div>
+                        </div>
+
+                        <div class="p-2.5 rounded-xl border border-theme bg-panel/80 flex flex-col justify-between">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[10px] font-bold uppercase text-muted tracking-wider">3. Gatillo (1M)</span>
+                                <span id="cockpit-badge-1m" class="text-[10px] font-black mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">READY</span>
+                            </div>
+                            <div id="cockpit-reason-1m" class="text-[11px] font-mono text-dim mt-1.5 truncate">1M_TRIGGER_BOUNCE_READY</div>
+                        </div>
+
+                        <div class="p-2.5 rounded-xl border border-cyan-500/30 bg-cyan-950/20 flex flex-col justify-between">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[10px] font-bold uppercase text-cyan-400 tracking-wider">Veredicto Final TTF</span>
+                                <span id="cockpit-verdict-tag" class="text-[10px] font-black mono px-1.5 py-0.5 rounded bg-cyan-500/30 text-cyan-300 border border-cyan-400/40">COMPRA (88%)</span>
+                            </div>
+                            <div id="cockpit-verdict-explain" class="text-[11px] font-mono text-cyan-200 mt-1.5 truncate">3 Marcos Alineados → Orden Ejecutable</div>
+                        </div>
+                    </div>
+
+                    <!-- 3 CHARTS GRID (1H, 5M, 1M) -->
+                    <div class="p-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        <!-- CHART 1H -->
+                        <div class="insight-card flex flex-col">
+                            <div class="flex items-center justify-between mb-2">
+                                <h3 class="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 text-amber-400">
+                                    <i data-lucide="clock" class="w-3.5 h-3.5"></i> Marco 1H — Sesgo Macro
+                                </h3>
+                                <span class="text-[10px] text-muted mono">EMA 50 (Dorado)</span>
+                            </div>
+                            <div class="chart-box bg-inset rounded-xl p-1 border border-theme" style="height:240px;">
+                                <canvas id="cockpitCanvas1H"></canvas>
+                            </div>
+                            <div class="mt-2 text-[10px] text-muted flex justify-between mono">
+                                <span>Mecha Rechazo: <b id="cockpit-wick-1h" class="text-white">Ninguna</b></span>
+                                <span>Pendiente: <b id="cockpit-slope-1h" class="text-emerald-400">+0.12%</b></span>
                             </div>
                         </div>
-                        <div class="insight-card xl:col-span-3">
-                            <p class="section-title">Pre-Execution Risk Gate</p>
-                            <div id="consensus-risk-gate" class="space-y-1.5 text-xs"></div>
-                        </div>
-                        <div class="insight-card xl:col-span-12">
-                            <div class="flex items-center justify-between gap-2 mb-2">
-                                <p class="section-title mb-0">Últimas 50 rondas de consenso</p>
-                                <span id="consensus-round-count" class="text-xs text-muted mono">0 rondas</span>
+
+                        <!-- CHART 5M -->
+                        <div class="insight-card flex flex-col">
+                            <div class="flex items-center justify-between mb-2">
+                                <h3 class="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 text-cyan-400">
+                                    <i data-lucide="activity" class="w-3.5 h-3.5"></i> Marco 5M — Estructura & Pullback
+                                </h3>
+                                <span class="text-[10px] text-muted mono">EMA 50 (Cian)</span>
                             </div>
-                            <div class="chart-box" style="height:170px;"><canvas id="consensusChart"></canvas></div>
+                            <div class="chart-box bg-inset rounded-xl p-1 border border-theme" style="height:240px;">
+                                <canvas id="cockpitCanvas5M"></canvas>
+                            </div>
+                            <div class="mt-2 text-[10px] text-muted flex justify-between mono">
+                                <span>Pullback Toque: <b id="cockpit-touch-5m" class="text-cyan-400">Confirmado (4 V.)</b></span>
+                                <span>SL Sugerido: <b id="cockpit-sl-5m" class="text-white">--</b></span>
+                            </div>
+                        </div>
+
+                        <!-- CHART 1M -->
+                        <div class="insight-card flex flex-col">
+                            <div class="flex items-center justify-between mb-2">
+                                <h3 class="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 text-emerald-400">
+                                    <i data-lucide="target" class="w-3.5 h-3.5"></i> Marco 1M — Gatillo & Anti-Chasing
+                                </h3>
+                                <span class="text-[10px] text-muted mono">Banda ±0.6% EMA 50</span>
+                            </div>
+                            <div class="chart-box bg-inset rounded-xl p-1 border border-theme" style="height:240px;">
+                                <canvas id="cockpitCanvas1M"></canvas>
+                            </div>
+                            <div class="mt-2 text-[10px] text-muted flex justify-between mono">
+                                <span>Anti-Chasing: <b id="cockpit-chase-1m" class="text-emerald-400">OK (≤ 0.6%)</b></span>
+                                <span>Gatillo: <b id="cockpit-trig-1m" class="text-white">Rebote EMA 1M</b></span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2476,6 +2267,131 @@
         </div>
     </div>
 
+    <!-- ===== MODAL: CONFIRMAR CIERRE DE TRADE ===== -->
+    <div id="close-trade-modal" class="modal-backdrop">
+        <div class="modal-card max-w-md w-[92vw] flex flex-col p-5 border border-rose-500/50 shadow-2xl">
+            <div class="flex items-center justify-between pb-3 mb-3 border-b border-theme">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center font-black">
+                        <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-extrabold text-sm uppercase tracking-wider text-rose-400">
+                            Confirmar Cierre a Mercado
+                        </h3>
+                        <p class="text-[10px] text-muted">Ejecución inmediata de orden contraria en Binance Futures</p>
+                    </div>
+                </div>
+                <button onclick="closeModal('close-trade-modal')" class="text-muted hover:text-white mono text-lg font-bold px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 transition-colors">✕</button>
+            </div>
+
+            <div class="p-3 rounded-xl bg-inset border border-theme text-xs mono space-y-2 mb-4">
+                <div class="flex items-center justify-between">
+                    <span class="text-muted">Par / Símbolo:</span>
+                    <span id="modal-close-symbol" class="font-extrabold text-cyan-300 text-sm">--</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-muted">Dirección / Modo:</span>
+                    <span id="modal-close-side" class="font-bold">--</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-muted">Precio Entrada:</span>
+                    <span id="modal-close-entry" class="text-white">--</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-muted">Precio Actual:</span>
+                    <span id="modal-close-price" class="text-white">--</span>
+                </div>
+                <div class="flex items-center justify-between pt-1 border-t border-theme">
+                    <span class="text-muted font-bold">PnL Flotante Estimado:</span>
+                    <span id="modal-close-pnl" class="font-black text-sm">--</span>
+                </div>
+            </div>
+
+            <p class="text-[10.5px] text-slate-400 mb-4 bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20">
+                <b class="text-rose-300">Aviso Crítico:</b> Se enviará una orden de mercado para cerrar el 100% de la posición en Binance y se cancelarán los Stop Loss y Take Profit vinculados.
+            </p>
+
+            <div class="flex items-center justify-end gap-2">
+                <button onclick="closeModal('close-trade-modal')" class="btn-ctrl text-xs px-4 py-2 cursor-pointer">Cancelar</button>
+                <button id="btn-confirm-close-trade" onclick="executeConfirmedClose()" class="btn-danger text-xs px-4 py-2 flex items-center gap-1.5 font-extrabold cursor-pointer">
+                    <i data-lucide="x-circle" class="w-4 h-4"></i> Confirmar Cierre Inmediato
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MODAL: CONFIRMAR PARADA DE EMERGENCIA (PANIC) ===== -->
+    <div id="panic-modal" class="modal-backdrop">
+        <div class="modal-card max-w-md w-[92vw] flex flex-col p-5 border border-rose-600 shadow-2xl bg-slate-950">
+            <div class="flex items-center justify-between pb-3 mb-3 border-b border-rose-500/30">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-rose-600/30 text-rose-400 flex items-center justify-center font-black animate-pulse">
+                        <i data-lucide="shield-alert" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-extrabold text-sm uppercase tracking-wider text-rose-400">
+                            Protocolo de Emergencia: PÁNICO
+                        </h3>
+                        <p class="text-[10px] text-muted">HALT de Seguridad & Cancelación de Órdenes</p>
+                    </div>
+                </div>
+                <button onclick="closeModal('panic-modal')" class="text-muted hover:text-white mono text-lg font-bold px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 transition-colors">✕</button>
+            </div>
+
+            <div class="p-3 rounded-xl bg-rose-950/30 border border-rose-500/40 text-xs mono space-y-2 mb-4">
+                <p class="text-[11px] text-rose-200 leading-relaxed">
+                    Al ejecutar el comando <b>/panic</b>:
+                </p>
+                <ul class="list-disc list-inside text-[10.5px] text-rose-300 space-y-1">
+                    <li>Se cancelan todas las órdenes abiertas pendientes.</li>
+                    <li>Se abortan escaneos y entradas de nuevos trades.</li>
+                    <li>El bot entra en estado incondicional <b>HALT</b>.</li>
+                </ul>
+            </div>
+
+            <div class="flex items-center justify-end gap-2">
+                <button onclick="closeModal('panic-modal')" class="btn-ctrl text-xs px-4 py-2 cursor-pointer">Cancelar</button>
+                <button onclick="executeConfirmedPanic()" class="btn-danger text-xs px-4 py-2 flex items-center gap-1.5 font-black bg-rose-700 hover:bg-rose-600 text-white cursor-pointer">
+                    <i data-lucide="octagon" class="w-4 h-4"></i> ACTIVAR HALT / PÁNICO
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MODAL: REBASE DE CAPITAL ===== -->
+    <div id="rebase-modal" class="modal-backdrop">
+        <div class="modal-card max-w-md w-[92vw] flex flex-col p-5 border border-cyan-500/50 shadow-2xl">
+            <div class="flex items-center justify-between pb-3 mb-3 border-b border-theme">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-black">
+                        <i data-lucide="dollar-sign" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-extrabold text-sm uppercase tracking-wider text-cyan-300">
+                            Rebasar Capital Operativo
+                        </h3>
+                        <p class="text-[10px] text-muted">Ajuste de margen y dimensionamiento de posición</p>
+                    </div>
+                </div>
+                <button onclick="closeModal('rebase-modal')" class="text-muted hover:text-white mono text-lg font-bold px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 transition-colors">✕</button>
+            </div>
+
+            <div class="p-3 rounded-xl bg-inset border border-theme text-xs mono space-y-2 mb-4">
+                <p class="text-[11px] text-slate-300 leading-relaxed">
+                    Esta acción recalibra la base de capital contra la wallet de Binance Futures o el balance operativo configurado, actualizando el sizing dinámico de cada entrada.
+                </p>
+            </div>
+
+            <div class="flex items-center justify-end gap-2">
+                <button onclick="closeModal('rebase-modal')" class="btn-ctrl text-xs px-4 py-2 cursor-pointer">Cancelar</button>
+                <button onclick="executeConfirmedRebase()" class="btn-primary text-xs px-4 py-2 flex items-center gap-1.5 font-extrabold cursor-pointer">
+                    <i data-lucide="refresh-cw" class="w-4 h-4"></i> Ejecutar Rebase Ahora
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- ===== FLOATING TOAST NOTIFICATIONS ===== -->
     <div id="toast-container"></div>
 
@@ -2626,8 +2542,9 @@
                 var pane = document.querySelector('[data-pane="' + tabKey + '"]');
                 if (pane) pane.setAttribute('active', '');
                 
-                if (tabKey === 'terminal') { fetchTerminalOverview(); setTimeout(drawCandlestickCanvas, 50); }
+                if (tabKey === 'terminal') { fetchState(); fetchTerminalOverview(); setTimeout(drawCandlestickCanvas, 50); }
                 if (tabKey === 'radar') { renderRadarHealthChart(); }
+                if (tabKey === 'cockpit') { refreshCockpitLive(); }
                 if (tabKey === 'trades') { if (!tradeChartInstance) fetchTrades(); }
                 if (tabKey === 'consensus') fetchConsensus();
                 if (tabKey === 'blocked') fetchBlocked();
@@ -2642,9 +2559,345 @@
 
         /* ===== COMMANDS ===== */
         function sendCmd(a) { 
-            fetch(API+'/command',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:a})})
+            fetch(API+'/command',{method:'POST',headers:getControlHeaders(),body:JSON.stringify({action:a})})
             .then(function(){ fetchState(); })
             .catch(function(){}); 
+        }
+
+        /* ===== MASTER CONTROL & ACTION MODALS ===== */
+        var currentTradeToClose = null;
+        var _positionsFilter = 'all';
+        var _lastActiveTrades = [];
+        var _lastShadowTrades = [];
+        var _lastAllPositions = [];
+
+        function getControlHeaders() {
+            var headers = { 'Content-Type': 'application/json' };
+            var k = localStorage.getItem('sniper_control_key') || localStorage.getItem('sniper_api_key');
+            if (k) {
+                headers['X-Control-Key'] = k;
+                headers['X-API-Key'] = k;
+            }
+            return headers;
+        }
+
+        function switchTab(tabName) {
+            var b = document.querySelector('.tab-btn[data-tab="' + tabName + '"]');
+            if (b) b.click();
+        }
+
+        function closeModal(modalId) {
+            var m = document.getElementById(modalId);
+            if (m) m.classList.remove('open');
+        }
+
+        function openPanicModal() {
+            var m = document.getElementById('panic-modal');
+            if (m) m.classList.add('open');
+        }
+
+        function executeConfirmedPanic() {
+            closeModal('panic-modal');
+            sendCmd('/panic');
+            showToast('🚨 Protocolo de Pánico Activado: HALT del sistema y cancelación de órdenes', 'critical');
+        }
+
+        function openRebaseModal() {
+            var m = document.getElementById('rebase-modal');
+            if (m) m.classList.add('open');
+        }
+
+        function executeConfirmedRebase() {
+            closeModal('rebase-modal');
+            sendCmd('/rebase_capital');
+            showToast('🔄 Recalibración de base de capital solicitada', 'success');
+        }
+
+        function openCloseTradeModal(idx) {
+            var trade = _lastAllPositions[idx];
+            if (!trade) return;
+            currentTradeToClose = trade;
+            var symEl = document.getElementById('modal-close-symbol');
+            var sideEl = document.getElementById('modal-close-side');
+            var entEl = document.getElementById('modal-close-entry');
+            var prcEl = document.getElementById('modal-close-price');
+            var pnlEl = document.getElementById('modal-close-pnl');
+
+            if (symEl) symEl.textContent = trade.symbol;
+            if (sideEl) {
+                var isBuy = (trade.side === 'BUY' || trade.side === 'LONG');
+                sideEl.innerHTML = '<span class="' + (isBuy ? 'text-emerald-400' : 'text-rose-400') + '">' +
+                    esc(trade.side) + '</span> <span class="text-muted text-[10px]">(' + (trade.is_shadow ? 'SHADOW' : 'REAL/PAPER') + ')</span>';
+            }
+            if (entEl) entEl.textContent = '$' + Number(trade.entry_price || 0).toFixed(trade.entry_price < 1 ? 4 : 2);
+            if (prcEl) prcEl.textContent = '$' + Number(trade.current_price || trade.entry_price || 0).toFixed(trade.current_price < 1 ? 4 : 2);
+            if (pnlEl) {
+                var pn = Number(trade.pnl_pct || 0);
+                var pnu = Number(trade.pnl_usd || 0);
+                pnlEl.className = 'font-black text-sm ' + (pn >= 0 ? 'text-emerald-400' : 'text-rose-400');
+                pnlEl.textContent = fmtP(pn) + ' (' + fm$(pnu) + ')';
+            }
+
+            var m = document.getElementById('close-trade-modal');
+            if (m) m.classList.add('open');
+        }
+
+        function executeConfirmedClose() {
+            if (!currentTradeToClose) return;
+            var sym = currentTradeToClose.symbol;
+            closeModal('close-trade-modal');
+            closeTrade(sym);
+        }
+
+        function closeTrade(symbol) {
+            if (!symbol) return;
+            var sym = symbol.trim().toUpperCase();
+            fetch(API + '/trade/close', {
+                method: 'POST',
+                headers: getControlHeaders(),
+                body: JSON.stringify({ symbol: sym })
+            })
+            .then(function(r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            })
+            .then(function() {
+                showToast('Orden de cierre enviada para ' + sym, 'success');
+                setTimeout(fetchState, 500);
+            })
+            .catch(function() {
+                sendCmd('/close ' + sym);
+                showToast('Cierre manual enviado para ' + sym, 'info');
+            });
+        }
+
+        function breakevenTrade(symbol) {
+            if (!symbol) return;
+            var sym = symbol.trim().toUpperCase();
+            fetch(API + '/trade/breakeven', {
+                method: 'POST',
+                headers: getControlHeaders(),
+                body: JSON.stringify({ symbol: sym })
+            })
+            .then(function(r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            })
+            .then(function() {
+                showToast('Stop Loss ajustado a Break-Even para ' + sym, 'success');
+                setTimeout(fetchState, 500);
+            })
+            .catch(function() {
+                sendCmd('/breakeven ' + sym);
+                showToast('Comando Break-Even enviado para ' + sym, 'info');
+            });
+        }
+
+        function filterPositionsView(f) {
+            _positionsFilter = f;
+            ['all', 'real', 'shadow'].forEach(function(k) {
+                var btn = document.getElementById('filter-pos-' + k);
+                if (btn) {
+                    if (k === f) btn.classList.add('active');
+                    else btn.classList.remove('active');
+                }
+            });
+            renderActivePositions(_lastActiveTrades, _lastShadowTrades);
+        }
+
+        function renderActivePositions(activeTrades, shadowTrades) {
+            _lastActiveTrades = activeTrades || [];
+            _lastShadowTrades = shadowTrades || [];
+
+            var act = _lastActiveTrades.map(function(t){ var x = Object.assign({}, t); x.is_shadow = false; return x; });
+            var shd = _lastShadowTrades.map(function(t){ var x = Object.assign({}, t); x.is_shadow = true; return x; });
+            _lastAllPositions = act.concat(shd);
+
+            var cntReal = act.length;
+            var cntShadow = shd.length;
+            var cntAll = _lastAllPositions.length;
+
+            var elTotal = document.getElementById('ops-total-trades-cnt');
+            var elFilterAll = document.getElementById('ops-filter-cnt-all');
+            var elFilterReal = document.getElementById('ops-filter-cnt-real');
+            var elFilterShadow = document.getElementById('ops-filter-cnt-shadow');
+            if (elTotal) elTotal.textContent = cntAll;
+            if (elFilterAll) elFilterAll.textContent = cntAll;
+            if (elFilterReal) elFilterReal.textContent = cntReal;
+            if (elFilterShadow) elFilterShadow.textContent = cntShadow;
+
+            // Compute floating totals and margin
+            var totalMargin = 0;
+            var totalFloatingUsd = 0;
+            _lastAllPositions.forEach(function(t) {
+                var lev = Number(t.leverage || 10);
+                var sz = Number(t.size || t.amount || 0);
+                var en = Number(t.entry_price || 0);
+                var notional = sz > 50 ? sz : (sz * en);
+                totalMargin += (lev > 0 ? notional / lev : notional);
+                totalFloatingUsd += Number(t.pnl_usd || 0);
+            });
+
+            var elMargin = document.getElementById('ops-margin-in-use');
+            if (elMargin) elMargin.textContent = '$' + totalMargin.toFixed(2);
+
+            var elFpnl = document.getElementById('ops-floating-pnl');
+            if (elFpnl) {
+                elFpnl.textContent = (totalFloatingUsd >= 0 ? '+' : '') + '$' + totalFloatingUsd.toFixed(2);
+                elFpnl.className = 'font-bold ' + (totalFloatingUsd >= 0 ? 'text-emerald-400' : 'text-rose-400');
+            }
+
+            var displayed = _lastAllPositions.filter(function(t) {
+                if (_positionsFilter === 'real') return !t.is_shadow;
+                if (_positionsFilter === 'shadow') return t.is_shadow;
+                return true;
+            });
+
+            var grid = document.getElementById('active-positions-grid');
+            if (!grid) return;
+
+            if (!displayed.length) {
+                grid.innerHTML = '<div class="p-8 text-center bg-inset rounded-xl border border-theme text-muted text-xs flex flex-col items-center justify-center space-y-2">' +
+                    '<i data-lucide="inbox" class="w-8 h-8 text-slate-600"></i>' +
+                    '<p class="font-bold text-slate-400 text-sm">Sin posiciones abiertas (' + esc(_positionsFilter.toUpperCase()) + ')</p>' +
+                    '<p class="text-[11px] text-slate-500 max-w-md">El motor de escaneo está analizando los 30 pares de futuros en segundo plano buscando setups de alta probabilidad (RRR &ge; 1.8).</p>' +
+                    '<button onclick="sendCmd(\'/scan\')" class="mt-2 btn-ctrl text-xs px-3 py-1 flex items-center gap-1 cursor-pointer">' +
+                    '<i data-lucide="zap" class="w-3.5 h-3.5 text-amber-400"></i> Disparar Escaneo Inmediato' +
+                    '</button>' +
+                    '</div>';
+                refreshIcons();
+                return;
+            }
+
+            grid.innerHTML = displayed.map(function(t) {
+                var sym = esc(t.symbol);
+                var isBuy = (t.side === 'BUY' || t.side === 'LONG');
+                var sideCls = isBuy ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' : 'bg-rose-500/15 text-rose-300 border-rose-500/30';
+                var modeBadge = t.is_shadow ? '<span class="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-purple-500/20 text-purple-300 border border-purple-500/30">SHADOW</span>' :
+                    '<span class="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">LIVE</span>';
+
+                var en = Number(t.entry_price || 0);
+                var cp = Number(t.current_price || en);
+                var sl = Number(t.sl || 0);
+                var tp = Number(t.tp || 0);
+                var pnlPct = Number(t.pnl_pct || 0);
+                var pnlUsd = Number(t.pnl_usd || 0);
+                var lev = Number(t.leverage || 10);
+                var sz = Number(t.size || t.amount || 0);
+                var dur = t.duration_s != null ? (Math.floor(t.duration_s / 60) + 'm ' + (t.duration_s % 60) + 's') : '--';
+
+                var peak = Number(t.peak_pnl || Math.max(pnlPct, 0));
+                var mae = Math.min(pnlPct < 0 ? pnlPct : 0, -0.01);
+                var mfe = Math.max(peak, pnlPct, 0.01);
+                var totalRange = mfe - mae;
+                var currentPosPct = Math.max(0, Math.min(100, ((pnlPct - mae) / totalRange) * 100));
+
+                var globalIdx = _lastAllPositions.indexOf(t);
+
+                return '<div class="p-3.5 rounded-xl border border-theme bg-slate-900/90 shadow-md hover:border-cyan-500/40 transition-all space-y-2.5">' +
+                    '<div class="flex flex-wrap items-center justify-between gap-2">' +
+                    '<div class="flex items-center gap-2">' +
+                    '<span class="font-black text-sm mono text-white">' + sym + '</span>' +
+                    '<span class="px-2 py-0.5 rounded text-[10px] font-black border ' + sideCls + '">' + (isBuy ? '▲ LONG' : '▼ SHORT') + '</span>' +
+                    modeBadge +
+                    '<span class="text-[9.5px] mono text-slate-400 font-bold">' + lev + 'x</span>' +
+                    '</div>' +
+                    '<div class="flex items-center gap-2 text-xs mono">' +
+                    '<span class="text-[10px] text-muted">Duración: <b class="text-slate-300">' + dur + '</b></span>' +
+                    '<div class="text-right">' +
+                    '<span class="font-black text-sm ' + (pnlPct >= 0 ? 'text-emerald-400' : 'text-rose-400') + '">' + fmtP(pnlPct) + '</span>' +
+                    '<span class="text-[10px] text-slate-400 ml-1.5">(' + fm$(pnlUsd) + ')</span>' +
+                    '</div>' +
+                    '</div>' +
+                    '</div>' +
+
+                    '<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10.5px] mono bg-black/25 p-2 rounded-lg border border-white/5">' +
+                    '<div><span class="text-muted block text-[9px] uppercase">Entrada</span><span class="text-slate-200 font-bold">$' + (en < 1 ? en.toFixed(4) : en.toFixed(2)) + '</span></div>' +
+                    '<div><span class="text-muted block text-[9px] uppercase">Precio Actual</span><span class="text-white font-bold">$' + (cp < 1 ? cp.toFixed(4) : cp.toFixed(2)) + '</span></div>' +
+                    '<div><span class="text-muted block text-[9px] uppercase">Hard SL</span><span class="text-rose-400 font-bold">' + (sl ? '$' + (sl < 1 ? sl.toFixed(4) : sl.toFixed(2)) : 'NO SL') + '</span></div>' +
+                    '<div><span class="text-muted block text-[9px] uppercase">Take Profit</span><span class="text-emerald-400 font-bold">' + (tp ? '$' + (tp < 1 ? tp.toFixed(4) : tp.toFixed(2)) : 'TRAIL') + '</span></div>' +
+                    '</div>' +
+
+                    '<div class="space-y-1">' +
+                    '<div class="flex items-center justify-between text-[9px] mono text-muted">' +
+                    '<span class="text-rose-400">MAE (Drawdown): ' + mae.toFixed(2) + '%</span>' +
+                    '<span class="text-cyan-300 font-bold">Excursión Operativa</span>' +
+                    '<span class="text-emerald-400">MFE (Peak): +' + mfe.toFixed(2) + '%</span>' +
+                    '</div>' +
+                    '<div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden relative">' +
+                    '<div class="h-full bg-gradient-to-r from-rose-500 via-amber-400 to-emerald-500 rounded-full" style="width: 100%;"></div>' +
+                    '<div class="absolute top-0 bottom-0 w-2 bg-white rounded-full shadow-md -ml-1" style="left: ' + currentPosPct + '%;"></div>' +
+                    '</div>' +
+                    '</div>' +
+
+                    '<div class="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-white/5">' +
+                    '<div class="flex items-center gap-1.5">' +
+                    '<span class="text-[9.5px] text-muted mono">Sizing: <b class="text-slate-300">$' + sz.toFixed(0) + '</b></span>' +
+                    (t.confidence ? '<span class="px-1.5 py-0.2 rounded text-[9px] mono bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">' + Number(t.confidence).toFixed(0) + '% conv</span>' : '') +
+                    '</div>' +
+                    '<div class="flex items-center gap-2">' +
+                    '<button onclick="breakevenTrade(\'' + sym + '\')" class="btn-ctrl text-[10.5px] px-2.5 py-1 flex items-center gap-1 cursor-pointer hover:border-amber-400 hover:text-amber-300" title="Mover Stop Loss al precio de entrada">' +
+                    '<i data-lucide="shield-check" class="w-3.5 h-3.5 text-amber-400"></i> Break-Even' +
+                    '</button>' +
+                    '<button onclick="openCloseTradeModal(' + globalIdx + ')" class="btn-danger text-[10.5px] px-2.5 py-1 flex items-center gap-1 cursor-pointer font-bold" title="Cerrar posición al precio actual">' +
+                    '<i data-lucide="x-circle" class="w-3.5 h-3.5"></i> Cerrar Posición' +
+                    '</button>' +
+                    '</div>' +
+                    '</div>' +
+                    '</div>';
+            }).join('');
+
+            refreshIcons();
+        }
+
+        function renderQuickRadar(radarList) {
+            var elCnt = document.getElementById('quick-radar-cnt');
+            if (elCnt) elCnt.textContent = radarList ? radarList.length : 0;
+
+            var tbody = document.getElementById('quick-radar-body');
+            if (!tbody) return;
+
+            if (!radarList || !radarList.length) {
+                tbody.innerHTML = '<tr><td colspan="7" class="py-6 text-center text-muted text-[11px] italic">' +
+                    'Escaneando pares de futuros Binance en segundo plano...' +
+                    '</td></tr>';
+                return;
+            }
+
+            var topItems = radarList.slice(0, 10);
+            tbody.innerHTML = topItems.map(function(item) {
+                var sym = esc(item.symbol || '');
+                var prc = Number(item.price || 0);
+                var meta = radarMeta(item);
+                var dist = item.dist != null ? (Number(item.dist).toFixed(2) + '%') : '--';
+                var rrr = item.rrr != null ? (Number(item.rrr).toFixed(2) + ' : 1') : '--';
+                var adxStr = item.adx != null ? ('ADX ' + Number(item.adx).toFixed(1)) : 'ADX --';
+                var volStr = item.volume != null ? ('Vol ' + Number(item.volume).toFixed(1) + 'x') : '';
+
+                var tagCls = meta.category === 'pass' ? 'badge-green' : meta.near ? 'badge-yellow' : 'badge-gray';
+
+                return '<tr class="hover:bg-white/[0.02] transition-colors">' +
+                    '<td class="py-2 px-2 font-bold text-white flex items-center gap-1.5">' +
+                    '<i data-lucide="trending-up" class="w-3.5 h-3.5 text-cyan-400"></i>' +
+                    sym +
+                    '</td>' +
+                    '<td class="py-2 px-2 font-bold text-slate-200">$' + (prc < 1 ? prc.toFixed(4) : prc.toFixed(2)) + '</td>' +
+                    '<td class="py-2 px-2 text-slate-400">' + dist + '</td>' +
+                    '<td class="py-2 px-2 text-slate-400">' + adxStr + ' ' + volStr + '</td>' +
+                    '<td class="py-2 px-2 font-bold text-amber-400">' + rrr + '</td>' +
+                    '<td class="py-2 px-2">' +
+                    '<span class="badge ' + tagCls + '">' + esc(meta.label) + '</span>' +
+                    '<span class="text-[9px] text-muted block truncate max-w-[180px]">' + esc(meta.detail) + '</span>' +
+                    '</td>' +
+                    '<td class="py-2 px-2 text-right">' +
+                    '<button onclick="sendCmd(\'/scan\'); showToast(\'Re-evaluando ' + sym + '\', \'info\');" class="btn-ctrl text-[10px] px-2 py-0.5 cursor-pointer hover:text-cyan-300">' +
+                    '⚡ Evaluar' +
+                    '</button>' +
+                    '</td>' +
+                    '</tr>';
+            }).join('');
+
+            refreshIcons();
         }
 
         /* ===== THEME ===== */
@@ -4049,6 +4302,222 @@
                 '</div>';
         }
 
+        /* ===== TRIPLE TIMEFRAME (3-TF) COCKPIT ENGINE ===== */
+        var activeCockpitSymbol = 'BTC/USDT';
+        var cockpitCache = {};
+
+        function loadCockpitPair(symbol) {
+            if (!symbol) return;
+            activeCockpitSymbol = symbol.toUpperCase().replace('-', '/');
+            var sel = document.getElementById('cockpit-pair-select');
+            if (sel) sel.value = activeCockpitSymbol;
+            var tag = document.getElementById('cockpit-selected-symbol');
+            if (tag) tag.textContent = activeCockpitSymbol;
+            refreshCockpitLive();
+        }
+
+        function refreshCockpitLive() {
+            var symbol = activeCockpitSymbol || 'BTC/USDT';
+            var clean = symbol.replace('/', '-');
+            fetch(API + '/ttf_candles/' + encodeURIComponent(clean), { headers: getControlHeaders() })
+                .then(function(res) {
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    return res.json();
+                })
+                .then(function(data) {
+                    if (!data || !data.symbol) return;
+                    cockpitCache[symbol] = data;
+                    renderCockpitData(data);
+                })
+                .catch(function(err) {
+                    console.warn('⚠️ Error fetching 3-TF candles:', err);
+                });
+        }
+
+        function renderCockpitData(data) {
+            if (!data) return;
+            
+            // 1. Update Badges
+            var b1h = document.getElementById('cockpit-badge-1h');
+            var r1h = document.getElementById('cockpit-reason-1h');
+            if (b1h && data.bias_1h) {
+                var b = data.bias_1h.bias || 'NEUTRAL';
+                b1h.textContent = b;
+                b1h.className = 'text-[10px] font-black mono px-1.5 py-0.5 rounded border ' +
+                    (b === 'BUY' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
+                     b === 'SELL' ? 'bg-rose-500/20 text-rose-400 border-rose-500/30' :
+                     'bg-slate-500/20 text-slate-400 border-slate-500/30');
+                if (r1h) r1h.textContent = data.bias_1h.reason || '--';
+            }
+
+            var b5m = document.getElementById('cockpit-badge-5m');
+            var r5m = document.getElementById('cockpit-reason-5m');
+            if (b5m && data.structure_5m) {
+                var v = data.structure_5m.valid_setup;
+                b5m.textContent = v ? 'VALID SETUP' : 'WAITING';
+                b5m.className = 'text-[10px] font-black mono px-1.5 py-0.5 rounded border ' +
+                    (v ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-slate-500/20 text-slate-400 border-slate-500/30');
+                if (r5m) r5m.textContent = data.structure_5m.reason || '--';
+            }
+
+            var b1m = document.getElementById('cockpit-badge-1m');
+            var r1m = document.getElementById('cockpit-reason-1m');
+            if (b1m && data.trigger_1m) {
+                var t = data.trigger_1m.triggered;
+                b1m.textContent = t ? 'READY (' + (data.trigger_1m.side || 'BUY') + ')' : 'WAITING';
+                b1m.className = 'text-[10px] font-black mono px-1.5 py-0.5 rounded border ' +
+                    (t ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-slate-500/20 text-slate-400 border-slate-500/30');
+                if (r1m) r1m.textContent = data.trigger_1m.reason || '--';
+            }
+
+            // Verdict Tag
+            var vTag = document.getElementById('cockpit-verdict-tag');
+            var vExp = document.getElementById('cockpit-verdict-explain');
+            if (vTag && data.bias_1h && data.structure_5m && data.trigger_1m) {
+                var isReady = data.bias_1h.bias !== 'NEUTRAL' && data.structure_5m.valid_setup && data.trigger_1m.triggered;
+                if (isReady) {
+                    vTag.textContent = 'EJECUTABLE (' + data.trigger_1m.side + ')';
+                    vTag.className = 'text-[10px] font-black mono px-1.5 py-0.5 rounded bg-emerald-500/30 text-emerald-300 border border-emerald-400/40';
+                    if (vExp) vExp.textContent = '3 Marcos Alineados → Orden Disparada';
+                } else {
+                    vTag.textContent = 'EN ESPERA (NEUTRAL)';
+                    vTag.className = 'text-[10px] font-black mono px-1.5 py-0.5 rounded bg-slate-500/30 text-slate-300 border border-slate-400/40';
+                    if (vExp) vExp.textContent = data.trigger_1m.reason || data.structure_5m.reason || data.bias_1h.reason;
+                }
+            }
+
+            // 2. Render Canvas Charts with delayed redraw for smooth layout transition
+            function redrawAll() {
+                drawSingleCockpitCanvas('cockpitCanvas1H', data.candles_1h, { emaColor: '#eab308' });
+                drawSingleCockpitCanvas('cockpitCanvas5M', data.candles_5m, { emaColor: '#06b6d4' });
+                drawSingleCockpitCanvas('cockpitCanvas1M', data.candles_1m, { emaColor: '#10b981', drawAntiChasingBand: true });
+            }
+            redrawAll();
+            setTimeout(redrawAll, 50);
+            setTimeout(redrawAll, 150);
+        }
+
+        function drawSingleCockpitCanvas(canvasId, candles, options) {
+            var canvas = document.getElementById(canvasId);
+            if (!canvas || !candles || !candles.length) return;
+
+            var dpr = window.devicePixelRatio || 1;
+            var rect = canvas.getBoundingClientRect();
+            var width = rect.width > 0 ? rect.width : (canvas.parentElement ? canvas.parentElement.clientWidth : 300);
+            var height = rect.height > 0 ? rect.height : (canvas.parentElement ? canvas.parentElement.clientHeight : 220);
+            if (width <= 0) width = 300;
+            if (height <= 0) height = 220;
+
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+
+            var ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+
+            var w = width;
+            var h = height;
+            var topPadding = 12;
+            var bottomPadding = 18;
+            var rightPadding = 45;
+            var chartH = h - topPadding - bottomPadding;
+
+            ctx.clearRect(0, 0, w, h);
+
+            var minPrice = Infinity;
+            var maxPrice = -Infinity;
+
+            candles.forEach(function(c) {
+                if (c.low < minPrice) minPrice = c.low;
+                if (c.high > maxPrice) maxPrice = c.high;
+                if (c.ema50 && c.ema50 < minPrice) minPrice = c.ema50;
+                if (c.ema50 && c.ema50 > maxPrice) maxPrice = c.ema50;
+            });
+
+            var priceRange = (maxPrice - minPrice) || 1;
+            var pricePadding = priceRange * 0.05;
+            minPrice -= pricePadding;
+            maxPrice += pricePadding;
+            priceRange = maxPrice - minPrice;
+
+            function getY(p) {
+                return topPadding + chartH - ((p - minPrice) / priceRange) * chartH;
+            }
+
+            var numCandles = candles.length;
+            var plotWidth = w - rightPadding - 5;
+            var candleGap = plotWidth / numCandles;
+            var bodyWidth = Math.max(2, candleGap * 0.65);
+
+            // Grid lines
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+            for (var i = 0; i <= 4; i++) {
+                var pVal = minPrice + (priceRange / 4) * i;
+                var py = getY(pVal);
+                ctx.beginPath();
+                ctx.moveTo(5, py);
+                ctx.lineTo(w - rightPadding, py);
+                ctx.stroke();
+
+                ctx.fillStyle = '#64748b';
+                ctx.font = '8.5px monospace';
+                ctx.textAlign = 'left';
+                ctx.fillText(pVal.toFixed(1), w - rightPadding + 4, py + 3);
+            }
+
+            // Anti-Chasing Corridor on 1M
+            if (options && options.drawAntiChasingBand) {
+                var lastCandle = candles[candles.length - 1];
+                var lastEma = lastCandle.ema50 || lastCandle.close;
+                var upperY = getY(lastEma * 1.006);
+                var lowerY = getY(lastEma * 0.994);
+                ctx.fillStyle = 'rgba(16, 185, 129, 0.07)';
+                ctx.fillRect(5, upperY, plotWidth, Math.abs(lowerY - upperY));
+                ctx.strokeStyle = 'rgba(16, 185, 129, 0.25)';
+                ctx.setLineDash([2, 2]);
+                ctx.strokeRect(5, upperY, plotWidth, Math.abs(lowerY - upperY));
+                ctx.setLineDash([]);
+            }
+
+            // Candlesticks
+            candles.forEach(function(c, idx) {
+                var cx = 5 + idx * candleGap + candleGap / 2;
+                var isBull = c.close >= c.open;
+                var color = isBull ? '#10b981' : '#f43f5e';
+
+                // Wicks
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(cx, getY(c.high));
+                ctx.lineTo(cx, getY(c.low));
+                ctx.stroke();
+
+                // Body
+                var bodyTop = getY(Math.max(c.open, c.close));
+                var bodyBot = getY(Math.min(c.open, c.close));
+                var bHeight = Math.max(1.5, bodyBot - bodyTop);
+
+                ctx.fillStyle = color;
+                ctx.fillRect(cx - bodyWidth / 2, bodyTop, bodyWidth, bHeight);
+            });
+
+            // EMA 50
+            var emaColor = (options && options.emaColor) || '#eab308';
+            ctx.lineWidth = 1.8;
+            ctx.strokeStyle = emaColor;
+            ctx.beginPath();
+            var started = false;
+            candles.forEach(function(c, idx) {
+                if (!c.ema50) return;
+                var cx = 5 + idx * candleGap + candleGap / 2;
+                var cy = getY(c.ema50);
+                if (!started) { ctx.moveTo(cx, cy); started = true; }
+                else { ctx.lineTo(cx, cy); }
+            });
+            if (started) ctx.stroke();
+        }
+
         /* ===== HIGH-DPI CANDLESTICK CANVAS RENDERER ===== */
         function drawCandlestickCanvas() {
             var canvas = document.getElementById('terminalCandleCanvas');
@@ -4617,10 +5086,16 @@
                 document.getElementById('scanner-pairs').textContent=s.scanner_pairs||0;
                 var t=s.telemetry||{};
                 document.getElementById('shadow-wr').textContent=(t.shadow_win_rate||0).toFixed(1)+'%';
-                document.getElementById('real-wr').textContent=(t.real_win_rate!=null?t.real_win_rate:0).toFixed(1)+'%';
+                var opsModeBadge = document.getElementById('live-ops-mode-badge');
+                if (opsModeBadge) {
+                    opsModeBadge.textContent = m + ' LIVE';
+                    opsModeBadge.className = 'px-2 py-0.5 rounded text-[9px] font-extrabold ' + (m==='REAL' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40');
+                }
                 renderRadar(s.radar||[]);
                 renderSideTrades('real-trades-list',s.active_trades||[],false);
                 renderSideTrades('shadow-trades-list',s.shadow_trades||[],true);
+                renderActivePositions(s.active_trades||[], s.shadow_trades||[]);
+                renderQuickRadar(s.radar||[]);
             })}).catch(function(){});
         }
 
@@ -4864,7 +5339,7 @@
                 var hlSymbol = highlightMatch(e.symbol, lastRadarQuery);
                 var hlLabel = highlightMatch(m.label, lastRadarQuery);
                 var hlDetail = highlightMatch(m.detail, lastRadarQuery);
-                return '<tr class="reason-row '+(m.near?'near-pass':'')+' '+(isFav?'row-favorite':'')+'">'+
+                return '<tr class="reason-row '+(m.near?'near-pass':'')+' '+(isFav?'row-favorite':'')+' cursor-pointer" onclick="loadCockpitPair(\''+esc(e.symbol)+'\'); switchTab(\'cockpit\');" title="Ver 3 gráficos (1H, 5M, 1M) de '+esc(e.symbol)+'">'+
                     '<td><button class="fav-star-btn '+(isFav?'active':'')+'" onclick="toggleFavorite(\''+esc(e.symbol)+'\', event)" title="'+(isFav?'Quitar de favoritos':'Marcar como favorito')+'">★</button></td>'+
                     '<td class="text-muted">'+(i+1)+'</td>'+
                     '<td class="font-bold text-theme flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full '+(m.category==='pass'?'bg-emerald-400':'bg-slate-500')+'"></span>'+hlSymbol+'</td>'+

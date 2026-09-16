@@ -2,9 +2,33 @@
 
 import json
 import os
+import re
 
 CMD_FILE = "/dev/shm/sniper_cmd/command.json"
-ALLOWED_DASHBOARD_COMMANDS = frozenset({"/pause", "/resume", "/panic", "/recover_halt"})
+ALLOWED_DASHBOARD_COMMANDS = frozenset({
+    "/pause",
+    "/resume",
+    "/panic",
+    "/recover_halt",
+    "/rebase_capital",
+    "/sync_wallet",
+    "/scan",
+    "/force_shadow",
+    "/reset",
+})
+
+
+def _is_safe_command(action: str) -> bool:
+    action = action.strip()
+    if action in ALLOWED_DASHBOARD_COMMANDS:
+        return True
+    parts = action.split(maxsplit=1)
+    if len(parts) == 2:
+        cmd, sym = parts[0], parts[1].strip().upper()
+        if cmd in ("/close", "/close_trade", "/breakeven", "/be"):
+            if re.match(r"^[A-Z0-9/_-]{2,20}$", sym):
+                return True
+    return False
 
 
 def _check_ipc_file_safe(path: str) -> bool:
@@ -46,7 +70,7 @@ def consume_command_file(bot):
             action = action.strip()
             if not action:
                 continue
-            if action not in ALLOWED_DASHBOARD_COMMANDS:
+            if not _is_safe_command(action):
                 bot.log(f"⚠️ Dashboard command rejected: {action[:64]}")
                 continue
             bot.log(f"📨 Dashboard command: {action}")

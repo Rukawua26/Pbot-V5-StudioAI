@@ -47,6 +47,9 @@ audit_report.json
 docs/images/*.jpg
 .opencode/node_modules/
 
+# Node
+node_modules/
+
 # OS/editor
 .DS_Store
 Thumbs.db

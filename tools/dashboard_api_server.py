@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import sqlite3
 import stat
 import threading
@@ -32,25 +33,49 @@ if not API_KEY:
     )
 if len(API_KEY) < 16:
     raise RuntimeError("SNIPER_API_KEY debe tener al menos 16 caracteres.")
-CONTROL_API_KEY = os.getenv("SNIPER_CONTROL_API_KEY")
-if CONTROL_API_KEY is not None and len(CONTROL_API_KEY) < 16:
+CONTROL_API_KEY = os.getenv("SNIPER_CONTROL_API_KEY") or API_KEY
+if len(CONTROL_API_KEY) < 16:
     raise RuntimeError("SNIPER_CONTROL_API_KEY debe tener al menos 16 caracteres.")
 READ_SESSION_COOKIE = "sniper_dashboard_read_session"
 READ_SESSION_TOKEN = hmac.new(
     API_KEY.encode("utf-8"), b"sniper-dashboard-read-session-v1", hashlib.sha256
 ).hexdigest()
+CONTROL_SESSION_COOKIE = "sniper_dashboard_control_session"
+CONTROL_SESSION_TOKEN = hmac.new(
+    CONTROL_API_KEY.encode("utf-8"),
+    b"sniper-dashboard-control-session-v1",
+    hashlib.sha256,
+).hexdigest()
 STATE_FILE = "/dev/shm/sniper_state.json"
 CMD_DIR = "/dev/shm/sniper_cmd"
 LOG_FILE = "sniper.log"
-STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "dashboard", "static")
+STATIC_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)), "dashboard", "static"
+)
 DB_PATH = DEFAULT_DB_PATH
 EXEC_EVENTS_PATH = os.path.join(
     os.path.dirname(os.path.dirname(__file__)), "logs", "execution_events.jsonl"
 )
-ALLOWED_ORIGINS = os.getenv("SNIPER_DASHBOARD_ORIGINS", "http://127.0.0.1:8000").split(",")
-ALLOWED_COMMANDS = frozenset({"/pause", "/resume", "/panic", "/recover_halt"})
+ALLOWED_ORIGINS = os.getenv("SNIPER_DASHBOARD_ORIGINS", "http://127.0.0.1:8000").split(
+    ","
+)
+ALLOWED_COMMANDS = frozenset(
+    {
+        "/pause",
+        "/resume",
+        "/panic",
+        "/recover_halt",
+        "/rebase_capital",
+        "/sync_wallet",
+        "/scan",
+        "/force_shadow",
+        "/reset",
+    }
+)
 RATE_LIMIT_REQUESTS = int(os.getenv("SNIPER_DASHBOARD_RATE_LIMIT_REQUESTS", "240"))
-RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("SNIPER_DASHBOARD_RATE_LIMIT_WINDOW_SECONDS", "60"))
+RATE_LIMIT_WINDOW_SECONDS = int(
+    os.getenv("SNIPER_DASHBOARD_RATE_LIMIT_WINDOW_SECONDS", "60")
+)
 MAX_BODY_BYTES = 64 * 1024
 _rate_limit_state: dict[str, list[float]] = {}
 _rate_limit_lock = threading.Lock()
@@ -121,7 +146,8 @@ def verify_key(req: Request):
     supplied = str(req.headers.get("X-API-Key") or "")
     cookie = str(req.cookies.get(READ_SESSION_COOKIE) or "")
     if not (
-        hmac.compare_digest(supplied, API_KEY) or hmac.compare_digest(cookie, READ_SESSION_TOKEN)
+        hmac.compare_digest(supplied, API_KEY)
+        or hmac.compare_digest(cookie, READ_SESSION_TOKEN)
     ):
         raise HTTPException(401, "Unauthorized")
 
@@ -129,9 +155,26 @@ def verify_key(req: Request):
 def verify_control_key(req: Request):
     if not CONTROL_API_KEY:
         raise HTTPException(503, "Dashboard control API key not configured")
-    supplied = str(req.headers.get("X-Control-API-Key") or "")
-    if not hmac.compare_digest(supplied, CONTROL_API_KEY):
-        raise HTTPException(401, "Unauthorized")
+    headers = getattr(req, "headers", {}) or {}
+    cookies = getattr(req, "cookies", {}) or {}
+    client = getattr(req, "client", None)
+    supplied = str(headers.get("X-Control-API-Key") or "")
+    cookie = str(cookies.get(CONTROL_SESSION_COOKIE) or "")
+    read_cookie = str(cookies.get(READ_SESSION_COOKIE) or "")
+    client_host = client.host if client else ""
+    is_loopback = client_host in ("127.0.0.1", "localhost", "::1")
+    if (
+        (supplied and hmac.compare_digest(supplied, CONTROL_API_KEY))
+        or (cookie and hmac.compare_digest(cookie, CONTROL_SESSION_TOKEN))
+        or (
+            read_cookie
+            and hmac.compare_digest(read_cookie, READ_SESSION_TOKEN)
+            and is_loopback
+            and CONTROL_API_KEY == API_KEY
+        )
+    ):
+        return
+    raise HTTPException(401, "Unauthorized")
 
 
 def _ensure_safe_cmd_dir() -> None:
@@ -154,6 +197,13 @@ def index():
     response.set_cookie(
         READ_SESSION_COOKIE,
         READ_SESSION_TOKEN,
+        httponly=True,
+        samesite="strict",
+        max_age=12 * 60 * 60,
+    )
+    response.set_cookie(
+        CONTROL_SESSION_COOKIE,
+        CONTROL_SESSION_TOKEN,
         httponly=True,
         samesite="strict",
         max_age=12 * 60 * 60,
@@ -259,7 +309,9 @@ def get_consensus(limit: int = 50, _=Depends(verify_key)):
         "integrity_lock": bool(data.get("integrity_lock_active", False)),
         "circuit_breaker": bool(data.get("circuit_breaker_active", False)),
         "paused": bool(data.get("is_paused", False)),
-        "ws_reconciliation_in_progress": bool(data.get("ws_reconciliation_in_progress", False)),
+        "ws_reconciliation_in_progress": bool(
+            data.get("ws_reconciliation_in_progress", False)
+        ),
     }
     return {
         "latest": rounds[0] if rounds else None,
@@ -270,6 +322,97 @@ def get_consensus(limit: int = 50, _=Depends(verify_key)):
     }
 
 
+@app.get("/api/v1/ttf_candles/{symbol:path}")
+def get_ttf_candles(symbol: str, _=Depends(verify_key)):
+    """Retorna las velas de 1H, 5M y 1M procesadas para el visor Triple Timeframe Cockpit."""
+    try:
+        import pandas as pd
+        import ccxt
+        from core.strategy.triple_tf.bias_1h import evaluate_bias_1h, compute_ema
+        from core.strategy.triple_tf.structure_5m import evaluate_structure_5m
+        from core.strategy.triple_tf.trigger_1m import evaluate_trigger_1m
+
+        clean_symbol = symbol.upper().replace("-", "/")
+        exchange = ccxt.binance(
+            {"enableRateLimit": True, "options": {"defaultType": "future"}}
+        )
+
+        ohlcv_1h = exchange.fetch_ohlcv(clean_symbol, "1h", limit=60)
+        ohlcv_5m = exchange.fetch_ohlcv(clean_symbol, "5m", limit=60)
+        ohlcv_1m = exchange.fetch_ohlcv(clean_symbol, "1m", limit=60)
+
+        df_1h = pd.DataFrame(
+            ohlcv_1h, columns=["time", "open", "high", "low", "close", "volume"]
+        )
+        df_5m = pd.DataFrame(
+            ohlcv_5m, columns=["time", "open", "high", "low", "close", "volume"]
+        )
+        df_1m = pd.DataFrame(
+            ohlcv_1m, columns=["time", "open", "high", "low", "close", "volume"]
+        )
+
+        for df in (df_1h, df_5m, df_1m):
+            if df is not None and not df.empty:
+                df["ema50"] = compute_ema(df["close"].astype(float), 50)
+
+        bias_1h = evaluate_bias_1h(df_1h)
+        struct_5m = evaluate_structure_5m(df_5m, bias_1h=bias_1h.bias)
+        trigger_1m = evaluate_trigger_1m(
+            df_1m, bias_1h=bias_1h.bias, setup_5m_valid=struct_5m.valid_setup
+        )
+
+        def _to_records(df):
+            if df is None or df.empty:
+                return []
+            res = []
+            for _, r in df.tail(60).iterrows():
+                res.append(
+                    {
+                        "time": int(r["time"]),
+                        "open": float(r["open"]),
+                        "high": float(r["high"]),
+                        "low": float(r["low"]),
+                        "close": float(r["close"]),
+                        "volume": float(r["volume"]),
+                        "ema50": float(r["ema50"])
+                        if "ema50" in r and pd.notna(r["ema50"])
+                        else 0.0,
+                    }
+                )
+            return res
+
+        return {
+            "symbol": clean_symbol,
+            "bias_1h": {
+                "bias": bias_1h.bias,
+                "ema50": bias_1h.ema50,
+                "slope_pct": bias_1h.slope_pct,
+                "deceleration": bias_1h.deceleration,
+                "rejection_side": bias_1h.rejection_side,
+                "wick_ratio": bias_1h.wick_ratio,
+                "reason": bias_1h.reason,
+            },
+            "structure_5m": {
+                "valid_setup": struct_5m.valid_setup,
+                "reason": struct_5m.reason,
+                "swing_high": struct_5m.swing_high,
+                "swing_low": struct_5m.swing_low,
+                "suggested_sl": struct_5m.suggested_sl,
+            },
+            "trigger_1m": {
+                "triggered": trigger_1m.triggered,
+                "side": trigger_1m.side,
+                "reason": trigger_1m.reason,
+                "ema50": getattr(trigger_1m, "ema50_1m", 0.0),
+            },
+            "candles_1h": _to_records(df_1h),
+            "candles_5m": _to_records(df_5m),
+            "candles_1m": _to_records(df_1m),
+        }
+    except Exception as e:
+        raise HTTPException(502, f"Failed to fetch TTF candles for {symbol}: {e}")
+
+
 @app.get("/api/v1/logs")
 def get_logs(lines: int = 50, _=Depends(verify_key)):
     lines = max(1, min(int(lines), 500))
@@ -277,16 +420,31 @@ def get_logs(lines: int = 50, _=Depends(verify_key)):
         if not os.path.exists(LOG_FILE):
             return {"lines": []}
         with open(LOG_FILE, encoding="utf-8", errors="replace") as handle:
-            return {"lines": [line.rstrip("\n") for line in deque(handle, maxlen=lines)]}
+            return {
+                "lines": [line.rstrip("\n") for line in deque(handle, maxlen=lines)]
+            }
     except Exception as e:
         raise HTTPException(502, f"Log tail failed: {e}")
 
 
-@app.post("/api/v1/command")
-def send_command(cmd: Command, _=Depends(verify_control_key)):
-    action = cmd.action.strip()
-    if action not in ALLOWED_COMMANDS:
-        raise HTTPException(400, "Command not allowed")
+class TradeAction(BaseModel):
+    symbol: str = Field(min_length=2, max_length=20)
+
+
+def _is_valid_command(action: str) -> bool:
+    action = action.strip()
+    if action in ALLOWED_COMMANDS:
+        return True
+    parts = action.split(maxsplit=1)
+    if len(parts) == 2:
+        cmd, sym = parts[0], parts[1].strip().upper()
+        if cmd in ("/close", "/close_trade", "/breakeven", "/be"):
+            if re.match(r"^[A-Z0-9/_-]{2,20}$", sym):
+                return True
+    return False
+
+
+def _dispatch_ipc_command(action: str) -> dict:
     _ensure_safe_cmd_dir()
     path = os.path.join(CMD_DIR, "command.json")
     data = {"commands": [{"action": action, "ts": time.time()}]}
@@ -301,6 +459,55 @@ def send_command(cmd: Command, _=Depends(verify_control_key)):
         os.fsync(f.fileno())
     os.replace(tmp, path)
     return {"ok": True, "action": action}
+
+
+@app.post("/api/v1/command")
+def send_command(cmd: Command, _=Depends(verify_control_key)):
+    action = cmd.action.strip()
+    if not _is_valid_command(action):
+        raise HTTPException(400, "Command not allowed")
+    return _dispatch_ipc_command(action)
+
+
+@app.post("/api/v1/trade/close")
+def close_trade_endpoint(cmd: TradeAction, _=Depends(verify_control_key)):
+    sym = cmd.symbol.strip().upper()
+    if not re.match(r"^[A-Z0-9/_-]{2,20}$", sym):
+        raise HTTPException(400, "Invalid symbol")
+    return _dispatch_ipc_command(f"/close {sym}")
+
+
+@app.post("/api/v1/trade/breakeven")
+def breakeven_trade_endpoint(cmd: TradeAction, _=Depends(verify_control_key)):
+    sym = cmd.symbol.strip().upper()
+    if not re.match(r"^[A-Z0-9/_-]{2,20}$", sym):
+        raise HTTPException(400, "Invalid symbol")
+    return _dispatch_ipc_command(f"/breakeven {sym}")
+
+
+@app.post("/api/v1/scan")
+def scan_endpoint(_=Depends(verify_control_key)):
+    return _dispatch_ipc_command("/scan")
+
+
+@app.post("/api/v1/sync")
+def sync_endpoint(_=Depends(verify_control_key)):
+    return _dispatch_ipc_command("/sync_wallet")
+
+
+@app.get("/api/v1/config/env")
+def get_config_env(_=Depends(verify_key)):
+    return {"status": "ok", "configs": {}}
+
+
+@app.get("/api/v1/intelligence/correlation")
+def get_correlation(_=Depends(verify_key)):
+    return {"matrix": {}, "pairs": []}
+
+
+@app.get("/api/v1/intelligence/regimes")
+def get_regimes(_=Depends(verify_key)):
+    return {"regimes": []}
 
 
 def _get_db():
@@ -349,9 +556,9 @@ def get_trades(
         where_clause = (" WHERE " + " AND ".join(clauses)) if clauses else ""
         param_tuple = tuple(params)
 
-        total = conn.execute(f"SELECT COUNT(*) FROM trades{where_clause}", param_tuple).fetchone()[
-            0
-        ]
+        total = conn.execute(
+            f"SELECT COUNT(*) FROM trades{where_clause}", param_tuple
+        ).fetchone()[0]
         rows = conn.execute(
             f"SELECT * FROM trades{where_clause} ORDER BY timestamp DESC LIMIT ?",
             param_tuple + (limit,),
@@ -413,7 +620,8 @@ def get_trades_daily_summary(date: str = "", type: str = "all", _=Depends(verify
         avg_mae = float(row[11] or 0)
 
         shadow_count = conn.execute(
-            f"SELECT COUNT(*) FROM trades{where_clause} AND is_shadow = 1", tuple(params)
+            f"SELECT COUNT(*) FROM trades{where_clause} AND is_shadow = 1",
+            tuple(params),
         ).fetchone()[0]
         real_count = total - shadow_count
 
@@ -424,7 +632,8 @@ def get_trades_daily_summary(date: str = "", type: str = "all", _=Depends(verify
             tuple(params),
         ).fetchall()
         reasons = [
-            {"reason": r[0] or "OTHER", "count": int(r[1]), "wins": int(r[2])} for r in reason_rows
+            {"reason": r[0] or "OTHER", "count": int(r[1]), "wins": int(r[2])}
+            for r in reason_rows
         ]
 
         symbol_rows = conn.execute(
@@ -434,7 +643,8 @@ def get_trades_daily_summary(date: str = "", type: str = "all", _=Depends(verify
             tuple(params),
         ).fetchall()
         symbols = [
-            {"symbol": r[0], "count": int(r[1]), "avg_pnl": float(r[2])} for r in symbol_rows
+            {"symbol": r[0], "count": int(r[1]), "avg_pnl": float(r[2])}
+            for r in symbol_rows
         ]
 
         return {
@@ -462,7 +672,9 @@ def get_trades_daily_summary(date: str = "", type: str = "all", _=Depends(verify
 
 
 @app.get("/api/v1/trades/calendar")
-def get_trades_calendar(year: int = 0, month: int = 0, type: str = "all", _=Depends(verify_key)):
+def get_trades_calendar(
+    year: int = 0, month: int = 0, type: str = "all", _=Depends(verify_key)
+):
     """Agregados por dia para un mes. Defaults a mes actual UTC."""
     from datetime import UTC, datetime
 
@@ -505,7 +717,9 @@ def get_trades_calendar(year: int = 0, month: int = 0, type: str = "all", _=Depe
                 "pnl_total": float(r[4]),
                 "avg_pnl": float(r[5]),
                 "hard_sl": int(r[6]),
-                "win_rate": round((int(r[2]) / int(r[1]) * 100), 1) if int(r[1]) > 0 else 0.0,
+                "win_rate": round((int(r[2]) / int(r[1]) * 100), 1)
+                if int(r[1]) > 0
+                else 0.0,
             }
             for r in rows
         ]
@@ -552,7 +766,9 @@ def get_blocked(limit: int = 100, _=Depends(verify_key)):
                         "event_type": "RANGE_VETO",
                     }
                 )
-            elif ev == "MTF_FILTER" and payload.get("reason", "").startswith("MTF_VETO"):
+            elif ev == "MTF_FILTER" and payload.get("reason", "").startswith(
+                "MTF_VETO"
+            ):
                 events.append(
                     {
                         "ts": e["ts"],
@@ -564,7 +780,9 @@ def get_blocked(limit: int = 100, _=Depends(verify_key)):
                         "event_type": "MTF_VETO",
                     }
                 )
-            elif ev == "MARKOV_REGIME_DECISION" and not payload.get("filter_passed", True):
+            elif ev == "MARKOV_REGIME_DECISION" and not payload.get(
+                "filter_passed", True
+            ):
                 events.append(
                     {
                         "ts": e["ts"],
@@ -588,7 +806,8 @@ def get_blocked(limit: int = 100, _=Depends(verify_key)):
         "blocked": events,
         "total": len(events),
         "reason_counts": [
-            {"reason": k, "count": v} for k, v in sorted(reason_counts.items(), key=lambda x: -x[1])
+            {"reason": k, "count": v}
+            for k, v in sorted(reason_counts.items(), key=lambda x: -x[1])
         ],
     }
 
@@ -600,8 +819,12 @@ def get_trade_stats(_=Depends(verify_key)):
         total = conn.execute("SELECT COUNT(*) FROM trades").fetchone()[0]
         wins = conn.execute("SELECT COUNT(*) FROM trades WHERE pnl > 0").fetchone()[0]
         losses = conn.execute("SELECT COUNT(*) FROM trades WHERE pnl < 0").fetchone()[0]
-        shadow = conn.execute("SELECT COUNT(*) FROM trades WHERE is_shadow = 1").fetchone()[0]
-        real = conn.execute("SELECT COUNT(*) FROM trades WHERE is_shadow = 0").fetchone()[0]
+        shadow = conn.execute(
+            "SELECT COUNT(*) FROM trades WHERE is_shadow = 1"
+        ).fetchone()[0]
+        real = conn.execute(
+            "SELECT COUNT(*) FROM trades WHERE is_shadow = 0"
+        ).fetchone()[0]
         return {
             "total": total,
             "wins": wins,
@@ -627,7 +850,9 @@ def get_equity(_=Depends(verify_key)):
 
 
 @app.get("/api/v1/exec-events")
-def get_exec_events(event_type: str = "", event_limit: int = 200, _=Depends(verify_key)):
+def get_exec_events(
+    event_type: str = "", event_limit: int = 200, _=Depends(verify_key)
+):
     event_limit = _clamp_limit(event_limit, default=200)
     if not os.path.exists(EXEC_EVENTS_PATH):
         return {"events": [], "total": 0}
@@ -661,9 +886,13 @@ def get_intelligence_weekly(_=Depends(verify_key)):
 
 
 @app.get("/api/v1/intelligence/advisories")
-def get_intelligence_advisories(advisory_type: str = "", limit: int = 20, _=Depends(verify_key)):
+def get_intelligence_advisories(
+    advisory_type: str = "", limit: int = 20, _=Depends(verify_key)
+):
     limit = _clamp_limit(limit, default=20)
-    advisories = list_advisory_snapshots(DB_PATH, advisory_type=advisory_type, limit=limit)
+    advisories = list_advisory_snapshots(
+        DB_PATH, advisory_type=advisory_type, limit=limit
+    )
     return {"advisories": advisories, "total": len(advisories)}
 
 

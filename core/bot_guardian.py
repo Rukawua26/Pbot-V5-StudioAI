@@ -347,7 +347,10 @@ def run_guardian_loop(bot):
                     bailout_armed = (utc_now() - ot).total_seconds() >= (15 * 60)
                     abort_needed = False
                     abort_reason = "CONF_BAILOUT_COOLDOWN"
-                    if bailout_armed:
+                    trade_is_ttf = str(t.get("strategy_engine", "")).lower() == "triple_tf" or bool(
+                        t.get("ttf_metrics")
+                    )
+                    if bailout_armed and not trade_is_ttf:
                         abort_needed, abort_reason = bot.risk_engine.should_abort_trade(
                             entry_conf,
                             current_conf,

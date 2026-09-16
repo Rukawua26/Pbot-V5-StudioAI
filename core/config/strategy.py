@@ -12,6 +12,7 @@ class StrategyConfig:
     """
 
     TIMEFRAME = "1h"
+    STRATEGY_ENGINE = "triple_tf"
 
     # --- GESTIÓN DE RIESGO (solo únicos aquí; manager.py tiene los env-overridables) ---
     MIN_NOTIONAL_VALUE = 5.0  # manager.py lo sobreescribe con env var

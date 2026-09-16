@@ -3,6 +3,7 @@ from contextlib import nullcontext
 from datetime import timedelta
 
 from config import Config
+from core.strategy.triple_tf import is_ttf_trade
 from core.time_utils import parse_datetime_utc, utc_now
 from core.trade_helpers import _calculate_trade_pnl
 from core.trade_state import TradeStatus
@@ -43,19 +44,24 @@ def _record_confidence_floor_event(
         leverage=trade.get("leverage", 1),
         fee_rate=Config.VIRTUAL_FEE,
         margin_used=trade.get("margin_used"),
-        percent_on_margin=bool(trade.get("is_shadow", False) or trade.get("simulated_real", False)),
+        percent_on_margin=bool(
+            trade.get("is_shadow", False) or trade.get("simulated_real", False)
+        ),
     )
     gross_usd = pnl_core["gross_usd"]
     gross_pct = pnl_core["gross_pct"]
     fee_floor_usd = pnl_core["fee_usd"]
     fee_floor_pct = (
-        (fee_floor_usd / float(trade.get("margin_used") or pnl_core["notional_usd"])) * 100.0
+        (fee_floor_usd / float(trade.get("margin_used") or pnl_core["notional_usd"]))
+        * 100.0
         if float(trade.get("margin_used") or pnl_core["notional_usd"]) > 0
         else 0.0
     )
     entry_conf = float(trade.get("entry_confidence") or 0.0)
     confidence_drop_pct = (
-        ((entry_conf - float(prob_final)) / entry_conf) * 100.0 if entry_conf > 0 else 0.0
+        ((entry_conf - float(prob_final)) / entry_conf) * 100.0
+        if entry_conf > 0
+        else 0.0
     )
     defer_increment = 1 if defer_exit else 0
 
@@ -112,11 +118,72 @@ def monitor_open_trades(bot):
             ):
                 continue
 
+            # [TTF] Trailing Stop dinámico en 1M: CERO COOLDOWN (Vigilancia inmediata)
+            trade_is_ttf = is_ttf_trade(trade)
+            if trade_is_ttf:
+                from core.strategy.triple_tf.trailing_1m import evaluate_trailing_1m
+
+                try:
+                    df_1m = bot.data_service.fetch_and_update_data(
+                        symbol, "1m", fast_mode=True
+                    )
+                    if df_1m is not None and not df_1m.empty:
+                        entry_p = float(trade.get("entry") or 0.0)
+                        sl_p = float(trade.get("sl") or trade.get("stop_loss") or 0.0)
+                        if sl_p <= 0.0:
+                            bot.log(
+                                f"⚠️ TTF {symbol}: SL=0 en trade (posiblemente legado). "
+                                "Trailing 1M diferido hasta confirmación de SL."
+                            )
+                            continue
+                        current_p = float(df_1m["close"].iloc[-1])
+                        side_val = str(trade.get("side") or "BUY").upper()
+                        trailing_already_active = bool(
+                            trade.get("trailing_active", False)
+                        )
+                        trailing_res = evaluate_trailing_1m(
+                            df_1m=df_1m,
+                            side=side_val,
+                            entry_price=entry_p,
+                            sl_price=sl_p,
+                            current_price=current_p,
+                            trailing_already_activated=trailing_already_active,
+                        )
+
+                        if trailing_res.is_activated and not trailing_already_active:
+                            trade["trailing_active"] = True
+                            bot.log(
+                                f"🎯 TTF TRAILING ARMED {symbol}: R={trailing_res.current_r_multiple:.2f}"
+                            )
+                            if hasattr(bot, "brain") and hasattr(
+                                bot.brain, "save_active_trade_state"
+                            ):
+                                with bot.db_lock:
+                                    bot.brain.save_active_trade_state(trade_key, trade)
+
+                        if trailing_res.should_exit:
+                            bot.log(
+                                f"🎯 TTF TRAILING EXIT {symbol}: {trailing_res.reason} "
+                                f"(R={trailing_res.current_r_multiple:.2f})"
+                            )
+                            bot.close_trade(
+                                symbol=symbol,
+                                reason=f"TTF_{trailing_res.reason}",
+                                exit_price=current_p,
+                                exit_confidence=100.0,
+                                side=side_val,
+                                trade_key=trade_key,
+                            )
+                except Exception as e_trail:
+                    bot.log(f"⚠️ Error evaluando trailing 1M para {symbol}: {e_trail}")
+                continue
+
             open_time = parse_datetime_utc(trade.get("open_time") or utc_now())
 
             if utc_now() - open_time < timedelta(minutes=5):
                 # bot.log(f"⏳ COOLDOWN ({symbol}): Ignorando bailout por juventud del trade.")
                 continue
+
             # 1. Obtener datos frescos (Sello Institucional: solo 1H + 4H)
             df_main = bot.data_service.fetch_and_update_data(symbol, "1h")
             df_4h = bot.data_service.fetch_and_update_data(symbol, "4h")
@@ -150,8 +217,12 @@ def monitor_open_trades(bot):
             trade["last_confidence_trace"] = {
                 "prob_final": float(prob_final),
                 "votes": dict(votos or {}),
-                "regime": indicators.get("regime") if isinstance(indicators, dict) else None,
-                "trend": indicators.get("trend") if isinstance(indicators, dict) else None,
+                "regime": indicators.get("regime")
+                if isinstance(indicators, dict)
+                else None,
+                "trend": indicators.get("trend")
+                if isinstance(indicators, dict)
+                else None,
                 "bootstrap_mode": bool(getattr(bot, "bootstrap_heuristic_mode", False)),
             }
             duration = utc_now() - open_time
@@ -204,7 +275,9 @@ def monitor_open_trades(bot):
                     defer_reason,
                 )
                 if defer_exit:
-                    bot.log(f"🪙 FEE_NOISE_GUARD ({symbol}): deferido smart-exit | {defer_reason}")
+                    bot.log(
+                        f"🪙 FEE_NOISE_GUARD ({symbol}): deferido smart-exit | {defer_reason}"
+                    )
                     continue
                 bot.log(
                     f"🚨 DEGRADED EXIT ({symbol}): {deg_reason} | EntryConf: {entry_conf:.1f} -> ExitConf: {prob_final:.1f}"
@@ -229,6 +302,8 @@ def monitor_open_trades(bot):
             # Solo loguear errores importantes, no spam
             err_str = str(error)
             if "symbol" in err_str.lower() or "not found" in err_str.lower():
-                bot.log(f"⚠️ Error monitoreando {symbol}: Símbolo no disponible en Binance")
+                bot.log(
+                    f"⚠️ Error monitoreando {symbol}: Símbolo no disponible en Binance"
+                )
             else:
                 bot.log(f"⚠️ Error monitoreando {symbol}: {error}")

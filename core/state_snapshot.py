@@ -106,20 +106,49 @@ def _write_state_snapshot(bot):
         real_trades = []
         shadow_trades = []
         for t in raw_trades.values():
-            entry_price = t.get("entry_price", t.get("entry", 0))
-            size = t.get("size", t.get("size_usd", 0))
-            pnl_pct = t.get("pnl_pct", t.get("pnl", 0))
-            confidence = t.get(
-                "confidence",
-                t.get("current_confidence", t.get("entry_confidence", 0)),
+            entry_price = float(t.get("entry_price") or t.get("entry") or 0.0)
+            current_price = float(t.get("current_price") or t.get("last_price") or entry_price)
+            sl_price = float(t.get("sl") or 0.0)
+            tp_price = float(t.get("tp") or 0.0)
+            size = float(t.get("size") or t.get("size_usd") or 0.0)
+            pnl_pct = float(t.get("pnl_pct") or t.get("pnl") or 0.0)
+            confidence = float(
+                t.get("confidence")
+                or t.get("current_confidence")
+                or t.get("entry_confidence")
+                or 0.0
             )
+            peak_pnl = float(t.get("peak_pnl") or 0.0)
+            open_time_raw = t.get("open_time") or t.get("entry_time")
+            duration_s = 0.0
+            if isinstance(open_time_raw, (int, float)):
+                duration_s = max(0.0, round(ts - open_time_raw, 0))
+            elif isinstance(open_time_raw, str):
+                try:
+                    from datetime import datetime
+                    dt = datetime.fromisoformat(open_time_raw.replace("Z", "+00:00"))
+                    duration_s = max(0.0, round(ts - dt.timestamp(), 0))
+                except Exception:
+                    duration_s = 0.0
+
+            pnl_usd = float(t.get("pnl_usd") or (size * pnl_pct / 100.0 if size else 0.0))
+
             t_dict = {
                 "symbol": t.get("symbol", "?"),
                 "side": t.get("side", "?"),
                 "entry_price": round(float(entry_price or 0), 8),
-                "size": round(float(size or 0), 2),
-                "pnl_pct": round(float(pnl_pct or 0), 2),
-                "confidence": round(float(confidence or 0), 1),
+                "current_price": round(float(current_price or 0), 8),
+                "sl": round(float(sl_price or 0), 8),
+                "tp": round(float(tp_price or 0), 8),
+                "size": round(size, 2),
+                "amount": round(float(t.get("amount") or 0.0), 4),
+                "pnl_pct": round(pnl_pct, 2),
+                "pnl_usd": round(pnl_usd, 2),
+                "peak_pnl": round(peak_pnl, 2),
+                "confidence": round(confidence, 1),
+                "leverage": int(t.get("leverage") or 1),
+                "duration_s": int(duration_s),
+                "status": str(t.get("status") or "OPEN"),
                 "is_shadow": bool(t.get("is_shadow", False)),
             }
             if t_dict["is_shadow"]:

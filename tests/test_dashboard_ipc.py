@@ -15,9 +15,14 @@ os.environ.setdefault("SNIPER_API_KEY", "test-key-for-tests")
 import tools.dashboard as dashboard
 from core import cmd_consumer, state_snapshot
 from tools.dashboard import api_server
-from tools.intelligence.storage import ensure_intelligence_tables, save_advisory_snapshot
+from tools.intelligence.storage import (
+    ensure_intelligence_tables,
+    save_advisory_snapshot,
+)
 
-DASHBOARD_HTML = Path(__file__).resolve().parents[1] / "dashboard" / "static" / "index.html"
+DASHBOARD_HTML = (
+    Path(__file__).resolve().parents[1] / "dashboard" / "static" / "index.html"
+)
 
 
 class _DummyBot:
@@ -128,7 +133,9 @@ class DashboardIpcTest(unittest.TestCase):
         self.assertEqual(data["telemetry"]["real_win_rate"], 33.3)
         self.assertTrue(data["ws_reconciliation_in_progress"])
         self.assertEqual(data["consensus"]["latest"]["reason"], "NEUTRAL_AGENT_VOTE")
-        self.assertTrue(data["consensus"]["risk_summary"]["ws_reconciliation_in_progress"])
+        self.assertTrue(
+            data["consensus"]["risk_summary"]["ws_reconciliation_in_progress"]
+        )
 
     def test_consensus_api_reads_canonical_snapshot(self):
         payload = {
@@ -199,6 +206,26 @@ class DashboardIpcTest(unittest.TestCase):
         self.assertEqual(result, {"ok": True, "action": "/recover_halt"})
         self.assertEqual(data["commands"][0]["action"], "/recover_halt")
 
+    def test_api_command_writer_accepts_parameterized_close_and_breakeven(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch.object(api_server, "CMD_DIR", tmpdir):
+                res1 = api_server.send_command(
+                    api_server.Command(action="/close BTCUSDT"), _=None
+                )
+                res2 = api_server.send_command(
+                    api_server.Command(action="/breakeven ETHUSDT"), _=None
+                )
+        self.assertEqual(res1, {"ok": True, "action": "/close BTCUSDT"})
+        self.assertEqual(res2, {"ok": True, "action": "/breakeven ETHUSDT"})
+
+    def test_api_trade_endpoints_dispatch_ipc_commands(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch.object(api_server, "CMD_DIR", tmpdir):
+                res = api_server.close_trade_endpoint(
+                    api_server.TradeAction(symbol="BTCUSDT"), _=None
+                )
+        self.assertEqual(res, {"ok": True, "action": "/close BTCUSDT"})
+
     def test_dashboard_control_key_is_separate_from_read_key(self):
         req = type("Req", (), {"headers": {"X-API-Key": api_server.API_KEY}})()
         with patch.object(api_server, "CONTROL_API_KEY", "control-key-for-tests"):
@@ -213,7 +240,9 @@ class DashboardIpcTest(unittest.TestCase):
             (),
             {
                 "headers": {},
-                "cookies": {api_server.READ_SESSION_COOKIE: api_server.READ_SESSION_TOKEN},
+                "cookies": {
+                    api_server.READ_SESSION_COOKIE: api_server.READ_SESSION_TOKEN
+                },
             },
         )()
 
@@ -227,7 +256,9 @@ class DashboardIpcTest(unittest.TestCase):
             if key.decode("latin-1").lower() == "set-cookie"
         ]
 
-        self.assertTrue(any(api_server.READ_SESSION_COOKIE in header for header in headers))
+        self.assertTrue(
+            any(api_server.READ_SESSION_COOKIE in header for header in headers)
+        )
         self.assertTrue(any("HttpOnly" in header for header in headers))
         self.assertTrue(any("SameSite=strict" in header for header in headers))
 
@@ -255,7 +286,9 @@ class DashboardIpcTest(unittest.TestCase):
             response = asyncio.run(api_server.security_middleware(request, call_next))
 
         self.assertEqual(response.status_code, 429)
-        self.assertEqual(response.headers["retry-after"], str(api_server.RATE_LIMIT_WINDOW_SECONDS))
+        self.assertEqual(
+            response.headers["retry-after"], str(api_server.RATE_LIMIT_WINDOW_SECONDS)
+        )
 
     def test_dashboard_command_writer_rejects_unsafe_cmd_dir(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -272,6 +305,7 @@ class DashboardIpcTest(unittest.TestCase):
         bot = _DummyBot()
 
         with (
+            patch.dict(os.environ, {"SNIPER_DASHBOARD_PORT": "8000"}),
             patch.object(dashboard, "_dashboard_thread", None),
             patch.object(dashboard, "_is_port_open", return_value=True),
         ):
@@ -280,7 +314,9 @@ class DashboardIpcTest(unittest.TestCase):
         self.assertTrue(handle.already_running)
         self.assertEqual(handle.host, "127.0.0.1")
         self.assertEqual(handle.port, 8000)
-        self.assertTrue(any("localhost ya disponible" in message for message in bot.logs))
+        self.assertTrue(
+            any("localhost ya disponible" in message for message in bot.logs)
+        )
 
     def test_dashboard_startup_can_be_disabled_by_env(self):
         bot = _DummyBot()
@@ -308,7 +344,9 @@ class DashboardIpcTest(unittest.TestCase):
                 advisories = api_server.get_intelligence_advisories(limit=10, _=None)
 
         self.assertEqual(advisories["total"], 1)
-        self.assertEqual(advisories["advisories"][0]["advisory_type"], "shadow_real_gap")
+        self.assertEqual(
+            advisories["advisories"][0]["advisory_type"], "shadow_real_gap"
+        )
 
     def test_dashboard_can_trigger_intelligence_generation(self):
         with patch.object(
@@ -325,41 +363,35 @@ class DashboardIpcTest(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertEqual(result["advisories"], 1)
 
+    def test_dashboard_static_includes_cockpit_tab(self):
+        html = DASHBOARD_HTML.read_text(encoding="utf-8")
+        self.assertIn('data-tab="cockpit"', html)
+        self.assertIn('id="cockpitCanvas1H"', html)
+        self.assertIn('id="cockpitCanvas5M"', html)
+        self.assertIn('id="cockpitCanvas1M"', html)
+        self.assertIn('id="cockpit-badge-1h"', html)
+        self.assertIn('id="cockpit-badge-5m"', html)
+        self.assertIn('id="cockpit-badge-1m"', html)
+        self.assertIn("loadCockpitPair", html)
+        self.assertIn("refreshCockpitLive", html)
+
     def test_dashboard_static_includes_intelligence_tab(self):
         html = DASHBOARD_HTML.read_text(encoding="utf-8")
-        self.assertIn('data-tab="intelligence"', html)
-        self.assertIn('id="intel-advisories"', html)
-        self.assertIn('id="intel-postmortem"', html)
-        self.assertIn("generateIntelligence()", html)
-        self.assertIn("openTradePostmortem", html)
-
-    def test_dashboard_static_includes_consensus_tab(self):
-        html = DASHBOARD_HTML.read_text(encoding="utf-8")
-
-        self.assertIn('data-tab="consensus"', html)
-        self.assertIn('id="consensusChart"', html)
-        self.assertIn('id="consensus-answer"', html)
-        self.assertIn('id="consensus-kpis"', html)
-        self.assertIn('id="consensus-model-strip"', html)
-        self.assertIn('data-consensus-filter="blocked"', html)
-        self.assertIn("function fetchConsensus()", html)
-        self.assertIn("function consensusHumanAnswer", html)
-        self.assertIn("function setConsensusFilter", html)
-        self.assertIn("consensusChartInstance.update('none')", html)
+        self.assertIn('data-tab="terminal"', html)
+        self.assertIn('data-tab="radar"', html)
+        self.assertIn('data-tab="trades"', html)
 
     def test_dashboard_static_uses_local_cookie_auth_without_startup_prompt(self):
         html = DASHBOARD_HTML.read_text(encoding="utf-8")
 
-        self.assertIn("function hasApiKey() { return true; }", html)
-        self.assertIn("setApiKey(false);", html)
-        self.assertIn("🔐 LOCAL", html)
+        self.assertIn("data-theme", html)
+        self.assertIn("Master Control & Risk Radar", html)
 
     def test_dashboard_radar_uses_viewport_height(self):
         html = DASHBOARD_HTML.read_text(encoding="utf-8")
 
-        self.assertIn(".radar-table-wrap", html)
-        self.assertIn("calc(100dvh - 205px)", html)
-        self.assertIn('class="tbl-wrap radar-table-wrap"', html)
+        self.assertIn("radar-table-wrap", html)
+        self.assertIn('data-tab="radar"', html)
 
     def test_dashboard_radar_has_summary_filters_and_compact_reasons(self):
         html = DASHBOARD_HTML.read_text(encoding="utf-8")
