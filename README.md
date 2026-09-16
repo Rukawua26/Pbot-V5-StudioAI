@@ -12,11 +12,9 @@
 
 <br/>
 
-```
-[ Market Microstructure ] ──▶ [ Triple TF Engine (1H/5M/1M) ] ──▶ [ Multi-Agent Alpha ]
-                                                                        │
-[ Real-Time Cockpit BI ] ◀── [ Hardened Execution Router ] ◀── [ Dynamic Risk Governance ]
-```
+![Cockpit Dashboard Preview](docs/images/cockpit_dashboard_preview.jpg)
+
+<br/>
 
 <p align="center">
   <b>Plataforma cuantitativa determinista de alta disponibilidad con motor multi-temporalidad (Triple Timeframe 1H/5M/1M), análisis de microestructura (CVD / Order Flow / Open Interest), gobernanza estricta de riesgo y Dashboard Cockpit interactivo.</b>
@@ -24,13 +22,13 @@
 
 ---
 
-[Resumen Ejecutivo](#-resumen-ejecutivo) •
-[Motor Triple Timeframe](#-motor-de-estrategia-triple-timeframe-1h--5m--1m) •
-[Arquitectura del Sistema](#-arquitectura-del-sistema) •
-[Dashboard & Cockpit BI](#-dashboard-institucional--3-tf-cockpit) •
-[Gobernanza de Riesgo](#-gobernanza-de-riesgo-y-seguridad-operativa) •
-[Despliegue & Operación](#-despliegue--operación) •
-[CI/CD & Calidad](#-aseguramiento-de-calidad-y-validación)
+[📌 Resumen Ejecutivo](#-resumen-ejecutivo) •
+[📐 Motor Triple Timeframe](#-motor-de-estrategia-triple-timeframe-1h--5m--1m) •
+[🏛️ Arquitectura del Sistema](#-arquitectura-del-sistema) •
+[🖥️ Dashboard BI Cockpit](#-dashboard-institucional--3-tf-cockpit) •
+[🛡️ Gobernanza de Riesgo](#-gobernanza-de-riesgo-y-seguridad-operativa) •
+[🚀 Despliegue & Operación](#-despliegue--operación) •
+[🧪 CI/CD & Calidad](#-aseguramiento-de-calidad-y-validación)
 
 ---
 
@@ -40,20 +38,23 @@
 
 **Sniper AI** es una infraestructura cuantitativa modular de nivel institucional desarrollada para la ejecución autónoma de estrategias de trading en el mercado de derivados **Binance USDⓈ-M Futures**. Diseñada bajo los principios de **State-Locking, Determinismo Quirúrgico y Zero-Trust Execution**, la plataforma prioriza la preservación de capital, la colocación estricta de **Hard Stop Loss** en el exchange y el monitoreo continuo en vivo.
 
-### Capacidades Nucleares
+> [!IMPORTANT]
+> **Filosofía Operational Invariant**: El exchange es la **única fuente de verdad** para la exposición real. Ninguna orden se envía sin validación previa del Risk Engine, y ninguna posición activa puede permanecer en modo `REAL` sin una orden `HARD STOP LOSS` confirmada en el orderbook.
 
-- **Motor Triple Timeframe (1H / 5M / 1M)**: Alineación estricta de 3 marcos temporales: Sesgo Macro 1H, Estructura & Pullback 5M y Gatillo 1M con corredor de protección **Anti-Chasing ($\pm 0.6\%$)**.
-- **Dashboard Interactivo 3-TF Cockpit**: Interfaz de control en vivo basada en canvas de alta densidad (High-DPI 2D) con sincronización dinámica al hacer clic en los pares del Radar.
-- **Clasificación Estocástica de Regímenes (HMM Markov)**: Filtro de régimen de mercado sobre Bitcoin (`BULLISH`, `BEARISH`, `RANGE`) con matrices de transición de probabilidad.
-- **Microestructura & Order Flow (CVD / OI)**: Análisis de transacciones agresoras tick-a-tick (Cumulative Volume Delta) y variaciones de apalancamiento en Open Interest.
-- **Gobernanza Cuantitativa de Riesgo**: Sizing adaptativo por ATR y balance, matriz de correlación cruzada, circuit breaker por drawdown diario y Hard Stop Loss obligatorio.
-- **Aislamiento Estricto de Modos**: Separación garantizada entre `PAPER` (simulación virtual de $1,000), `SHADOW` (telemetría y aprendizaje observacional) y `REAL` (autenticación HMAC con firma de claves y permisos Futures).
+### 🌟 Capacidades Nucleares
+
+- 🎯 **Motor Triple Timeframe (1H / 5M / 1M)**: Alineación jerárquica de 3 marcos temporales: Sesgo Macro 1H, Estructura & Pullback 5M y Gatillo 1M con corredor de protección **Anti-Chasing ($\pm 0.6\%$)**.
+- 🖥️ **Dashboard Interactivo 3-TF Cockpit**: Consola web de alta densidad (High-DPI Canvas 2D) con sincronización automática en vivo al seleccionar cualquier moneda de la tabla Radar.
+- 🔮 **Clasificación Estocástica de Regímenes (HMM Markov)**: Detección dinámica del régimen de mercado (`BULLISH`, `BEARISH`, `RANGE`) sobre Bitcoin mediante cadenas ocultas de Markov.
+- 🌊 **Microestructura & Order Flow (CVD / OI)**: Análisis de transacciones agresoras tick-a-tick (*Cumulative Volume Delta*) y variaciones sopesadas de apalancamiento (*Open Interest*).
+- 🛡️ **Gobernanza Cuantitativa de Riesgo**: Sizing adaptativo por volatilidad ATR y balance, matriz de correlación cruzada entre pares y Circuit Breaker por drawdown diario UTC.
+- 🔒 **Aislamiento Estricto de Modos**: Separación matemática entre `PAPER` (simulado $1,000 virtual), `SHADOW` (telemetría observacional) y `REAL` (autenticación HMAC con firma de claves y permisos Futures).
 
 ---
 
 ## 📐 Motor de Estrategia Triple Timeframe (1H / 5M / 1M)
 
-El motor principal `triple_tf` opera mediante una cadena jerárquica de decisión que elimina las entradas impulsivas y garantiza una alta esperanza matemática:
+El motor principal `triple_tf` opera mediante una cadena jerárquica de decisión que elimina entradas impulsivas y garantiza una alta esperanza matemática:
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────────────────────┐
@@ -78,9 +79,8 @@ El motor principal `triple_tf` opera mediante una cadena jerárquica de decisió
 └──────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-1. **Marco 1H (Sesgo Dominante)**: Si el precio está por encima de la EMA 50 1H y la pendiente es positiva, se establece sesgo `BUY`. Si está por debajo, `SELL`. Si existe rechazo por mechas contra la tendencia, se declara `NEUTRAL` y se aborta el ciclo para evitar operar contra la fuerza macro.
-2. **Marco 5M (Estructura y Retroceso)**: Valida la presencia de un toque de retroceso a la EMA 50 5M tras una confirmación de estructura. Calcula el nivel óptimo de Stop Loss en el último extremo (Swing).
-3. **Marco 1M (Gatillo Preciso & Anti-Chasing)**: Exige la confirmación de giro en 1M y verifica que el precio no haya extendido más de un **$0.6\%$** respecto a la EMA 50 1M, previniendo el "chasing" (comprar techos o vender suelos).
+> [!TIP]
+> **Corredor Anti-Chasing ($\pm 0.6\%$)**: En el marco de 1M, el motor proyecta una franja porcentual alrededor de la EMA 50 1M. Si el precio se aleja más del $0.6\%$ antes del gatillo, la entrada se invalida temporalmente para evitar comprar techos o vender suelos.
 
 ---
 
@@ -88,64 +88,40 @@ El motor principal `triple_tf` opera mediante una cadena jerárquica de decisió
 
 El flujo de procesamiento opera como una tubería determinista desacoplada, garantizando que ninguna orden se envíe al exchange sin la validación previa de todas las capas de seguridad y riesgo.
 
-```text
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                                 MARKET DATA INGESTION                                  │
-│   Binance Futures WebSocket (Mark Price / Tickers / Klines) + REST API (Open Interest) │
-│   WebSocket AggTrade Stream (Order Flow / Cumulative Volume Delta - CVD)               │
-└───────────────────────────────────────────┬────────────────────────────────────────────┘
-                                            │
-                                            ▼
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                              MARKET REGIME & INTELLIGENCE                              │
-│   Hidden Markov Model (HMM) ──▶ Probabilidades de Transición [BULL / BEAR / RANGE]     │
-│   Dynamic Liquidity Guard   ──▶ Spread Filter + 30-Pair Real-Time Triage Matrix        │
-└───────────────────────────────────────────┬────────────────────────────────────────────┘
-                                            │
-                                            ▼
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                              TRIPLE TIMEFRAME STRATEGY ENGINE                          │
-│   ┌────────────────────────┬─────────────────────────┬─────────────────────────────┐   │
-│   │ 1H Macro Bias (EMA 50) │ 5M Structure & Pullback │ 1M Trigger & Anti-Chasing   │   │
-│   └────────────────────────┴─────────────────────────┴─────────────────────────────┘   │
-└───────────────────────────────────────────┬────────────────────────────────────────────┘
-                                            │
-                                            ▼
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                        QUANTITATIVE RISK ENGINE & GOVERNANCE                           │
-│   • Pairwise Correlation Matrix (Veto a sobreexposición > 0.80)                        │
-│   • Open Interest Delta Filter (Protección contra Squeezes y Liquidaciones)            │
-│   • Sizing Adaptativo por Volatilidad (ATR) y Drawdown Diario UTC Circuit Breaker      │
-│   • Hard Stop Loss Pre-Execution Calculation & Trailing Stop Invariants                │
-└───────────────────────────────────────────┬────────────────────────────────────────────┘
-                                            │
-                                            ▼
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                              EXECUTION ROUTER & TELEMETRY                              │
-│   ┌────────────────────────────────────────┬───────────────────────────────────────┐   │
-│   │ LIVE EXECUTION ADAPTER (REAL / PAPER)  │ SHADOW EXECUTION LAB (Virtual Sandbox)│   │
-│   └────────────────────────────────────────┴───────────────────────────────────────┘   │
-│   Atomic Guardian Vigilance ──▶ Emergency Market Close ──▶ State Reconciler            │
-│   3-TF Cockpit Dashboard (FastAPI / Node.js) + Telegram Control + Recovery Drill       │
-└────────────────────────────────────────────────────────────────────────────────────────┘
-```
+![Architecture Workflow Diagram](docs/images/architecture_workflow_diagram.jpg)
+
+### Módulos Principales
+
+| Módulo | Responsabilidad Operativa | Archivos Clave |
+| :--- | :--- | :--- |
+| **Data Ingestion** | Ingesta de Klines, Mark Price, Tickers, Open Interest y Order Flow (WebSocket `aggTrade`). | [`core/bot_connection.py`](file:///home/miguel/Pbot-V5-StudioAI/core/bot_connection.py) |
+| **Market Intelligence** | Clasificación HMM Markov, ranking de liquidez Triage y matriz de correlación. | [`core/market_intelligence.py`](file:///home/miguel/Pbot-V5-StudioAI/core/market_intelligence.py) |
+| **Triple TF Engine** | Análisis 1H (Sesgo), 5M (Estructura) y 1M (Gatillo Anti-Chasing). | [`core/strategy/triple_tf/`](file:///home/miguel/Pbot-V5-StudioAI/core/strategy/triple_tf/) |
+| **Risk Engine** | Sizing adaptativo ATR, guardrail `MAX_ENTRY_SL_PCT = 3.0%` y Circuit Breaker. | [`core/trade_entry.py`](file:///home/miguel/Pbot-V5-StudioAI/core/trade_entry.py) |
+| **Execution Router** | Ruteo a adaptadores `PAPER`, `SHADOW` y `REAL` con reconexión ininterrumpida. | [`core/execution_adapters.py`](file:///home/miguel/Pbot-V5-StudioAI/core/execution_adapters.py) |
 
 ---
 
 ## 🖥️ Dashboard Institucional & 3-TF Cockpit
 
-El sistema incluye una consola de monitoreo web interactiva con 4 vistas principales:
+El bot incluye una consola interactiva web ligera servida por **FastAPI** (`tools/dashboard_api_server.py`) o **Node.js** (`server.js`):
 
-1. ⚡ **Terminal & Operaciones**: Métricas de balance (Equity, PnL No Realizado, PnL Diario), estado del Circuit Breaker, posiciones abiertas con botón de cierre de emergencia y consola de comandos en tiempo real.
-2. 🎯 **Radar de Pares (Top 10 / 30)**: Matriz de liquidez ordenada en tiempo real. **Al hacer clic en cualquier fila de la tabla Radar, el dashboard conmuta automáticamente al visor 3-TF Cockpit sincronizado con ese par.**
-3. 📈 **Cockpit Triple TF**: Visor simultáneo de **3 gráficos Canvas HTML5 (1H, 5M, 1M)** renderizando velas, EMA 50 y la franja verde del corredor **Anti-Chasing ($\pm 0.6\%$)**, junto a un banner de veredicto final (`EJECUTABLE` / `EN ESPERA`).
-4. 📊 **Historial & Equity**: Registro detallado de operaciones cerradas, auditoría PnL paginada, exportación CSV y gráfico de curva de equidad.
+```text
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                                   SNIPER AI DASHBOARD                                  │
+├───────────────┬───────────────────────────┬────────────────────────────┬───────────────┤
+│ ⚡ TERMINAL   │  🎯 RADAR DE PARES        │  📈 COCKPIT TRIPLE TF      │  📊 EQUITY    │
+│ Balance PnL   │  Top 10 / 30 Liquidez     │  Vistas 1H, 5M y 1M        │  Historial    │
+│ Posiciones    │  Clic ──▶ Sync a Cockpit  │  Gráficos Canvas2D HD      │  Curva PnL    │
+└───────────────┴───────────────────────────┴────────────────────────────┴───────────────┘
+```
+
+> [!NOTE]
+> **Sincronización Interactiva**: Al hacer clic en cualquier par de la tabla **Radar** (ej. `BTC/USDT`, `ETH/USDT`, `ZEC/USDT`), la interfaz activa automáticamente el visor 3-TF Cockpit, consulta las series temporales en tiempo real y renderiza los 3 gráficos Canvas simultáneamente.
 
 ---
 
 ## 🛡️ Gobernanza de Riesgo y Seguridad Operativa
-
-> **Invariante Nuclear:** *El exchange es la única fuente de verdad para posiciones reales. Ninguna posición en modo REAL puede permanecer descubierta sin un `HARD STOP LOSS` activo en Binance Futures.*
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────────────────────┐
@@ -170,12 +146,9 @@ El sistema incluye una consola de monitoreo web interactiva con 4 vistas princip
 └──────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Reglas Preventivas Operativas
-
-- **Orden Ascendente de Locks (Prevención de Deadlocks)**:
-  `bot.lock` < `execution._exchange_call_lock` < `execution._account_lock` < `shadow._lock` < `bot.db_lock` < `bot.price_lock`
-- **Límite de Stop Loss Extremo**: Guardrail de `MAX_ENTRY_SL_PCT = 3.0%`. Ninguna entrada se ejecutará con un SL porcentual superior a este límite.
-- **Protección contra Pass Silenciosos**: Bloqueo estricto por CI mediante `tools/check_no_silent_pass.py`. Ningún bloque `try/except` en `core/` puede contener `pass` sin manejo o log explícito.
+> [!WARNING]
+> **Orden Ascendente de Locks (Prevención Invariable de Deadlocks)**:
+> `bot.lock` < `execution._exchange_call_lock` < `execution._account_lock` < `shadow._lock` < `bot.db_lock` < `bot.price_lock`
 
 ---
 
@@ -183,53 +156,36 @@ El sistema incluye una consola de monitoreo web interactiva con 4 vistas princip
 
 ### 1. Requisitos Previos
 
-- **Python**: 3.12+ con entorno virtual local (`./.venv/`)
-- **Node.js**: (Opcional) v18+ para servidor estático de desarrollo
-- **Binance API Keys**: (Requerido solo para modo `REAL`) Claves con permisos de **Futures Trading** habilitados.
+- **Python**: `3.12+` con entorno virtual (`./.venv/`)
+- **Node.js**: (Opcional) `v18+` para servidor de desarrollo
+- **Binance API Keys**: (Solo modo `REAL`) Permisos de **Futures Trading** activos.
 
-### 2. Instalación
+### 2. Instalación Rápida
 
 ```bash
-# Clonar el repositorio
+# 1. Clonar el repositorio
 git clone https://github.com/Rukawua26/Pbot-V5-StudioAI.git
 cd Pbot-V5-StudioAI
 
-# Crear e inicializar el entorno virtual Python
+# 2. Crear el entorno virtual e instalar dependencias del lockfile
 python3 -m venv .venv
 source .venv/bin/activate
-
-# Instalar dependencias exactas del lockfile
 ./.venv/bin/python -m pip install -r requirements.lock -r requirements-dev.lock
-```
 
-### 3. Configuración (`.env`)
-
-Copia el archivo de ejemplo e ingresa tus credenciales y parámetros de riesgo:
-
-```bash
+# 3. Configurar entorno .env
 cp .env.example .env
 ```
 
-Parámetros clave recomendados:
-
-```ini
-PAPER_MODE=true
-ALLOW_REAL_TRADING=false
-STRATEGY_ENGINE=triple_tf
-TOP_TRIAGE_COUNT=10
-SNIPER_API_KEY=sniper_secret_key_local_12345
-```
-
-### 4. Ejecución del Bot & Dashboard
+### 3. Modos de Ejecución
 
 ```bash
-# Opción A: Ejecución Principal del Bot
+# Opción A: Bot Principal de Trading (PAPER / REAL)
 ./.venv/bin/python main.py
 
-# Opción B: Dashboard Servidor API (FastAPI en Producción)
+# Opción B: Servidor API Dashboard (Production FastAPI)
 SNIPER_DISABLE_FILE_TELEMETRY=1 ./.venv/bin/python tools/dashboard_api_server.py
 
-# Opción C: Dashboard Servidor Node.js (Modo Dev / Demo)
+# Opción C: Servidor Dashboard Node.js (Dev / Demo)
 node server.js
 ```
 
@@ -237,53 +193,37 @@ node server.js
 
 ## 🧪 Aseguramiento de Calidad y Validación
 
-El repositorio cuenta con una suite completa de validación que garantiza la estabilidad del runtime crítico antes de cada commit:
+La suite completa de pruebas en CI/CD valida la estabilidad del runtime antes de cualquier commit:
 
 ```bash
-# 1. Verificación de dependencias
+# Dependencias y compilación
 ./.venv/bin/python -m pip check
-
-# 2. Compilación de código bytecode
 ./.venv/bin/python -m compileall -q main.py core tools
 
-# 3. Linter y formato con Ruff
+# Calidad de código y tipo
 ./.venv/bin/ruff check core/ tests/ tools/
-./.venv/bin/ruff format --check core/ tests/ tools/
-
-# 4. Verificación de tipos con Mypy
 MYPYPATH=. ./.venv/bin/mypy --explicit-package-bases core/config/ core/types.py core/bot_facade.py core/execution_adapters.py
 
-# 5. Smoke de imports modulares
+# Gates de seguridad y contratos
 PYTHON_BIN=./.venv/bin/python bash scripts/smoke_modular_imports.sh
-
-# 6. Detección de pass silenciosos
 ./.venv/bin/python tools/check_no_silent_pass.py
-
-# 7. Validación de contratos arquitectónicos
 SNIPER_DISABLE_FILE_TELEMETRY=1 ./.venv/bin/python tools/regression_contracts.py
 
-# 8. Matriz de Simulación de Caos (8 escenarios)
+# Simulación de Caos y Drill de Recuperación
 SNIPER_DISABLE_FILE_TELEMETRY=1 ./.venv/bin/python tools/chaos_matrix.py
-
-# 9. Drill de Recuperación de Posiciones Huérfanas (3 escenarios)
 SNIPER_DISABLE_FILE_TELEMETRY=1 ./.venv/bin/python tools/recovery_drill.py
 
-# 10. Suite Completa de Pruebas Unitarias (1,297 Tests)
+# Suite Unitaria Completa (1,297 Pruebas OK)
 SNIPER_DISABLE_FILE_TELEMETRY=1 ./.venv/bin/python -m unittest discover -s tests -p "test_*.py"
-
-# 11. Cobertura de Código
-SNIPER_DISABLE_FILE_TELEMETRY=1 ./.venv/bin/python -m coverage run -m unittest discover -s tests -p "test_*.py"
-./.venv/bin/python -m coverage report --fail-under=75
 ```
 
 ---
 
-## 📑 Gobernanza Técnica y Runbooks
+## 📑 Gobernanza Técnica
 
-Para más detalles técnicos sobre el funcionamiento del bot y sus componentes:
-- 📖 [Memoria Técnica del Proyecto](docs/engineering/memoria-tecnica.md) — Registro de decisiones arquitectónicas y salvaguardas.
-- 📋 [Mejoras Pendientes & Roadmap](docs/roadmap/mejoras-pendientes.md) — Estado de integraciones y funciones en desarrollo.
-- 🤖 [Manual de Agentes (AGENTS.md)](AGENTS.md) — Reglas operativas e invariantes del sistema.
+- 📖 [Memoria Técnica del Proyecto](docs/engineering/memoria-tecnica.md)
+- 📋 [Mejoras Pendientes & Roadmap](docs/roadmap/mejoras-pendientes.md)
+- 🤖 [Manual de Agentes (AGENTS.md)](AGENTS.md)
 
 ---
 

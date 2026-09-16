@@ -44,7 +44,6 @@ Propuestas/
 docs/reports/*.csv
 reports/
 audit_report.json
-docs/images/*.jpg
 .opencode/node_modules/
 
 # Node
