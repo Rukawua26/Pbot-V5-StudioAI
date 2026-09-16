@@ -21,6 +21,8 @@ def _radar_entry(entry):
         "trend": entry.get("trend_val", "N/A"),
         "result": entry.get("result", ""),
         "tier": entry.get("tier", "IRON"),
+        "vol_24h": float(entry.get("vol_24h", 0.0) or 0.0),
+        "rvol": float(entry.get("rvol", 1.0) or 1.0),
     }
 
 
@@ -33,6 +35,8 @@ def _pending_target_entry(symbol):
         "trend": "N/A",
         "result": "PENDIENTE",
         "tier": "TARGET",
+        "vol_24h": 0.0,
+        "rvol": 1.0,
     }
 
 
@@ -107,7 +111,9 @@ def _write_state_snapshot(bot):
         shadow_trades = []
         for t in raw_trades.values():
             entry_price = float(t.get("entry_price") or t.get("entry") or 0.0)
-            current_price = float(t.get("current_price") or t.get("last_price") or entry_price)
+            current_price = float(
+                t.get("current_price") or t.get("last_price") or entry_price
+            )
             sl_price = float(t.get("sl") or 0.0)
             tp_price = float(t.get("tp") or 0.0)
             size = float(t.get("size") or t.get("size_usd") or 0.0)
@@ -126,12 +132,15 @@ def _write_state_snapshot(bot):
             elif isinstance(open_time_raw, str):
                 try:
                     from datetime import datetime
+
                     dt = datetime.fromisoformat(open_time_raw.replace("Z", "+00:00"))
                     duration_s = max(0.0, round(ts - dt.timestamp(), 0))
                 except Exception:
                     duration_s = 0.0
 
-            pnl_usd = float(t.get("pnl_usd") or (size * pnl_pct / 100.0 if size else 0.0))
+            pnl_usd = float(
+                t.get("pnl_usd") or (size * pnl_pct / 100.0 if size else 0.0)
+            )
 
             t_dict = {
                 "symbol": t.get("symbol", "?"),
@@ -159,7 +168,9 @@ def _write_state_snapshot(bot):
         daily_pnl_usd = 0.0
         daily_initial_balance = float(getattr(bot, "daily_initial_balance", 0.0) or 0.0)
         if bal > 0 and daily_initial_balance > 0:
-            daily_pnl_pct = round(((bal - daily_initial_balance) / daily_initial_balance) * 100, 2)
+            daily_pnl_pct = round(
+                ((bal - daily_initial_balance) / daily_initial_balance) * 100, 2
+            )
             daily_pnl_usd = round(bal - daily_initial_balance, 2)
         sentiment = _normalize_sentiment(getattr(bot, "current_sentiment", "NEUTRAL"))
         snapshot = {
@@ -171,7 +182,9 @@ def _write_state_snapshot(bot):
             "daily_pnl_usd": daily_pnl_usd,
             "halt_system_active": bool(getattr(bot, "halt_system_active", False)),
             "integrity_lock_active": bool(getattr(bot, "integrity_lock_active", False)),
-            "circuit_breaker_active": bool(getattr(bot, "circuit_breaker_active", False)),
+            "circuit_breaker_active": bool(
+                getattr(bot, "circuit_breaker_active", False)
+            ),
             "is_paused": bool(getattr(bot, "is_paused", False)),
             "ws_reconciliation_in_progress": bool(
                 getattr(bot, "ws_reconciliation_in_progress", False)
@@ -223,7 +236,9 @@ def _write_state_snapshot(bot):
                 "integrity_lock": snapshot["integrity_lock_active"],
                 "circuit_breaker": snapshot["circuit_breaker_active"],
                 "paused": snapshot["is_paused"],
-                "ws_reconciliation_in_progress": snapshot["ws_reconciliation_in_progress"],
+                "ws_reconciliation_in_progress": snapshot[
+                    "ws_reconciliation_in_progress"
+                ],
             },
         }
         tmp = STATE_FILE + ".tmp"

@@ -465,6 +465,7 @@ def get_active_market_snapshot(bot, pool_limit=None):
                         "candidates": all_candidates,
                     }
                     bot._market_cache_ts = now
+                    del raw_tickers
                     bot.log(
                         f"✅ [TRIAJE] {len(all_candidates)} candidatos liquidez cacheados"
                     )

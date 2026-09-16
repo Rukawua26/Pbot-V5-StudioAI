@@ -24,6 +24,7 @@ Documento vivo para registrar mejoras, integraciones y decisiones tecnicas pendi
 - Commit confirmado y subido a GitHub: `ba5a42a harden: add runtime safety gates and raise coverage`.
 - **FVG Tracker (GapTrackerModule)** implementado como modulo satelite read-only en `core/analytics/fvg_tracker.py`.
 - **SHADOW Validation Campaign** implementada como telemetria observacional (`SHADOW_VALIDATION_ENABLED`) y reporte `tools/shadow_validation_report.py`.
+- **Filtro de Volumen Adaptativo (Modelo RVol 2 Capas)** implementado: Capa 1 Suelo de Seguridad 24h (`TRIAGE_MIN_24H_VOL_USD=50M`) en snapshot + Capa 2 RVol Adaptativo (`TRIAGE_MIN_RVOL=0.8x`, `TRIAGE_MIN_1H_VOL_USD=3M`) con telemetría en radar y optimización de memoria.
 
 ## Mejoras Pendientes
 

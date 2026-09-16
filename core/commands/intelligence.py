@@ -40,7 +40,9 @@ def _handle_intelligence_commands(bot, text: str) -> bool:
         if not source_txt:
             source_txt = "N/A"
 
-        msg = f"👁️ *WATCHLIST BREAKOUT*\n• Total: {len(rows)}\n• Fuentes: {source_txt}\n\n"
+        msg = (
+            f"👁️ *WATCHLIST BREAKOUT*\n• Total: {len(rows)}\n• Fuentes: {source_txt}\n\n"
+        )
         for row in rows[:10]:
             meta = row.get("meta") or {}
             source = str(meta.get("source", "UNK"))
@@ -81,7 +83,9 @@ def _handle_intelligence_commands(bot, text: str) -> bool:
             "G": "👻 IA (G)",
             "R": "🧠 RAG Vectorial",
         }
-        for agent_id, score in sorted(reps.items(), key=lambda item: item[1], reverse=True):
+        for agent_id, score in sorted(
+            reps.items(), key=lambda item: item[1], reverse=True
+        ):
             name = agent_names.get(agent_id, agent_id)
             icon = "🟢" if score >= 100 else ("🟡" if score >= 90 else "🔴")
             msg += f"{icon} *{name}:* {score:.1f}\n"
@@ -122,7 +126,9 @@ def _handle_intelligence_commands(bot, text: str) -> bool:
                 timeout=(5, 20),
             )
         except Exception as error:
-            send_telegram_msg(f"❌ Error generando XAI: {sanitize_telegram_error(error)}")
+            send_telegram_msg(
+                f"❌ Error generando XAI: {sanitize_telegram_error(error)}"
+            )
         return True
 
     if text == "/report":
@@ -175,11 +181,29 @@ def _handle_intelligence_commands(bot, text: str) -> bool:
         if not bot.pairs_to_scan:
             send_telegram_msg("🔭 Radar vacío o inicializando...")
         else:
-            msg = f"🎯 *OBJETIVOS ACTIVOS ({len(bot.pairs_to_scan)})*\n"
-            pairs_str = ", ".join(bot.pairs_to_scan)
-            if len(pairs_str) > 4000:
-                pairs_str = pairs_str[:4000] + "..."
-            send_telegram_msg(f"{msg}{pairs_str}")
+            vol_map = {}
+            for item in getattr(bot, "scanner_history", []):
+                sym = item.get("symbol")
+                vol = item.get("vol_24h", 0)
+                if sym and vol > 0:
+                    vol_map[sym] = vol
+
+            lines = []
+            for s in bot.pairs_to_scan:
+                vol = vol_map.get(s, 0)
+                if vol >= 1_000_000:
+                    lines.append(f"• `{s}` (${vol / 1_000_000:.0f}M)")
+                else:
+                    lines.append(f"• `{s}`")
+
+            min_vol_cfg = (
+                getattr(Config, "TRIAGE_MIN_24H_VOL_USD", 50_000_000.0) or 50_000_000.0
+            )
+            header = f"🎯 *OBJETIVOS ACTIVOS ({len(bot.pairs_to_scan)})* [Suelo: >${min_vol_cfg / 1_000_000:.0f}M]\n"
+            msg = header + "\n".join(lines)
+            if len(msg) > 4000:
+                msg = msg[:4000] + "..."
+            send_telegram_msg(msg)
         return True
 
     return False

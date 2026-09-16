@@ -32,7 +32,12 @@ def _consensus_status(prob_pct: float, result: str) -> tuple[str, str]:
         return "BLOCKED_NEUTRAL", "NEUTRAL_AGENT_VOTE"
     if "WS_RECONCILIATION_IN_PROGRESS" in upper:
         return "BLOCKED_RISK", "WS_RECONCILIATION_IN_PROGRESS"
-    if "VETO" in upper or "BLOQUE" in upper or "RECHAZ" in upper or "NO EJECUTA" in upper:
+    if (
+        "VETO" in upper
+        or "BLOQUE" in upper
+        or "RECHAZ" in upper
+        or "NO EJECUTA" in upper
+    ):
         return "BLOCKED", text[:120] or "FILTER_VETO"
     if "OK" in upper or "OPEN" in upper or "SHADOW" in upper:
         return "SELECTED", "PASSED"
@@ -45,9 +50,13 @@ def _record_consensus_round(
     votes = dict(votos or {}) if isinstance(votos, dict) else {}
     weights = {}
     if isinstance(ctx, dict):
-        raw_weights = ctx.get("weights") or ctx.get("final_weights") or ctx.get("agent_weights")
+        raw_weights = (
+            ctx.get("weights") or ctx.get("final_weights") or ctx.get("agent_weights")
+        )
         if isinstance(raw_weights, dict):
-            weights = {str(k): _safe_metric_to_float(v, 0.0) for k, v in raw_weights.items()}
+            weights = {
+                str(k): _safe_metric_to_float(v, 0.0) for k, v in raw_weights.items()
+            }
     status, reason = _consensus_status(prob_pct, display_verdict)
     mode = str(decision.get("mode") or "NONE") if isinstance(decision, dict) else "NONE"
     model_type = str(getattr(bot, "ghost_model_type", "OFF") or "OFF")
@@ -58,7 +67,9 @@ def _record_consensus_round(
     round_entry = {
         "ts": time.time(),
         "symbol": symbol,
-        "side": str(decision.get("signal") or "WAIT") if isinstance(decision, dict) else "WAIT",
+        "side": str(decision.get("signal") or "WAIT")
+        if isinstance(decision, dict)
+        else "WAIT",
         "mode": mode,
         "prob_final": round(float(prob_pct), 4),
         "status": status,
@@ -107,13 +118,19 @@ def update_radar(
     mode = decision["mode"]
 
     # El Fuego (🔥) es la validación final del consenso para dinero REAL
-    fuego_status = "✅" if mode == "REAL" and prob_ia >= Config.REAL_CONFIDENCE_MIN else "❌"
+    fuego_status = (
+        "✅" if mode == "REAL" and prob_ia >= Config.REAL_CONFIDENCE_MIN else "❌"
+    )
 
-    shadow_min_pct = float(getattr(Config, "SHADOW_MODE_MIN", Config.SHADOW_PROB_MIN * 100))
+    shadow_min_pct = float(
+        getattr(Config, "SHADOW_MODE_MIN", Config.SHADOW_PROB_MIN * 100)
+    )
 
     # El Tubo (🧪) indica si el bot está aprendiendo de esta moneda (Real o Shadow)
     tubo_status = (
-        "✅" if mode in ["REAL", "SHADOW"] and prob_ia >= (shadow_min_pct / 100.0) else "❌"
+        "✅"
+        if mode in ["REAL", "SHADOW"] and prob_ia >= (shadow_min_pct / 100.0)
+        else "❌"
     )
 
     # Perfil Táctico
@@ -133,9 +150,13 @@ def update_radar(
     slock = getattr(bot, "scanner_lock", None)
     if slock:
         with slock:
-            bot.scanner_history = [item for item in bot.scanner_history if item["symbol"] != symbol]
+            bot.scanner_history = [
+                item for item in bot.scanner_history if item["symbol"] != symbol
+            ]
     else:
-        bot.scanner_history = [item for item in bot.scanner_history if item["symbol"] != symbol]
+        bot.scanner_history = [
+            item for item in bot.scanner_history if item["symbol"] != symbol
+        ]
 
     # Limpieza de redundancia visual (Solicitud Usuario)
     # Quitamos "SHADOW" o "REAL" del texto ya que existe columna de MODO
@@ -203,6 +224,7 @@ def update_radar(
         else 0,
         "z_score": ctx.get("z_score", 0.0) if ctx else 0.0,
         "vol_24h": ctx.get("vol_24h", 0.0) if ctx else 0.0,
+        "rvol": ctx.get("rvol", ctx.get("rvol_1h", 1.0)) if ctx else 1.0,
         "trend_val": ctx.get("trend", "N/A") if ctx else "N/A",
         "funding_rate": ctx.get("funding_rate", 0.0) if ctx else 0.0,
         "tier": decision.get("tier", ctx.get("tier", "IRON")) if ctx else "IRON",
