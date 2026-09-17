@@ -37,6 +37,84 @@ Fuente versionada para cambios criticos, decisiones de diseno, invariantes y reg
 
 ## Cambios Criticos Registrados
 
+### 2026-09-16 - Consolidacion Bloque 2: campanas SHADOW identificables
+
+Cambios:
+
+- `core/shadow_validation.py`: todos los eventos incluyen campana, `run_id`, huella
+  estable de configuracion, modo, version declarada y estado/modelo ML. Los cierres
+  agregan costes y exposicion disponibles; los scans agregan duracion y llamadas de
+  analisis pesado.
+- `core/bot_models_startup.py`: emite snapshot de configuracion despues de resolver
+  el modelo/fallback para que la identidad de la campana refleje el runtime real.
+- `core/bot_signals.py`: telemetria observacional de coste por ciclo, sin cambiar
+  decisiones ni ejecucion.
+- `tools/shadow_validation_report.py`: segmenta por identidad sin mezclar campañas,
+  ordena cierres, deduplica `trade_key`, calcula expectativa/profit factor con PnL
+  monetario y solo publica retorno/drawdown de cuenta con snapshots de wallet
+  completos y continuos. Tambien informa costes, exposicion, MAE/MFE, vetos,
+  salud operacional, ausencias e integridad.
+- `.env.example`: documenta `SNIPER_CODE_VERSION` sin tocar secretos ni `.env` local.
+
+Diagnostico:
+
+- Los datos legacy disponibles contienen 12 cierres y carecen de version/config y
+  costes completos. El reporte declara `INSUFFICIENT_SAMPLE`; aunque la muestra es
+  negativa, no es una base valida para ajustar estrategia ni iniciar el Bloque 3.
+
+Reglas preventivas:
+
+- No agregar eventos de identidades distintas en un resultado economico.
+- No presentar suma ni composicion de porcentajes por trade como retorno de cuenta;
+  usar exclusivamente una curva de wallet cronologica y continua.
+- No convertir costes o metricas ausentes en cero observado.
+- No ajustar filtros con datos legacy incompletos; iniciar campana identificada y
+  mantener configuracion fija.
+
+Validacion:
+
+- Suite completa: 1317 tests OK, 2 skipped.
+- Tests enfocados SHADOW/startup/scan/exit: 49 OK.
+- `compileall`, lint enfocado, smoke modular, contratos, guard de pass silenciosos,
+  chaos matrix 8/8 y recovery drill 3/3: OK.
+
+### 2026-09-16 - Consolidacion Bloque 1: recovery, TP1 y calculos verificables
+
+Cambios:
+
+- `core/reconciliation.py`: la recuperacion automatica de `HALT` ya no convierte
+  `None` o payloads malformados en cuenta plana. Exige listas validas, cantidades
+  finitas y coherentes entre `contracts`/`positionAmt`, simbolo para toda
+  exposicion, ordenes abiertas legibles y balance finito positivo.
+- `core/bot_guardian.py`: TP1 usa contratos de la posicion, exige `filled`
+  verificable y actualiza `amount`/`size_usd` con el fill real. Fill ausente,
+  invalido o superior al solicitado mantiene estado ambiguo y activa `HALT`.
+- `tools/strategy_validation_report.py`: drawdown `0.0` deja de convertirse en
+  `1.0` por evaluacion booleana.
+- `tools/learning.py`: cada snapshot atribuye todos los votos directos solicitados
+  una sola vez, en lugar de detenerse tras el primer agente.
+- Plan y regla de linea base protegida en
+  `docs/runbooks/plan-consolidacion-bot.md`.
+
+Reglas preventivas:
+
+- Un snapshot desconocido nunca acredita ausencia de exposicion ni permite liberar
+  `HALT`.
+- TP1 REAL no se acredita solo por `status=closed`; requiere cantidad ejecutada
+  valida y coherente con la solicitada.
+- Ceros validos en metricas no deben reemplazarse mediante `value or default`.
+- La reputacion multivoto debe contar cada agente presente como maximo una vez por
+  snapshot.
+
+Validacion:
+
+- Suite completa: 1306 tests OK, 2 skipped.
+- Tests enfocados runtime/recovery y areas relacionadas: OK.
+- `ruff check` enfocado, `compileall`, smoke modular, contratos arquitectonicos,
+  chaos matrix 8/8 y recovery drill 3/3: OK.
+- El format check global conserva una deuda preexistente de 172 archivos; no se
+  mezclo un reformateo masivo con los fixes runtime.
+
 ### 2026-09-04 - Trinidad sin modelo ML, calibración de confianza y RRR robusto
 
 Cambios:

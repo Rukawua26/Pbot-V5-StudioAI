@@ -8,6 +8,7 @@ from config import Config
 from core.cooldown_state import is_symbol_in_cooldown
 from core.execution_telemetry import append_execution_event
 from core.market_breadth import calculate_market_breadth
+from core.shadow_validation import emit_scan_cycle
 from core.strategy.triple_tf import is_ttf_signal
 from core.trade_keys import has_trade
 
@@ -148,6 +149,7 @@ def _precompute_signal_analysis(bot, top_triage, results):
 
 
 def run_signal_scan_cycle(bot, top_triage, results, signal_stats, pnl_real_hoy):
+    scan_started = time.perf_counter()
     # FASE B: Análisis Secuencial (IA)
     breadth = calculate_market_breadth(
         results,
@@ -163,6 +165,7 @@ def run_signal_scan_cycle(bot, top_triage, results, signal_stats, pnl_real_hoy):
         )
 
     precomputed_analysis = _precompute_signal_analysis(bot, top_triage, results)
+    heavy_analysis_calls = len(precomputed_analysis)
     controls = {}
     load_controls = getattr(bot, "_load_runtime_symbol_controls", None)
     if callable(load_controls):
@@ -186,6 +189,7 @@ def run_signal_scan_cycle(bot, top_triage, results, signal_stats, pnl_real_hoy):
         analysis = precomputed_analysis.get(symbol_raw, _ANALYSIS_MISSING)
         if analysis is _ANALYSIS_MISSING:
             try:
+                heavy_analysis_calls += 1
                 analysis = bot._analyze_symbol_candidate(
                     symbol_raw, symbol, df_main, df_4h, elapsed
                 )
@@ -448,3 +452,9 @@ def run_signal_scan_cycle(bot, top_triage, results, signal_stats, pnl_real_hoy):
                     if item["symbol"] == symbol:
                         item["result"] = f"❌ CRASH: {str(e)[:15]}"
                         break
+
+    emit_scan_cycle(
+        duration_ms=(time.perf_counter() - scan_started) * 1000.0,
+        candidates=len(top_triage),
+        heavy_analysis_calls=heavy_analysis_calls,
+    )

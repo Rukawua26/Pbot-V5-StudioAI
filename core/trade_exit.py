@@ -297,7 +297,18 @@ def close_trade(
         pnl_neto_percent = pnl_metrics["pnl_neto_percent"]
         mae_percent = pnl_metrics["mae_percent"]
         mfe_percent = pnl_metrics["mfe_percent"]
-        if _release_simulated_margin(bot, trade, pnl_neto_usd):
+        equity_before_usd = (
+            float(getattr(bot, "balance", 0.0) or 0.0)
+            if trade.get("is_shadow", False)
+            else None
+        )
+        simulated_margin_released = _release_simulated_margin(bot, trade, pnl_neto_usd)
+        equity_after_usd = (
+            float(getattr(bot, "balance", 0.0) or 0.0)
+            if trade.get("is_shadow", False) and simulated_margin_released
+            else None
+        )
+        if simulated_margin_released:
             bot.log(
                 f"💰 SIM_WALLET_RELEASE {symbol}: margin=${float(trade.get('margin_used') or 0.0):.2f} "
                 f"pnl=${pnl_neto_usd:+.4f} balance=${float(getattr(bot, 'balance', 0.0) or 0.0):.2f} "
@@ -323,6 +334,9 @@ def close_trade(
             mae_percent,
             mfe_percent,
             pm_data.get("exit_reason", "UNKNOWN"),
+            fees,
+            equity_before_usd,
+            equity_after_usd,
         )
 
         bot.log(

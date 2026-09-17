@@ -28,6 +28,20 @@ Documento vivo para registrar mejoras, integraciones y decisiones tecnicas pendi
 
 ## Mejoras Pendientes
 
+### 0. Plan de Consolidacion del Bot — EN PROGRESO
+
+Plan aprobado y fuente de estado: `docs/runbooks/plan-consolidacion-bot.md`.
+
+Orden:
+
+1. Coherencia operativa y de calculo — FINALIZADO.
+2. Referencia SHADOW confiable — FINALIZADO (`INSUFFICIENT_SAMPLE`; recoger nueva campana).
+3. Experimento unico sobre el problema dominante — PENDIENTE.
+
+Al finalizar cada bloque se convierte en linea base protegida. Solo puede
+reabrirse por una regresion demostrada o una mejora medible, reversible y
+cubierta por tests.
+
 ### 1. FVG Tracker — Medicion estadistica en PAPER/SHADOW
 
 FVG Tracker ya implementado. Pendiente:

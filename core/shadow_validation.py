@@ -1,10 +1,18 @@
 from __future__ import annotations
 
+import hashlib
+import json
+import os
 from collections.abc import Mapping
 from typing import Any
+from uuid import uuid4
 
 from config import Config
 from core.runtime_metrics import append_runtime_metric
+
+
+_model_identity = {"model_type": "UNKNOWN", "bootstrap_heuristic_mode": None}
+_run_id = uuid4().hex[:12]
 
 
 def enabled() -> bool:
@@ -25,24 +33,74 @@ def _int(value: Any, default: int = 0) -> int:
         return default
 
 
-def append_shadow_validation_event(event: str, payload: Mapping[str, Any] | None = None) -> None:
-    if not enabled():
-        return
-    record = {
+def _optional_float(value: Any) -> float | None:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed == parsed and abs(parsed) != float("inf") else None
+
+
+def _config_values() -> dict[str, Any]:
+    names = (
+        "PAPER_MODE",
+        "RISK_PER_TRADE_PERCENT",
+        "MAX_RISK_USD",
+        "MAX_OPEN_TRADES",
+        "RISK_REWARD_FILTER_ENABLED",
+        "MIN_RISK_REWARD_RATIO",
+        "RISK_REWARD_HIGH_VOL_MIN_RATIO",
+        "GLOBAL_MARKET_PROVIDER_ENABLED",
+        "GLOBAL_FEAR_GREED_FILTER_ENABLED",
+        "GLOBAL_BTC_DOM_FILTER_ENABLED",
+        "SIGNAL_AGENT_OVERRIDE_ENABLED",
+        "SIGNAL_AGENT_OVERRIDE_THRESHOLD",
+        "FVG_TRACKER_ENABLED",
+        "SIDE_PARITY_FILTER_ENABLED",
+        "EMA_SLOPE_LOOKBACK",
+        "HMM_RANGE_LEARNING_OVERRIDE_ENABLED",
+    )
+    return {name.lower(): getattr(Config, name, None) for name in names}
+
+
+def _campaign_identity() -> dict[str, Any]:
+    config_values = _config_values()
+    encoded = json.dumps(config_values, sort_keys=True, separators=(",", ":"), default=str)
+    return {
         "campaign": str(
             getattr(Config, "SHADOW_VALIDATION_CAMPAIGN", "shadow_macro_fvg_consensus_v1")
         ),
-        "event": str(event),
+        "config_fingerprint": hashlib.sha256(encoded.encode("utf-8")).hexdigest()[:12],
+        "code_version": str(os.getenv("SNIPER_CODE_VERSION", "unknown") or "unknown"),
+        "runtime_mode": "PAPER" if bool(getattr(Config, "PAPER_MODE", True)) else "REAL",
+        "run_id": _run_id,
+        **_model_identity,
     }
+
+
+def append_shadow_validation_event(event: str, payload: Mapping[str, Any] | None = None) -> None:
+    if not enabled():
+        return
+    record = {**_campaign_identity(), "event": str(event)}
     if payload:
         record.update(dict(payload))
     append_runtime_metric("shadow_validation", record)
 
 
-def emit_config_snapshot() -> None:
+def emit_config_snapshot(bot=None) -> None:
+    if bot is not None:
+        _model_identity.update(
+            {
+                "model_type": str(getattr(bot, "ghost_model_type", "OFF") or "OFF"),
+                "bootstrap_heuristic_mode": bool(
+                    getattr(bot, "bootstrap_heuristic_mode", True)
+                ),
+            }
+        )
     append_shadow_validation_event(
         "config_snapshot",
         {
+            "config_values": _config_values(),
             "global_market_provider_enabled": bool(
                 getattr(Config, "GLOBAL_MARKET_PROVIDER_ENABLED", False)
             ),
@@ -112,6 +170,9 @@ def emit_shadow_trade_closed(
     mae_percent: float,
     mfe_percent: float,
     exit_reason: str,
+    fees_usd: float | None = None,
+    equity_before_usd: float | None = None,
+    equity_after_usd: float | None = None,
 ) -> None:
     if not bool(trade.get("is_shadow", False)):
         return
@@ -129,6 +190,20 @@ def emit_shadow_trade_closed(
             "exit": _float(exit_price),
             "pnl_usd": _float(pnl_usd),
             "pnl_percent": _float(pnl_percent),
+            "fees_usd": _optional_float(fees_usd),
+            "fees_source": "estimated_virtual",
+            "funding_cost_usd": _optional_float(trade.get("funding_cost_usd")),
+            "entry_slippage_pct": _optional_float(trade.get("entry_slippage_pct")),
+            "notional_usd": _optional_float(trade.get("size_usd")),
+            "margin_used_usd": _optional_float(trade.get("margin_used")),
+            "equity_before_usd": _optional_float(equity_before_usd),
+            "equity_after_usd": _optional_float(equity_after_usd),
+            "equity_curve_source": (
+                "simulated_wallet_settlement"
+                if equity_before_usd is not None and equity_after_usd is not None
+                else None
+            ),
+            "trade_key": str(trade.get("trade_key") or ""),
             "mae_percent": _float(mae_percent),
             "mfe_percent": _float(mfe_percent),
             "entry_confidence": _float(trade.get("entry_confidence")),
@@ -153,5 +228,16 @@ def emit_fvg_cycle(symbols_scanned: int, new_gaps: int, active_gaps: list[dict])
             "new_gaps": int(new_gaps),
             "active_total": len(active_gaps),
             "status_counts": status_counts,
+        },
+    )
+
+
+def emit_scan_cycle(duration_ms: float, candidates: int, heavy_analysis_calls: int) -> None:
+    append_shadow_validation_event(
+        "scan_cycle",
+        {
+            "duration_ms": _float(duration_ms),
+            "candidates": int(candidates),
+            "heavy_analysis_calls": int(heavy_analysis_calls),
         },
     )

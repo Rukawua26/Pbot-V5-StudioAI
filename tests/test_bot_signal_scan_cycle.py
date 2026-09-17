@@ -9,6 +9,21 @@ from core.bot_signals import run_signal_scan_cycle
 
 
 class BotSignalScanCycleTest(unittest.TestCase):
+    @patch("core.bot_signals.emit_scan_cycle")
+    @patch("core.bot_signals._precompute_signal_analysis", return_value={})
+    def test_scan_metric_counts_sequential_analysis(self, _precompute, emit_scan_cycle):
+        bot = self._scan_bot(_analyze_symbol_candidate=MagicMock(return_value=None))
+
+        run_signal_scan_cycle(
+            bot,
+            [{"symbol": "BTC/USDT"}],
+            self._valid_results(),
+            self._signal_stats(),
+            pnl_real_hoy=0.0,
+        )
+
+        self.assertEqual(emit_scan_cycle.call_args.kwargs["heavy_analysis_calls"], 1)
+
     def _signal_stats(self):
         return {"BUY": 0, "SELL": 0, "NEUTRAL": 0, "REAL": 0, "SHADOW": 0, "VETO": 0}
 

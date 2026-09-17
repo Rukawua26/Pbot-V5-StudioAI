@@ -10,6 +10,7 @@ import pandas as pd
 
 from core.config.portable_paths import get_model_path
 from core.model_loader import safe_pickle_load
+from core.shadow_validation import emit_config_snapshot
 from tools.notifier import send_telegram_msg
 
 
@@ -156,3 +157,5 @@ def init_models_and_startup_tasks(bot, export_dataset_fn, backup_database_fn, tf
                 )
     except Exception as e:
         bot.log(f"⚠️ Validación REQUIRE_GHOST_MODEL_FOR_TRADING omitida: {e}")
+
+    emit_config_snapshot(bot)
