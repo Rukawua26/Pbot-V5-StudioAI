@@ -47,6 +47,8 @@ Cambios:
   analisis pesado.
 - `core/bot_models_startup.py`: emite snapshot de configuracion despues de resolver
   el modelo/fallback para que la identidad de la campana refleje el runtime real.
+- `core/bot_core_setup.py`: no emite un snapshot prematuro antes de resolver el
+  modelo; una ejecucion debe producir una sola identidad operativa autoritativa.
 - `core/bot_signals.py`: telemetria observacional de coste por ciclo, sin cambiar
   decisiones ni ejecucion.
 - `tools/shadow_validation_report.py`: segmenta por identidad sin mezclar campañas,
@@ -65,6 +67,8 @@ Diagnostico:
 Reglas preventivas:
 
 - No agregar eventos de identidades distintas en un resultado economico.
+- No emitir identidad de campana antes de resolver modelo/fallback; evita dividir
+  un mismo arranque en segmentos `UNKNOWN` y definitivo.
 - No presentar suma ni composicion de porcentajes por trade como retorno de cuenta;
   usar exclusivamente una curva de wallet cronologica y continua.
 - No convertir costes o metricas ausentes en cero observado.
