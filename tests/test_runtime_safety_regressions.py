@@ -76,6 +76,102 @@ class RuntimeSafetyRegressionTest(unittest.TestCase):
         self.assertEqual(trade["size_usd"], 100.0)
         self.assertEqual(trade["amount"], 1.0)
 
+    @patch("core.bot_guardian.Config.TP1_ENABLED", True)
+    @patch("core.bot_guardian.Config.TP1_LEVEL", 1.0)
+    @patch("core.bot_guardian.Config.TP1_PERCENT", 50.0)
+    @patch("core.bot_guardian.Config.PAPER_MODE", False)
+    def test_tp1_real_uses_contracts_and_persists_confirmed_fill(self):
+        from core.bot_guardian import _handle_tp1
+
+        bot = self._tp1_bot(order_result={"status": "closed", "filled": 0.4})
+        trade = {
+            "trade_key": "BTC/USDT",
+            "symbol": "BTC/USDT",
+            "side": "BUY",
+            "pnl": 1.2,
+            "size_usd": 200.0,
+            "amount": 1.0,
+            "is_shadow": False,
+        }
+
+        self.assertTrue(_handle_tp1(bot, "BTC/USDT", trade, 100.0))
+
+        args = bot.execution.create_reduce_only_market_order.call_args.args
+        self.assertEqual(args[2], 0.5)
+        self.assertTrue(trade["tp1_triggered"])
+        self.assertAlmostEqual(trade["amount"], 0.6)
+        self.assertAlmostEqual(trade["size_usd"], 120.0)
+
+    @patch("core.bot_guardian.Config.TP1_ENABLED", True)
+    @patch("core.bot_guardian.Config.TP1_LEVEL", 1.0)
+    @patch("core.bot_guardian.Config.TP1_PERCENT", 50.0)
+    @patch("core.bot_guardian.Config.PAPER_MODE", False)
+    def test_tp1_real_closed_without_filled_amount_halts(self):
+        from core.bot_guardian import _handle_tp1
+
+        bot = self._tp1_bot(order_result={"status": "closed"})
+        trade = {
+            "trade_key": "BTC/USDT",
+            "symbol": "BTC/USDT",
+            "side": "BUY",
+            "pnl": 1.2,
+            "size_usd": 100.0,
+            "amount": 1.0,
+            "is_shadow": False,
+        }
+
+        self.assertTrue(_handle_tp1(bot, "BTC/USDT", trade, 100.0))
+
+        self.assertTrue(bot.halt_system_active)
+        self.assertEqual(trade["amount"], 1.0)
+        self.assertEqual(trade["size_usd"], 100.0)
+
+    @patch("core.bot_guardian.Config.TP1_ENABLED", True)
+    @patch("core.bot_guardian.Config.TP1_LEVEL", 1.0)
+    @patch("core.bot_guardian.Config.TP1_PERCENT", 50.0)
+    @patch("core.bot_guardian.Config.PAPER_MODE", False)
+    def test_tp1_real_fill_above_requested_amount_halts(self):
+        from core.bot_guardian import _handle_tp1
+
+        bot = self._tp1_bot(order_result={"status": "closed", "filled": 0.75})
+        trade = {
+            "trade_key": "BTC/USDT",
+            "symbol": "BTC/USDT",
+            "side": "BUY",
+            "pnl": 1.2,
+            "size_usd": 100.0,
+            "amount": 1.0,
+            "is_shadow": False,
+        }
+
+        self.assertTrue(_handle_tp1(bot, "BTC/USDT", trade, 100.0))
+
+        self.assertTrue(bot.halt_system_active)
+        self.assertEqual(trade["amount"], 1.0)
+
+    @patch("core.bot_guardian.Config.TP1_ENABLED", True)
+    @patch("core.bot_guardian.Config.TP1_LEVEL", 1.0)
+    @patch("core.bot_guardian.Config.TP1_PERCENT", 50.0)
+    @patch("core.bot_guardian.Config.PAPER_MODE", False)
+    def test_tp1_real_invalid_local_amount_halts_before_order(self):
+        from core.bot_guardian import _handle_tp1
+
+        bot = self._tp1_bot()
+        trade = {
+            "trade_key": "BTC/USDT",
+            "symbol": "BTC/USDT",
+            "side": "BUY",
+            "pnl": 1.2,
+            "size_usd": 100.0,
+            "amount": float("nan"),
+            "is_shadow": False,
+        }
+
+        self.assertTrue(_handle_tp1(bot, "BTC/USDT", trade, 100.0))
+
+        self.assertTrue(bot.halt_system_active)
+        bot.execution.create_reduce_only_market_order.assert_not_called()
+
     @patch("core.trade_exit.Config.PAPER_MODE", False)
     @patch("core.trade_exit.send_telegram_msg")
     def test_real_close_keeps_trade_when_exchange_position_not_flat(self, _mocked_tg):

@@ -43,7 +43,8 @@ def evaluate_strategy_report(
     windows = int(summary.get("windows", 0) or 0)
     positive_windows = int(summary.get("positive_validation_windows", 0) or 0)
     avg_pf = float(summary.get("avg_validation_profit_factor", 0.0) or 0.0)
-    max_dd = float(summary.get("max_validation_drawdown", 1.0) or 1.0)
+    raw_max_dd = summary.get("max_validation_drawdown")
+    max_dd = float(1.0 if raw_max_dd is None else raw_max_dd)
     total_val_trades = int(summary.get("total_validation_trades", 0) or 0)
     positive_ratio = (positive_windows / windows) if windows > 0 else 0.0
 

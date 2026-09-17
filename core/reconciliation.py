@@ -1,5 +1,6 @@
 import hashlib
 import logging
+import math
 import traceback
 
 from config import Config
@@ -833,43 +834,62 @@ def recover_halt_if_exchange_consistent(bot, required_snapshots: int = 2) -> tup
         return False, f"RECOVERY_BLOCKED_LOCAL_REAL: {', '.join(local_real_symbols)}"
 
     try:
-        positions = bot.execution.fetch_positions() or []
+        positions = bot.execution.fetch_positions()
     except Exception as error:
         return False, f"RECOVERY_BLOCKED_POSITIONS_UNREADABLE: {error}"
+
+    if not isinstance(positions, list):
+        return False, "RECOVERY_BLOCKED_POSITIONS_INVALID"
 
     exchange_symbols = []
     for pos in positions:
         if not isinstance(pos, dict):
-            continue
-        amount = pos.get("contracts")
-        if amount is None:
-            amount = (
-                (pos.get("info") or {}).get("positionAmt", 0)
-                if isinstance(pos.get("info"), dict)
-                else 0
-            )
-        if abs(float(amount or 0.0)) > 0.0:
-            exchange_symbols.append(normalize_position_symbol(pos.get("symbol", "")))
-    exchange_symbols = sorted(symbol for symbol in exchange_symbols if symbol)
+            return False, "RECOVERY_BLOCKED_POSITION_INVALID"
+        info = pos.get("info")
+        info_amount = info.get("positionAmt") if isinstance(info, dict) else None
+        raw_amounts = [value for value in (pos.get("contracts"), info_amount) if value is not None]
+        if not raw_amounts or any(isinstance(value, bool) for value in raw_amounts):
+            return False, "RECOVERY_BLOCKED_POSITION_AMOUNT_INVALID"
+        try:
+            parsed_amounts = [float(value) for value in raw_amounts]
+        except (TypeError, ValueError):
+            return False, "RECOVERY_BLOCKED_POSITION_AMOUNT_INVALID"
+        if any(not math.isfinite(value) for value in parsed_amounts):
+            return False, "RECOVERY_BLOCKED_POSITION_AMOUNT_INVALID"
+        if len(parsed_amounts) == 2 and not math.isclose(
+            abs(parsed_amounts[0]), abs(parsed_amounts[1]), rel_tol=1e-8, abs_tol=1e-12
+        ):
+            return False, "RECOVERY_BLOCKED_POSITION_AMOUNT_CONTRADICTORY"
+        parsed_amount = parsed_amounts[0]
+        if abs(parsed_amount) > 0.0:
+            symbol = normalize_position_symbol(pos.get("symbol", ""))
+            if not symbol:
+                return False, "RECOVERY_BLOCKED_POSITION_SYMBOL_INVALID"
+            exchange_symbols.append(symbol)
+    exchange_symbols = sorted(exchange_symbols)
     if exchange_symbols:
         return False, f"RECOVERY_BLOCKED_EXCHANGE_EXPOSURE: {', '.join(exchange_symbols)}"
 
     fetch_open_orders = getattr(bot.execution, "fetch_open_orders", None)
-    open_orders: list[dict] = []
-    if callable(fetch_open_orders):
-        try:
-            open_orders = fetch_open_orders() or []
-        except Exception as error:
-            return False, f"RECOVERY_BLOCKED_OPEN_ORDERS_UNREADABLE: {error}"
+    if not callable(fetch_open_orders):
+        return False, "RECOVERY_BLOCKED_OPEN_ORDERS_UNAVAILABLE"
+    try:
+        open_orders = fetch_open_orders()
+    except Exception as error:
+        return False, f"RECOVERY_BLOCKED_OPEN_ORDERS_UNREADABLE: {error}"
+    if not isinstance(open_orders, list):
+        return False, "RECOVERY_BLOCKED_OPEN_ORDERS_INVALID"
+    if any(not isinstance(order, dict) for order in open_orders):
+        return False, "RECOVERY_BLOCKED_OPEN_ORDER_INVALID"
     if open_orders:
-        open_symbols = sorted(set(o.get("symbol", "") for o in open_orders if isinstance(o, dict)))
+        open_symbols = sorted(set(order.get("symbol", "") for order in open_orders))
         return False, f"RECOVERY_BLOCKED_OPEN_ORDERS: {', '.join(open_symbols)}"
 
     try:
         exchange_balance = float(bot.get_current_balance() or 0.0)
     except Exception as error:
         return False, f"RECOVERY_BLOCKED_BALANCE_UNREADABLE: {error}"
-    if exchange_balance <= 0:
+    if not math.isfinite(exchange_balance) or exchange_balance <= 0:
         return False, "RECOVERY_BLOCKED_BALANCE_NON_POSITIVE"
 
     fingerprint = {"exchange_flat": True, "balance": round(exchange_balance, 8)}

@@ -1,3 +1,4 @@
+import math
 import time
 from contextlib import nullcontext
 
@@ -168,19 +169,42 @@ def _sync_tightened_hard_sl(bot, symbol: str, trade: dict, previous_sl: float) -
     )
 
 
-def _tp1_reduce_confirmed(order: dict | None) -> bool:
+def _tp1_confirmed_fill(
+    order: dict | None, current_amount: float, requested_amount: float
+) -> float | None:
     if not isinstance(order, dict):
-        return False
+        return None
     exit_state = str(order.get("exit_state") or "").upper()
     status = str(order.get("status") or "").lower()
-    return exit_state == "FILLED" or status in {"closed", "filled"}
+    if exit_state != "FILLED" and status not in {"closed", "filled"}:
+        return None
+    filled = order.get("filled")
+    if filled is None or isinstance(filled, bool):
+        return None
+    try:
+        parsed_fill = float(filled)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(parsed_fill) or parsed_fill <= 0.0:
+        return None
+    tolerance = max(1e-12, abs(requested_amount) * 1e-9)
+    if parsed_fill > requested_amount + tolerance or parsed_fill > current_amount + tolerance:
+        return None
+    return min(parsed_fill, current_amount)
 
 
-def _mark_tp1_local(bot, symbol: str, trade: dict) -> None:
+def _mark_tp1_local(bot, symbol: str, trade: dict, filled_amount: float | None = None) -> None:
     trade_key = str(trade.get("trade_key") or symbol)
+    current_amount = float(trade.get("amount") or 0.0)
+    if filled_amount is None:
+        remaining_ratio = 1 - Config.TP1_PERCENT / 100
+        remaining_amount = current_amount * remaining_ratio
+    else:
+        remaining_amount = max(0.0, current_amount - filled_amount)
+        remaining_ratio = remaining_amount / current_amount if current_amount > 0.0 else 0.0
     trade["tp1_triggered"] = True
-    trade["size_usd"] = float(trade.get("size_usd") or 0.0) * (1 - Config.TP1_PERCENT / 100)
-    trade["amount"] = float(trade.get("amount") or 0.0) * (1 - Config.TP1_PERCENT / 100)
+    trade["size_usd"] = float(trade.get("size_usd") or 0.0) * remaining_ratio
+    trade["amount"] = remaining_amount
     with bot.db_lock:
         bot.brain.save_active_trade_state(trade_key, trade)
 
@@ -207,9 +231,16 @@ def _handle_tp1(bot, symbol: str, trade: dict, current_price: float) -> bool:
     if float(trade.get("pnl") or 0.0) < Config.TP1_LEVEL:
         return False
 
-    close_amount_usd = float(trade.get("size_usd") or 0.0) * (Config.TP1_PERCENT / 100)
-    if close_amount_usd <= 0.0:
-        trade["tp1_triggered"] = True
+    try:
+        current_amount = float(trade.get("amount") or 0.0)
+    except (TypeError, ValueError):
+        current_amount = 0.0
+    if not math.isfinite(current_amount) or current_amount <= 0.0:
+        _halt_tp1_ambiguous(bot, symbol, trade, "invalid local position amount")
+        return True
+    close_amount = current_amount * (Config.TP1_PERCENT / 100)
+    if not math.isfinite(close_amount) or close_amount <= 0.0:
+        _halt_tp1_ambiguous(bot, symbol, trade, "invalid TP1 close amount")
         return True
 
     bot.log(f"🎯 TP1 HIT: {symbol} - Cerrando 50% @ +{Config.TP1_LEVEL}%")
@@ -225,14 +256,15 @@ def _handle_tp1(bot, symbol: str, trade: dict, current_price: float) -> bool:
         order = bot.execution.create_reduce_only_market_order(
             symbol,
             "SELL" if trade["side"] == "BUY" else "BUY",
-            close_amount_usd / current_price,
+            close_amount,
             params=params,
         )
     except Exception as error:
         _halt_tp1_ambiguous(bot, symbol, trade, str(error))
         return True
 
-    if not _tp1_reduce_confirmed(order):
+    filled_amount = _tp1_confirmed_fill(order, current_amount, close_amount)
+    if filled_amount is None:
         _halt_tp1_ambiguous(
             bot,
             symbol,
@@ -241,7 +273,7 @@ def _handle_tp1(bot, symbol: str, trade: dict, current_price: float) -> bool:
         )
         return True
 
-    _mark_tp1_local(bot, symbol, trade)
+    _mark_tp1_local(bot, symbol, trade, filled_amount)
     return True
 
 

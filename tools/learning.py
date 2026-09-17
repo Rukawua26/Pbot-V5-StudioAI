@@ -1382,17 +1382,11 @@ class Brain:
             if not rows:
                 return performance
 
-            # 2. Rastrear aciertos (votos > 50 en trades ganadores o votos < 50 en perdedores)
-            #    Primero intentamos primary_ids; si no hay match, caemos a legacy_agents
-            #    para mantener compatibilidad con snapshots viejos en la DB.
-            if primary_ids:
-                all_candidates = [primary_ids, legacy_agents]
-            else:
-                all_candidates = [legacy_agents]
-
+            # 2. Rastrear aciertos (votos > 50 en trades ganadores o votos < 50 en perdedores).
+            #    Cada agente solicitado se atribuye como maximo una vez por snapshot.
+            #    Los IDs compartidos (por ejemplo G) conservan compatibilidad legacy.
             hits = {a: 0 for a in agents}
             totals = {a: 0 for a in agents}
-            matched_any = {a: False for a in agents}
 
             for row in rows:
                 try:
@@ -1403,17 +1397,13 @@ class Brain:
                     if not votos:
                         continue
 
-                    for candidate_list in all_candidates:
-                        for a in candidate_list:
-                            if a in votos:
-                                if a not in totals:
-                                    continue  # skip agents not in our output set
-                                voto = votos[a]
-                                totals[a] += 1
-                                matched_any[a] = True
-                                if (pnl > 0 and voto >= 50) or (pnl < 0 and voto < 50):
-                                    hits[a] += 1
-                                break  # prefer first match in priority order
+                    for agent in agents:
+                        if agent not in votos:
+                            continue
+                        voto = votos[agent]
+                        totals[agent] += 1
+                        if (pnl > 0 and voto >= 50) or (pnl < 0 and voto < 50):
+                            hits[agent] += 1
                 except Exception:
                     continue
 

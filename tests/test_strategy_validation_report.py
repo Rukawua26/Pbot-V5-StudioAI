@@ -4,6 +4,35 @@ from tools.strategy_validation_report import evaluate_strategy_report
 
 
 class StrategyValidationReportTests(unittest.TestCase):
+    def test_zero_drawdown_is_preserved(self):
+        verdict = evaluate_strategy_report(
+            walk_forward={
+                "summary": {
+                    "windows": 1,
+                    "positive_validation_windows": 1,
+                    "avg_validation_profit_factor": 2.0,
+                    "max_validation_drawdown": 0.0,
+                    "total_validation_trades": 30,
+                }
+            },
+            ablation={
+                "candidate": {
+                    "delta_vs_baseline": {"profit_factor": 0.2, "net_return_pct": 1.0}
+                }
+            },
+            regime_rows=[{"regime": "TREND", "trades": 30, "expectancy_pct": 0.1}],
+            min_profit_factor=1.0,
+            max_drawdown=0.2,
+            min_positive_windows_ratio=0.5,
+            min_candidate_delta_pf=0.0,
+            min_candidate_delta_return_pct=0.0,
+            min_regime_trades=20,
+            min_regime_expectancy_pct=0.0,
+        )
+
+        self.assertTrue(verdict["passed"])
+        self.assertEqual(verdict["metrics"]["walk_forward_max_drawdown"], 0.0)
+
     def test_evaluate_strategy_report_passes_with_strong_inputs(self):
         verdict = evaluate_strategy_report(
             walk_forward={

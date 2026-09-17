@@ -99,6 +99,23 @@ class TestGetAgentPerformance(unittest.TestCase):
         self.assertIn("SR", result)
         self.assertIn("G", result)
 
+    def test_all_primary_votes_are_attributed_once(self):
+        from tools.learning import Brain
+
+        brain = Brain()
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        snapshot = json.dumps({"votos": {"MT": 80, "SR": 20, "G": 70}})
+        mock_cursor.fetchall.return_value = [
+            {"pnl_percent": 2.0, "market_snapshot": snapshot}
+        ]
+        mock_conn.cursor.return_value = mock_cursor
+        brain._get_conn = MagicMock(return_value=mock_conn)
+
+        result = brain.get_agent_performance(primary_ids=["MT", "SR", "G"])
+
+        self.assertEqual(result, {"MT": 200.0, "SR": 0.0, "G": 200.0})
+
     def test_adaptive_weights_no_model_eliminates_ghost_agent(self):
         """When has_model=False, Ghost Agent weight must be exactly 0.0 and MT/SR re-normalized."""
         orch = StrategyOrchestrator()

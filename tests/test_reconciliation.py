@@ -1078,7 +1078,9 @@ class RealBootstrapReconciliationFailureTest(unittest.TestCase):
 
 
 class HaltRecoveryTest(unittest.TestCase):
-    def _bot(self, active_trades=None, positions=None, balance=100.0):
+    _DEFAULT_POSITIONS = object()
+
+    def _bot(self, active_trades=None, positions=_DEFAULT_POSITIONS, balance=100.0):
         bot = SimpleNamespace()
         bot.lock = RLock()
         bot.db_lock = RLock()
@@ -1088,7 +1090,12 @@ class HaltRecoveryTest(unittest.TestCase):
         bot.halt_system_active = True
         bot.balance = 0.0
         bot.daily_initial_balance = 0.0
-        bot.execution = SimpleNamespace(fetch_positions=MagicMock(return_value=positions or []))
+        if positions is self._DEFAULT_POSITIONS:
+            positions = []
+        bot.execution = SimpleNamespace(
+            fetch_positions=MagicMock(return_value=positions),
+            fetch_open_orders=MagicMock(return_value=[]),
+        )
         bot.get_current_balance = MagicMock(return_value=balance)
         bot.log = MagicMock()
         bot.brain = SimpleNamespace(save_error_snapshot=MagicMock())
@@ -1140,6 +1147,59 @@ class HaltRecoveryTest(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("EXCHANGE_EXPOSURE", msg)
         self.assertTrue(bot.integrity_lock_active)
+
+    def test_recover_halt_blocks_when_positions_snapshot_is_none(self):
+        bot = self._bot(positions=None)
+
+        ok, msg = recover_halt_if_exchange_consistent(bot, required_snapshots=1)
+
+        self.assertFalse(ok)
+        self.assertIn("POSITIONS_INVALID", msg)
+        self.assertTrue(bot.halt_system_active)
+
+    def test_recover_halt_blocks_when_position_amount_is_missing(self):
+        bot = self._bot(positions=[{"symbol": "BTC/USDT:USDT", "info": {}}])
+
+        ok, msg = recover_halt_if_exchange_consistent(bot, required_snapshots=1)
+
+        self.assertFalse(ok)
+        self.assertIn("POSITION_AMOUNT_INVALID", msg)
+        self.assertTrue(bot.halt_system_active)
+
+    def test_recover_halt_blocks_unknown_symbol_exposure(self):
+        bot = self._bot(positions=[{"symbol": "", "contracts": 0.5}])
+
+        ok, msg = recover_halt_if_exchange_consistent(bot, required_snapshots=1)
+
+        self.assertFalse(ok)
+        self.assertIn("POSITION_SYMBOL_INVALID", msg)
+        self.assertTrue(bot.halt_system_active)
+
+    def test_recover_halt_blocks_contradictory_position_amounts(self):
+        bot = self._bot(
+            positions=[
+                {
+                    "symbol": "BTC/USDT:USDT",
+                    "contracts": 0.0,
+                    "info": {"positionAmt": "0.5"},
+                }
+            ]
+        )
+
+        ok, msg = recover_halt_if_exchange_consistent(bot, required_snapshots=1)
+
+        self.assertFalse(ok)
+        self.assertIn("POSITION_AMOUNT_CONTRADICTORY", msg)
+        self.assertTrue(bot.halt_system_active)
+
+    def test_recover_halt_blocks_non_finite_balance(self):
+        bot = self._bot(balance=float("nan"))
+
+        ok, msg = recover_halt_if_exchange_consistent(bot, required_snapshots=1)
+
+        self.assertFalse(ok)
+        self.assertIn("BALANCE_NON_POSITIVE", msg)
+        self.assertTrue(bot.halt_system_active)
 
 
 if __name__ == "__main__":
