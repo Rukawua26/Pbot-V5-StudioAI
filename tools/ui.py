@@ -95,6 +95,11 @@ class UI:
             if db_stats
             else 0
         )
+        shadow_wr_str = (
+            f"{shadow_wr:.1f}%"
+            if total_shadow > 0 and isinstance(shadow_wr, (int, float))
+            else "N/A"
+        )
         real_wr = db_stats.get("real_win_rate", None) if db_stats else None
         real_wr_str = f"{real_wr:.1f}%" if isinstance(real_wr, (int, float)) else "N/A"
 
@@ -109,7 +114,7 @@ class UI:
         # Balance y stats
         print("\n📊 CUENTA")
         print(f"   Balance: ${balance:.2f}")
-        print(f"   SHADOW WR: {shadow_wr:.1f}%")
+        print(f"   SHADOW WR: {shadow_wr_str}")
         print(f"   REAL WR: {real_wr_str}")
         print(f"   Real Trades Totales: {total_real} | Shadow Totales: {total_shadow}")
 

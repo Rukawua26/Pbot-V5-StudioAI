@@ -37,6 +37,30 @@ Fuente versionada para cambios criticos, decisiones de diseno, invariantes y reg
 
 ## Cambios Criticos Registrados
 
+### 2026-09-17 - Continuidad SHADOW entre reinicios y WR honesto
+
+Cambios:
+
+- `tools/shadow_validation_report.py`: `run_id` deja de formar parte de la identidad
+  economica. Reinicios equivalentes se agregan y el informe conserva ultimo run y
+  numero total de runs. Version, huella, modo o modelo distintos siguen separados.
+- `tools/ui.py`: con cero cierres SHADOW muestra `SHADOW WR: N/A`; el default 50%
+  interno no se presenta como rendimiento observado.
+
+Reglas preventivas:
+
+- Un reinicio no reinicia la muestra si campana, version, configuracion, modo y
+  modelo son identicos.
+- `run_id` sirve para trazabilidad, no para separar resultados economicamente
+  comparables.
+- No mostrar winrate cuando el denominador es cero.
+
+Validacion:
+
+- Suite completa: 1320 tests OK, 2 skipped.
+- Tests enfocados de reporte/UI: 14 OK.
+- Lint enfocado, `compileall` y `git diff --check`: OK.
+
 ### 2026-09-16 - Consolidacion Bloque 2: campanas SHADOW identificables
 
 Cambios:

@@ -52,7 +52,7 @@ def _load_records(path: Path) -> tuple[list[dict[str, Any]], int]:
     return records, malformed
 
 
-def _identity(payload: dict[str, Any]) -> tuple[str, str, str, str, str, str, str]:
+def _identity(payload: dict[str, Any]) -> tuple[str, str, str, str, str, str]:
     bootstrap = payload.get("bootstrap_heuristic_mode")
     return (
         str(payload.get("campaign") or "legacy-unidentified"),
@@ -61,8 +61,11 @@ def _identity(payload: dict[str, Any]) -> tuple[str, str, str, str, str, str, st
         str(payload.get("model_type") or "UNKNOWN"),
         "unknown" if bootstrap is None else str(bool(bootstrap)).lower(),
         str(payload.get("runtime_mode") or "UNKNOWN"),
-        str(payload.get("run_id") or "unknown"),
     )
+
+
+def _run_id(payload: dict[str, Any]) -> str:
+    return str(payload.get("run_id") or "unknown")
 
 
 def _pct(value: float, total: float) -> float:
@@ -298,6 +301,7 @@ def build_summary(
             identities.append(identity)
     selected_identity = _identity(candidates[-1][2]) if candidates else None
     selected = [row for row in candidates if _identity(row[2]) == selected_identity]
+    selected_run_ids = list(dict.fromkeys(_run_id(row[2]) for row in selected))
     payloads = [{**row[2], "_event_ts": row[1]} for row in selected]
     timestamps = [_parse_ts(row[1]) for row in selected]
     valid_timestamps = [ts for ts in timestamps if ts is not None]
@@ -361,7 +365,8 @@ def build_summary(
             "model_type": selected_identity[3] if selected_identity else None,
             "bootstrap_heuristic_mode": selected_identity[4] if selected_identity else None,
             "runtime_mode": selected_identity[5] if selected_identity else None,
-            "run_id": selected_identity[6] if selected_identity else None,
+            "run_id": selected_run_ids[-1] if selected_run_ids else None,
+            "run_count": len(selected_run_ids),
             "start": start.isoformat() if start else None,
             "end": end.isoformat() if end else None,
         },
@@ -373,7 +378,17 @@ def build_summary(
                 "model_type": identity[3],
                 "bootstrap_heuristic_mode": identity[4],
                 "runtime_mode": identity[5],
-                "run_id": identity[6],
+                "run_count": len(
+                    {_run_id(row[2]) for row in candidates if _identity(row[2]) == identity}
+                ),
+                "latest_run_id": next(
+                    (
+                        _run_id(row[2])
+                        for row in reversed(candidates)
+                        if _identity(row[2]) == identity
+                    ),
+                    None,
+                ),
                 "events": sum(1 for row in candidates if _identity(row[2]) == identity),
             }
             for identity in identities
@@ -403,6 +418,7 @@ def build_summary(
             "shadow_events_total": len(shadow_rows),
             "selected_events": len(payloads),
             "mixed_identities": len(identities) > 1,
+            "runs": len(selected_run_ids),
             "duplicate_trade_events": duplicate_trades,
             "warnings": warnings,
         },
@@ -423,7 +439,9 @@ def render_markdown(summary: dict[str, Any]) -> str:
     lines.append(
         f"- Campaign: {selection['campaign']} / {selection['config_fingerprint']} / {selection['code_version']}"
     )
-    lines.append(f"- Runtime: {selection['runtime_mode']} / run={selection['run_id']}")
+    lines.append(
+        f"- Runtime: {selection['runtime_mode']} / latest_run={selection['run_id']} / runs={selection['run_count']}"
+    )
     lines.append(f"- Model: {selection['model_type']} (bootstrap={selection['bootstrap_heuristic_mode']})")
     lines.append(f"- Period: {selection['start']} -> {selection['end']}")
     lines.append(f"- Closed trades: {trades['closed']} | conclusion: {summary['conclusion']}")

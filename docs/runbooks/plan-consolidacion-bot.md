@@ -112,6 +112,15 @@ Evidencia de cierre:
 Linea base protegida desde este cierre. Solo reabrir por regresion demostrada o
 mejora medible, reversible y cubierta por tests.
 
+Mejora protegida 2026-09-17:
+
+- Reinicios con la misma campana, version, configuracion, modo y modelo se agregan
+  en una sola referencia. `run_id` queda como trazabilidad y se reporta `run_count`.
+- Cambios reales de version/configuracion/modelo siguen separados y no se mezclan.
+- La consola muestra `SHADOW WR: N/A` cuando no existen cierres, en vez del default
+  neutral 50% usado internamente por la logica adaptativa.
+- Suite completa: 1320 tests OK, 2 skipped.
+
 ## Bloque 3 - Un experimento sobre el problema dominante
 
 **Estado:** `PENDIENTE`

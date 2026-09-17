@@ -108,6 +108,40 @@ class ShadowValidationMetricTests(unittest.TestCase):
 
 
 class ShadowValidationReportTests(unittest.TestCase):
+    def test_report_aggregates_equivalent_runs_in_same_campaign_identity(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "runtime_metrics.jsonl"
+            records = [
+                {
+                    "ts": f"2026-09-08T00:0{index}:00+00:00",
+                    "metric": "shadow_validation",
+                    "payload": {
+                        "campaign": "continuous",
+                        "config_fingerprint": "same-config",
+                        "code_version": "same-code",
+                        "model_type": "OFF",
+                        "bootstrap_heuristic_mode": True,
+                        "runtime_mode": "PAPER",
+                        "run_id": run_id,
+                        "event": "shadow_trade_closed",
+                        "trade_key": f"trade-{index}",
+                        "pnl_percent": 1.0,
+                        "pnl_usd": 0.1,
+                        "fees_usd": 0.01,
+                    },
+                }
+                for index, run_id in enumerate(("run-a", "run-b"))
+            ]
+            path.write_text("\n".join(json.dumps(record) for record in records), encoding="utf-8")
+
+            summary = build_summary(path)
+
+        self.assertFalse(summary["integrity"]["mixed_identities"])
+        self.assertEqual(summary["integrity"]["runs"], 2)
+        self.assertEqual(summary["selection"]["run_count"], 2)
+        self.assertEqual(summary["shadow_trades"]["closed"], 2)
+        self.assertEqual(len(summary["segments"]), 1)
+
     def test_report_deduplicates_repeated_trade_close_events(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "runtime_metrics.jsonl"
