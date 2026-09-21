@@ -442,7 +442,9 @@ def execute_order(
     )
     bot.log(f"\U0001f9e9 Exit mode {symbol}: {exit_mode}")
 
-    strat_engine = str(getattr(Config, "STRATEGY_ENGINE", "triple_tf") or "triple_tf").lower()
+    strat_engine = str(
+        getattr(Config, "STRATEGY_ENGINE", "triple_tf") or "triple_tf"
+    ).lower()
     if strat_engine == "triple_tf":
         suggested_sl = float((context or {}).get("stop_loss", 0.0) or 0.0)
         if suggested_sl > 0.0:
@@ -466,11 +468,36 @@ def execute_order(
             elif side == "SELL" and sl_val <= price:
                 sl_val = price + risk_dist
 
-            tp_val = price + (risk_dist * 2.0) if side == "BUY" else price - (risk_dist * 2.0)
+            # [TTF RRR Target Calibration]
+            # Asegura que el target estructural del TP satisfaga el filtro _evaluate_risk_reward_filter
+            # incluso tras descontar la penalización defensiva por slippage y spread.
+            required_rrr = float(getattr(Config, "MIN_RISK_REWARD_RATIO", 1.8) or 1.8)
+            if bool(getattr(Config, "RISK_REWARD_VOLATILITY_BOOST_ENABLED", True)) and (
+                atr_pct * 100.0
+            ) > float(getattr(Config, "NATR_THRESHOLD", 2.0) or 2.0):
+                required_rrr = float(
+                    getattr(Config, "RISK_REWARD_HIGH_VOL_MIN_RATIO", required_rrr)
+                    or required_rrr
+                )
+
+            slippage_fraction = max(
+                0.0, float(getattr(Config, "MAX_SLIPPAGE", 0.0) or 0.0)
+            )
+            spread_fraction = max(0.0, float(spread or 0.0))
+            entry_penalty = (spread_fraction + slippage_fraction) * price
+
+            # Añadir un margen del 0.05 para blindar contra imprecisiones de punto flotante IEEE-754
+            target_rrr = required_rrr + 0.05
+            min_target_dist = (target_rrr * risk_dist) + (
+                (target_rrr + 1.0) * entry_penalty
+            )
+            target_dist = max(risk_dist * 2.5, min_target_dist)
+
+            tp_val = price + target_dist if side == "BUY" else price - target_dist
             exit_mode = "TTF_SWING"
             bot.log(
                 f"📐 TTF_SWING_LEVELS {symbol}: side={side} entry={price:.6f} "
-                f"SL={sl_val:.6f} TP={tp_val:.6f} (Risk={risk_dist:.6f})"
+                f"SL={sl_val:.6f} TP={tp_val:.6f} (Risk={risk_dist:.6f}, Target={target_dist:.6f}, ReqRRR={required_rrr:.2f})"
             )
 
     rrr_ok, rrr_details = _evaluate_risk_reward_filter(

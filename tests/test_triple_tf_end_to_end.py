@@ -563,6 +563,43 @@ class TestRonda3PrecisionHardening(unittest.TestCase):
         self.assertFalse(is_ttf_trade({}))
         self.assertFalse(is_ttf_trade(None))
 
+    def test_ttf_trade_entry_satisfies_risk_reward_filter(self):
+        """Verifica que el TP calibrado de TTF supera el filtro RRR incluso con SL ajustado y slippage."""
+        from core.trade_entry import _evaluate_risk_reward_filter
+        from config import Config
+
+        # Caso típico TTF: SL a 0.25% de distancia (muy ajustado en 5M/1M)
+        price = 100.0
+        risk_dist = price * 0.0025  # 0.25
+        sl_val = price - risk_dist
+        spread = 0.0001
+        atr_pct = 0.01
+
+        required_rrr = float(getattr(Config, "MIN_RISK_REWARD_RATIO", 1.8) or 1.8)
+        slippage_fraction = max(0.0, float(getattr(Config, "MAX_SLIPPAGE", 0.0) or 0.0))
+        spread_fraction = max(0.0, float(spread or 0.0))
+        entry_penalty = (spread_fraction + slippage_fraction) * price
+
+        target_rrr = required_rrr + 0.05
+        min_target_dist = (target_rrr * risk_dist) + (
+            (target_rrr + 1.0) * entry_penalty
+        )
+        target_dist = max(risk_dist * 2.5, min_target_dist)
+        tp_val = price + target_dist
+
+        ok, details = _evaluate_risk_reward_filter(
+            side="BUY",
+            entry_price=price,
+            sl_val=sl_val,
+            tp_val=tp_val,
+            spread=spread,
+            atr_pct=atr_pct,
+        )
+        self.assertTrue(
+            ok, f"Se esperaba que pasara el filtro RRR, pero falló: {details}"
+        )
+        self.assertGreaterEqual(details["actual_rrr"], required_rrr)
+
 
 if __name__ == "__main__":
     unittest.main()
