@@ -22,7 +22,9 @@ class CVDWebSocketTests(unittest.TestCase):
         self.assertIn("ethusdt@aggTrade", ws.url)
 
     def test_process_aggtrade_accumulates_buy_and_sell_aggressors(self):
-        ws = BinanceWebSocket(symbols=["BTC/USDT"], enable_cvd=True, cvd_window_seconds=300)
+        ws = BinanceWebSocket(
+            symbols=["BTC/USDT"], enable_cvd=True, cvd_window_seconds=300
+        )
 
         ws._process_data(
             {
@@ -66,7 +68,9 @@ class CVDWebSocketTests(unittest.TestCase):
         ws._loop = loop
         ws._ws = active_ws
 
-        with patch("tools.ws_manager.asyncio.run_coroutine_threadsafe") as run_threadsafe:
+        with patch(
+            "tools.ws_manager.asyncio.run_coroutine_threadsafe"
+        ) as run_threadsafe:
             ws.stop()
 
         self.assertFalse(ws.is_running)

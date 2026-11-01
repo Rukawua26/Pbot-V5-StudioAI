@@ -12,7 +12,9 @@ def normalize_trade_side(side: str | None) -> str:
     return value
 
 
-def make_trade_key(symbol: str, side: str | None = None, *, force_side: bool = False) -> str:
+def make_trade_key(
+    symbol: str, side: str | None = None, *, force_side: bool = False
+) -> str:
     normalized_symbol = normalize_position_symbol(symbol)
     normalized_side = normalize_trade_side(side)
     if force_side and normalized_symbol and normalized_side in {"BUY", "SELL"}:
@@ -24,7 +26,9 @@ def make_state_trade_key(state: dict, *, force_side: bool = False) -> str:
     explicit_key = str(state.get("trade_key") or "")
     if explicit_key:
         return explicit_key
-    return make_trade_key(state.get("symbol", ""), state.get("side"), force_side=force_side)
+    return make_trade_key(
+        state.get("symbol", ""), state.get("side"), force_side=force_side
+    )
 
 
 def split_trade_key(key: str) -> tuple[str, str | None]:
@@ -35,7 +39,9 @@ def split_trade_key(key: str) -> tuple[str, str | None]:
     return normalize_position_symbol(symbol), normalize_trade_side(side)
 
 
-def find_trade_key(active_trades: dict, symbol: str, side: str | None = None) -> str | None:
+def find_trade_key(
+    active_trades: dict, symbol: str, side: str | None = None
+) -> str | None:
     normalized_symbol = normalize_position_symbol(symbol)
     normalized_side = normalize_trade_side(side)
     if not normalized_symbol:
@@ -43,7 +49,10 @@ def find_trade_key(active_trades: dict, symbol: str, side: str | None = None) ->
     if normalized_side in {"BUY", "SELL"}:
         side_key = make_trade_key(normalized_symbol, normalized_side, force_side=True)
         trade = active_trades.get(side_key)
-        if isinstance(trade, dict) and normalize_trade_side(trade.get("side")) == normalized_side:
+        if (
+            isinstance(trade, dict)
+            and normalize_trade_side(trade.get("side")) == normalized_side
+        ):
             return side_key
     trade = active_trades.get(normalized_symbol)
     if isinstance(trade, dict):

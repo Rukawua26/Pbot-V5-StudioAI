@@ -208,12 +208,16 @@ class GhostAgent(BaseAgent):
 
         try:
             # --- [Advanced Ensemble v118/compat] ---
-            if isinstance(model, dict) and str(model.get("version", "")).startswith("v"):
+            if isinstance(model, dict) and str(model.get("version", "")).startswith(
+                "v"
+            ):
                 return self._predict_advanced_ensemble(model, context, ai_boost)
 
             # --- [LSTM / Legacy Models] ---
             if hasattr(model, "input_shape"):
-                return self._predict_lstm(model, df, scaler, rsi, funding_rate, ai_boost)
+                return self._predict_lstm(
+                    model, df, scaler, rsi, funding_rate, ai_boost
+                )
 
             # --- [v111_ultimate] ---
             if isinstance(model, dict) and model.get("version") == "v111_ultimate":
@@ -245,5 +249,7 @@ class GhostAgent(BaseAgent):
             return 0.0
         return 50.0 + ai_boost
 
-    def _predict_v111_ultimate(self, model: Any, context: dict[str, Any], ai_boost: float) -> float:
+    def _predict_v111_ultimate(
+        self, model: Any, context: dict[str, Any], ai_boost: float
+    ) -> float:
         return 50.0 + ai_boost

@@ -86,7 +86,9 @@ def validate_binance_limits(order_id: str) -> None:
 # Mantenidas para compatibilidad con código existente.
 
 
-def generate_client_order_id(symbol: str, side: str, signal_ts: float, instance_id: str) -> str:
+def generate_client_order_id(
+    symbol: str, side: str, signal_ts: float, instance_id: str
+) -> str:
     """DEPRECADO: Usar generate_order_ids().
 
     Genera un client_order_id para entrada (formato legacy).
@@ -141,7 +143,9 @@ def _bool_close_position(order: dict) -> bool:
 def _find_existing_orphan_stop(open_orders_by_symbol: dict, symbol: str, side: str):
     expected_side = "SELL" if str(side).upper() == "BUY" else "BUY"
     for order in open_orders_by_symbol.get(symbol, []) or []:
-        order_type = str(order.get("type") or (order.get("info") or {}).get("type") or "").upper()
+        order_type = str(
+            order.get("type") or (order.get("info") or {}).get("type") or ""
+        ).upper()
         if "STOP" not in order_type:
             continue
         if not _bool_reduce_only_order(order):
@@ -193,7 +197,9 @@ def _validate_orphan_size(entry: float, amount: float) -> tuple:
     Returns: (is_valid: bool, reason: str, size_usd: float)
     """
     min_size = float(getattr(OperationalConfig, "ORPHAN_ADOPTION_MIN_SIZE_USD", 10.0))
-    max_size = float(getattr(OperationalConfig, "ORPHAN_ADOPTION_MAX_SIZE_USD", 10000.0))
+    max_size = float(
+        getattr(OperationalConfig, "ORPHAN_ADOPTION_MAX_SIZE_USD", 10000.0)
+    )
     size_usd = entry * amount
 
     if size_usd < min_size:
@@ -206,7 +212,9 @@ def _validate_orphan_size(entry: float, amount: float) -> tuple:
 def _compute_orphan_sl(entry: float, side: str, market_price: float) -> float:
     """Calcula SL dinámico para posición huérfana."""
     if market_price and market_price > 0:
-        atr_multiplier = float(getattr(OperationalConfig, "ORPHAN_SL_ATR_MULTIPLIER", 2.0))
+        atr_multiplier = float(
+            getattr(OperationalConfig, "ORPHAN_SL_ATR_MULTIPLIER", 2.0)
+        )
         if side == "BUY":
             return entry - (market_price * atr_multiplier / 100.0)
         else:
@@ -240,7 +248,9 @@ def _verify_orphan_multiple(bot, symbol: str) -> tuple:
     return True, ""
 
 
-def _halt_unadoptable_real_orphan(bot, symbol: str, reason: str, details: dict | None = None):
+def _halt_unadoptable_real_orphan(
+    bot, symbol: str, reason: str, details: dict | None = None
+):
     bot.is_paused = True
     bot.integrity_lock_active = True
     setattr(bot, "halt_system_active", True)
@@ -280,7 +290,9 @@ def reconcile_bootstrap_state(bot):
                 "se requiere reconciliación REAL explícita."
             )
             return
-    if Config.PAPER_MODE and not getattr(bot.execution, "supports_real_positions", True):
+    if Config.PAPER_MODE and not getattr(
+        bot.execution, "supports_real_positions", True
+    ):
         if not bool(getattr(bot, "_simulated_wallet_initialized", False)) and not float(
             getattr(bot, "balance", 0.0) or 0.0
         ):
@@ -324,7 +336,9 @@ def reconcile_bootstrap_state(bot):
             try:
                 open_orders = fetch_open_orders() or []
             except Exception as error:
-                bot.log(f"⚠️ No se pudieron consultar open orders en reconciliación: {error}")
+                bot.log(
+                    f"⚠️ No se pudieron consultar open orders en reconciliación: {error}"
+                )
                 if not Config.PAPER_MODE:
                     bot.is_paused = True
                     bot.integrity_lock_active = True
@@ -380,7 +394,9 @@ def reconcile_bootstrap_state(bot):
             symbol = pos["symbol"]
             side = pos["side"]
             side_key = make_trade_key(symbol, side, force_side=True)
-            force_side_key = len(sides_by_symbol.get(symbol, set())) > 1 or side_key in db_snapshot
+            force_side_key = (
+                len(sides_by_symbol.get(symbol, set())) > 1 or side_key in db_snapshot
+            )
             trade_key = make_trade_key(symbol, side, force_side=force_side_key)
             exchange_positions[trade_key] = {
                 "symbol": symbol,
@@ -390,9 +406,13 @@ def reconcile_bootstrap_state(bot):
                 "trade_key": trade_key,
             }
 
-        open_orders_by_coid, open_orders_by_symbol = _build_open_order_index(open_orders)
+        open_orders_by_coid, open_orders_by_symbol = _build_open_order_index(
+            open_orders
+        )
 
-        db_keys = {s for s, t in db_snapshot.items() if not (t or {}).get("is_shadow", False)}
+        db_keys = {
+            s for s, t in db_snapshot.items() if not (t or {}).get("is_shadow", False)
+        }
         position_keys = set(exchange_positions.keys())
 
         adopted = 0
@@ -408,7 +428,9 @@ def reconcile_bootstrap_state(bot):
             entry_price = info["entry"]
             amount = info["amount"]
 
-            size_valid, size_reason, size_usd = _validate_orphan_size(entry_price, amount)
+            size_valid, size_reason, size_usd = _validate_orphan_size(
+                entry_price, amount
+            )
             if not size_valid:
                 bot.log(f"⚠️ Huérfano {symbol} rechazado: {size_reason}")
                 if not Config.PAPER_MODE:
@@ -439,7 +461,9 @@ def reconcile_bootstrap_state(bot):
             if callable(fetch_ticker):
                 try:
                     ticker = fetch_ticker(symbol)
-                    market_price = float(ticker.get("last") or ticker.get("markPrice") or 0.0)
+                    market_price = float(
+                        ticker.get("last") or ticker.get("markPrice") or 0.0
+                    )
                 except Exception as e:
                     bot.log(f"⚠️ No se pudo obtener ticker para {symbol}: {e}")
 
@@ -477,7 +501,9 @@ def reconcile_bootstrap_state(bot):
             )
             adopted_trade["entry_client_order_id"] = entry_coid
             adopted_trade["sl_client_order_id"] = sl_coid
-            existing_stop = _find_existing_orphan_stop(open_orders_by_symbol, symbol, info["side"])
+            existing_stop = _find_existing_orphan_stop(
+                open_orders_by_symbol, symbol, info["side"]
+            )
             if existing_stop:
                 stop_amount_raw = existing_stop.get("amount") or 0
                 try:
@@ -519,7 +545,9 @@ def reconcile_bootstrap_state(bot):
                     amount,
                     sl,
                     client_order_id=sl_coid,
-                    params={"positionSide": orphan_position_side} if orphan_position_side else None,
+                    params={"positionSide": orphan_position_side}
+                    if orphan_position_side
+                    else None,
                 )
                 sl_ack_ok, sl_ack_reason = hard_sl_ack_looks_valid(
                     sl_order,
@@ -550,7 +578,9 @@ def reconcile_bootstrap_state(bot):
                                 "sl": sl,
                                 "amount": amount,
                                 "side": info["side"],
-                                "ack_reason": sl_ack_reason[:160] if sl_ack_reason else "",
+                                "ack_reason": sl_ack_reason[:160]
+                                if sl_ack_reason
+                                else "",
                             },
                         )
                     append_execution_event(
@@ -605,13 +635,17 @@ def reconcile_bootstrap_state(bot):
 
             status = str(state.get("status") or "").upper()
 
-            intent_created = state.get("intent_created_at_utc") or state.get("open_time")
+            intent_created = state.get("intent_created_at_utc") or state.get(
+                "open_time"
+            )
             intent_age_seconds = None
             if intent_created:
                 try:
                     intent_age_seconds = max(
                         0.0,
-                        (utc_now() - parse_datetime_utc(intent_created)).total_seconds(),
+                        (
+                            utc_now() - parse_datetime_utc(intent_created)
+                        ).total_seconds(),
                     )
                 except Exception:
                     import traceback as _tb
@@ -629,13 +663,17 @@ def reconcile_bootstrap_state(bot):
                 except Exception as error:
                     order_lookup_failed = True
                     order_lookup_error = str(error)[:220]
-                    bot.log(f"⚠️ Consulta order-by-client-id falló {symbol}/{entry_coid}: {error}")
+                    bot.log(
+                        f"⚠️ Consulta order-by-client-id falló {symbol}/{entry_coid}: {error}"
+                    )
 
             if exchange_order is None and entry_coid in open_orders_by_coid:
                 exchange_order = open_orders_by_coid[entry_coid]
 
             state["intent_last_check_at_utc"] = utc_now_iso()
-            state["intent_check_attempts"] = int(state.get("intent_check_attempts", 0) or 0) + 1
+            state["intent_check_attempts"] = (
+                int(state.get("intent_check_attempts", 0) or 0) + 1
+            )
 
             if order_lookup_failed and exchange_order is None:
                 state["status"] = "ORDER_LOOKUP_FAILED"
@@ -679,7 +717,10 @@ def reconcile_bootstrap_state(bot):
                 continue
 
             if exchange_order is None:
-                if status in {TradeStatus.PENDING_SEND.value, TradeStatus.ENTRY_ACK_UNKNOWN.value}:
+                if status in {
+                    TradeStatus.PENDING_SEND.value,
+                    TradeStatus.ENTRY_ACK_UNKNOWN.value,
+                }:
                     stale_limit = float(
                         getattr(
                             bot,
@@ -740,7 +781,9 @@ def reconcile_bootstrap_state(bot):
                 state["exchange_open_order_id"] = exchange_order.get("id")
                 state["exchange_open_order_status"] = exchange_order.get("status")
                 state["reconciled_at"] = utc_now_iso()
-                state["intent_created_at_utc"] = state.get("intent_created_at_utc") or utc_now_iso()
+                state["intent_created_at_utc"] = (
+                    state.get("intent_created_at_utc") or utc_now_iso()
+                )
                 with bot.lock:
                     bot.active_trades[trade_key] = state
                 with bot.db_lock:
@@ -752,14 +795,18 @@ def reconcile_bootstrap_state(bot):
                 state["exchange_entry_order_id"] = exchange_order.get("id")
                 state["exchange_open_order_status"] = exchange_order.get("status")
                 state["reconciled_at"] = utc_now_iso()
-                state["intent_created_at_utc"] = state.get("intent_created_at_utc") or utc_now_iso()
+                state["intent_created_at_utc"] = (
+                    state.get("intent_created_at_utc") or utc_now_iso()
+                )
                 with bot.lock:
                     bot.active_trades[trade_key] = state
                 with bot.db_lock:
                     bot.brain.save_active_trade_state(trade_key, state)
                 safe_pending_keys.add(trade_key)
 
-        missing_in_exchange = sorted(((db_keys - position_keys) - safe_pending_keys) - expired_keys)
+        missing_in_exchange = sorted(
+            ((db_keys - position_keys) - safe_pending_keys) - expired_keys
+        )
         for trade_key in missing_in_exchange:
             state = db_snapshot.get(trade_key) or {}
             symbol = normalize_position_symbol((state or {}).get("symbol", trade_key))
@@ -817,7 +864,9 @@ def allocate_signal_timestamp() -> float:
     return utc_now().timestamp()
 
 
-def recover_halt_if_exchange_consistent(bot, required_snapshots: int = 2) -> tuple[bool, str]:
+def recover_halt_if_exchange_consistent(
+    bot, required_snapshots: int = 2
+) -> tuple[bool, str]:
     """Release HALT only after repeated flat exchange snapshots.
 
     This is intentionally conservative: it only auto-recovers when there are no
@@ -847,7 +896,9 @@ def recover_halt_if_exchange_consistent(bot, required_snapshots: int = 2) -> tup
             return False, "RECOVERY_BLOCKED_POSITION_INVALID"
         info = pos.get("info")
         info_amount = info.get("positionAmt") if isinstance(info, dict) else None
-        raw_amounts = [value for value in (pos.get("contracts"), info_amount) if value is not None]
+        raw_amounts = [
+            value for value in (pos.get("contracts"), info_amount) if value is not None
+        ]
         if not raw_amounts or any(isinstance(value, bool) for value in raw_amounts):
             return False, "RECOVERY_BLOCKED_POSITION_AMOUNT_INVALID"
         try:
@@ -868,7 +919,10 @@ def recover_halt_if_exchange_consistent(bot, required_snapshots: int = 2) -> tup
             exchange_symbols.append(symbol)
     exchange_symbols = sorted(exchange_symbols)
     if exchange_symbols:
-        return False, f"RECOVERY_BLOCKED_EXCHANGE_EXPOSURE: {', '.join(exchange_symbols)}"
+        return (
+            False,
+            f"RECOVERY_BLOCKED_EXCHANGE_EXPOSURE: {', '.join(exchange_symbols)}",
+        )
 
     fetch_open_orders = getattr(bot.execution, "fetch_open_orders", None)
     if not callable(fetch_open_orders):
@@ -913,7 +967,11 @@ def recover_halt_if_exchange_consistent(bot, required_snapshots: int = 2) -> tup
         count = int(state.get("count", 0) or 0) + 1
     else:
         count = 1
-    bot._halt_recovery_state = {"fingerprint": fingerprint, "count": count, "attempts": attempts}
+    bot._halt_recovery_state = {
+        "fingerprint": fingerprint,
+        "count": count,
+        "attempts": attempts,
+    }
 
     if count < required:
         return False, f"RECOVERY_PENDING_CONSISTENT_SNAPSHOTS: {count}/{required}"
@@ -931,10 +989,17 @@ def recover_halt_if_exchange_consistent(bot, required_snapshots: int = 2) -> tup
         bot.integrity_lock_active = False
         bot.halt_system_active = False
         bot.is_paused = False
-        bot._halt_recovery_state = {"fingerprint": fingerprint, "count": count, "attempts": 0}
+        bot._halt_recovery_state = {
+            "fingerprint": fingerprint,
+            "count": count,
+            "attempts": 0,
+        }
     append_execution_event(
         bot,
         "HALT_RECOVERY_RELEASED",
         {"balance": exchange_balance, "snapshots": count},
     )
-    return True, f"RECOVERY_OK: exchange flat, balance=${exchange_balance:.2f}, snapshots={count}"
+    return (
+        True,
+        f"RECOVERY_OK: exchange flat, balance=${exchange_balance:.2f}, snapshots={count}",
+    )

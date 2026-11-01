@@ -282,6 +282,18 @@ def execute_order(
         "SHADOW" if is_shadow else ("PAPER" if Config.PAPER_MODE else "REAL")
     )
 
+    from core.strategy.triple_tf import is_ttf_signal
+
+    if (
+        is_ttf_signal(context)
+        and execution_mode == "REAL"
+        and not bool(getattr(Config, "TTF_REAL_ENABLED", False))
+    ):
+        bot.log(
+            f"⛔ {symbol}: TTF_REAL_BLOCKED — Gate final en trade_entry impidio orden REAL"
+        )
+        return "TTF_REAL_BLOCKED"
+
     def _discard_pending_signal(reason: str) -> str:
         _safe_update_signal_alert_status(bot, entry_client_order_id, "DISCARDED")
         return reason
@@ -450,7 +462,7 @@ def execute_order(
         if suggested_sl > 0.0:
             sl_val = suggested_sl
             risk_dist = abs(price - sl_val)
-            min_dist = max(price * 0.002, float(spread or 0.0) * 1.5)
+            min_dist = max(price * 0.002, float(spread or 0.0) * price * 1.5)
             if risk_dist < min_dist:
                 risk_dist = min_dist
                 sl_val = price - risk_dist if side == "BUY" else price + risk_dist

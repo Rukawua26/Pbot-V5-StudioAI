@@ -35,8 +35,12 @@ class ShadowExecutionAdapter:
         self._max_latency_ms = max(self._min_latency_ms, int(max_latency_ms))
         self._reject_rate = max(0.0, min(1.0, float(reject_rate)))
         self._partial_fill_rate = max(0.0, min(1.0, float(partial_fill_rate)))
-        self._partial_fill_complete_rate = max(0.0, min(1.0, float(partial_fill_complete_rate)))
-        self._price_out_of_range_rate = max(0.0, min(1.0, float(price_out_of_range_rate)))
+        self._partial_fill_complete_rate = max(
+            0.0, min(1.0, float(partial_fill_complete_rate))
+        )
+        self._price_out_of_range_rate = max(
+            0.0, min(1.0, float(price_out_of_range_rate))
+        )
         self._min_partial_ratio = max(0.05, min(0.95, float(min_partial_ratio)))
         self._rng = random_source or random.Random()
         self._simulated_balance_provider = simulated_balance_provider
@@ -243,7 +247,9 @@ class ShadowExecutionAdapter:
                 )
             return None
 
-        market_price = float((self._live.fetch_ticker(symbol) or {}).get("last") or price)
+        market_price = float(
+            (self._live.fetch_ticker(symbol) or {}).get("last") or price
+        )
         shock = 0.0
         if self._rng.random() < self._price_out_of_range_rate:
             shock = self._rng.uniform(0.003, 0.01)
@@ -347,7 +353,9 @@ class ShadowExecutionAdapter:
             "info": {"shadow": True, "reduceOnly": True},
         }
 
-    def create_reduce_only_market_order(self, symbol: str, side: str, amount: float, params=None):
+    def create_reduce_only_market_order(
+        self, symbol: str, side: str, amount: float, params=None
+    ):
         if self._reject():
             raise RuntimeError("shadow market close rejected")
         price = float((self._live.fetch_ticker(symbol) or {}).get("last") or 0.0)
@@ -405,19 +413,25 @@ def build_execution_gateway(config, execution_service_cls):
             backend = "shadow_live"
     if backend == "shadow_live":
         if not bool(getattr(config, "PAPER_MODE", True)):
-            raise RuntimeError("EXECUTION_BACKEND=shadow_live no está permitido en modo REAL")
+            raise RuntimeError(
+                "EXECUTION_BACKEND=shadow_live no está permitido en modo REAL"
+            )
         return ShadowExecutionAdapter(
             execution,
             min_latency_ms=int(getattr(config, "SHADOW_SIM_LATENCY_MIN_MS", 200)),
             max_latency_ms=int(getattr(config, "SHADOW_SIM_LATENCY_MAX_MS", 500)),
             reject_rate=float(getattr(config, "SHADOW_SIM_REJECT_RATE", 0.03)),
-            partial_fill_rate=float(getattr(config, "SHADOW_SIM_PARTIAL_FILL_RATE", 0.25)),
+            partial_fill_rate=float(
+                getattr(config, "SHADOW_SIM_PARTIAL_FILL_RATE", 0.25)
+            ),
             partial_fill_complete_rate=float(
                 getattr(config, "SHADOW_SIM_PARTIAL_COMPLETE_RATE", 0.5)
             ),
             price_out_of_range_rate=float(
                 getattr(config, "SHADOW_SIM_PRICE_OUT_OF_RANGE_RATE", 0.05)
             ),
-            min_partial_ratio=float(getattr(config, "SHADOW_SIM_MIN_PARTIAL_RATIO", 0.3)),
+            min_partial_ratio=float(
+                getattr(config, "SHADOW_SIM_MIN_PARTIAL_RATIO", 0.3)
+            ),
         )
     return execution

@@ -19,7 +19,9 @@ def run_initial_load(bot, dashboard_module):
         reconcile_bootstrap_state(bot)
 
         bot.log("🔍 Ejecutando auto-blacklist de poor performers...")
-        bot.brain.auto_blacklist_poor_performers(min_trades=5, max_loss_pct=-5.0, max_wr=40.0)
+        bot.brain.auto_blacklist_poor_performers(
+            min_trades=5, max_loss_pct=-5.0, max_wr=40.0
+        )
 
         bot.check_for_evolution()
 
@@ -88,7 +90,9 @@ def run_bot_runtime_loop(bot, dashboard_module, logger, shadow_logger):
 
     bot.ui.start()
 
-    threading.Thread(target=bot._initial_load, args=(dashboard_module,), daemon=True).start()
+    threading.Thread(
+        target=bot._initial_load, args=(dashboard_module,), daemon=True
+    ).start()
 
     try:
         while bot.is_running:
@@ -103,7 +107,9 @@ def run_bot_runtime_loop(bot, dashboard_module, logger, shadow_logger):
 
                 if hasattr(bot, "ml_performance") and bot.ml_performance:
                     try:
-                        ml_metrics["performance"] = bot.ml_performance.calculate_metrics()
+                        ml_metrics["performance"] = (
+                            bot.ml_performance.calculate_metrics()
+                        )
                         ml_metrics["top_symbols"] = bot.ml_performance.get_top_symbols(
                             min_predictions=3
                         )
@@ -112,20 +118,28 @@ def run_bot_runtime_loop(bot, dashboard_module, logger, shadow_logger):
 
                 with bot.lock:
                     trades_snapshot = (
-                        list(bot.active_trades.values()) if hasattr(bot, "active_trades") else []
+                        list(bot.active_trades.values())
+                        if hasattr(bot, "active_trades")
+                        else []
                     )
                 closed_snapshot = (
-                    list(bot.recent_closed_trades) if hasattr(bot, "recent_closed_trades") else []
+                    list(bot.recent_closed_trades)
+                    if hasattr(bot, "recent_closed_trades")
+                    else []
                 )
                 slock = getattr(bot, "scanner_lock", None)
                 if slock:
                     with slock:
                         scanner_snapshot = (
-                            bot.scanner_history[:50] if hasattr(bot, "scanner_history") else []
+                            bot.scanner_history[:50]
+                            if hasattr(bot, "scanner_history")
+                            else []
                         )
                 else:
                     scanner_snapshot = (
-                        bot.scanner_history[:50] if hasattr(bot, "scanner_history") else []
+                        bot.scanner_history[:50]
+                        if hasattr(bot, "scanner_history")
+                        else []
                     )
                 bot.ui.update(
                     balance=bot.balance,

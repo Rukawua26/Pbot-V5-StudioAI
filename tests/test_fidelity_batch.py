@@ -26,7 +26,9 @@ class FidelityBatchTest(unittest.TestCase):
                     "false_positive_count": 1,
                     "false_negative_count": 0,
                     "runtime_veto_reasons": {"SHOCK DEMASIADO CERCA": 1},
-                    "proxy_modeled_veto_reason_components": {"SHOCK DEMASIADO CERCA": 1},
+                    "proxy_modeled_veto_reason_components": {
+                        "SHOCK DEMASIADO CERCA": 1
+                    },
                     "exogenous_veto_reasons_not_modelled": {},
                 },
             },

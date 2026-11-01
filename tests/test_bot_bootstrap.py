@@ -108,11 +108,15 @@ class BotBootstrapTest(unittest.TestCase):
         bot = bot_app.Bot.__new__(bot_app.Bot)
 
         self.assertEqual(bot.connect(), "connected")
-        self.assertEqual(bot.check_instinctive_safety("BTC/USDT", {"risk": "low"}), "instinct-ok")
+        self.assertEqual(
+            bot.check_instinctive_safety("BTC/USDT", {"risk": "low"}), "instinct-ok"
+        )
         self.assertEqual(bot.check_safety_and_goals(current_pnl=1.25), "safety-ok")
 
         mocked_connect.assert_called_once_with(bot)
-        mocked_instinctive_safety.assert_called_once_with(bot, "BTC/USDT", {"risk": "low"})
+        mocked_instinctive_safety.assert_called_once_with(
+            bot, "BTC/USDT", {"risk": "low"}
+        )
         mocked_safety_goals.assert_called_once_with(bot, current_pnl=1.25)
 
     @patch("core.bot_app.signal.signal")

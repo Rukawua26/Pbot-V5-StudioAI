@@ -118,7 +118,9 @@ class TestRiskEngineDailyDrawdown(unittest.TestCase):
                 self.engine = RiskEngine(brain=MagicMock())
 
     def test_check_daily_drawdown_fails_closed_when_unverified(self):
-        self.engine.brain.get_daily_real_pnl = MagicMock(side_effect=RuntimeError("db down"))
+        self.engine.brain.get_daily_real_pnl = MagicMock(
+            side_effect=RuntimeError("db down")
+        )
 
         allowed, reason = self.engine.check_daily_drawdown(1000.0)
 
@@ -239,7 +241,9 @@ class TestRiskEngineGetExitLevels(unittest.TestCase):
 
             engine = RiskEngine(brain=MagicMock())
 
-        sl, tp, label = engine.get_exit_levels(100.0, "BUY", 1.0, "UP", symbol="BTC/USDT")
+        sl, tp, label = engine.get_exit_levels(
+            100.0, "BUY", 1.0, "UP", symbol="BTC/USDT"
+        )
         self.assertEqual(label, "HYPEROPT_SYMBOL")
         self.assertEqual(sl, 99.0)
         self.assertEqual(tp, 103.0)

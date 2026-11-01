@@ -14,7 +14,9 @@ from core.shadow_validation import emit_config_snapshot
 from tools.notifier import send_telegram_msg
 
 
-def init_models_and_startup_tasks(bot, export_dataset_fn, backup_database_fn, tf_module):
+def init_models_and_startup_tasks(
+    bot, export_dataset_fn, backup_database_fn, tf_module
+):
     import sklearn
 
     bot.log(
@@ -43,7 +45,9 @@ def init_models_and_startup_tasks(bot, export_dataset_fn, backup_database_fn, tf
                 bot.ghost_model = safe_pickle_load(advanced_model_path)
                 bot.ghost_model_type = "ADVANCED_ENSEMBLE"
                 bot.bootstrap_heuristic_mode = False
-                bot.log("👻 Agente Ghost (Advanced Ensemble v118): Sistema avanzado cargado.")
+                bot.log(
+                    "👻 Agente Ghost (Advanced Ensemble v118): Sistema avanzado cargado."
+                )
                 bot.log(
                     f"   📊 Features: {len(bot.ghost_model.get('general', {}).get('feature_cols', []))}"
                 )
@@ -52,7 +56,9 @@ def init_models_and_startup_tasks(bot, export_dataset_fn, backup_database_fn, tf
                 )
                 send_telegram_msg("🧠 *IA v118 (Advanced Ensemble) operativa*")
             except Exception as error:
-                bot.log(f"⚠️ Error cargando Advanced: {error}, intentando otros modelos...")
+                bot.log(
+                    f"⚠️ Error cargando Advanced: {error}, intentando otros modelos..."
+                )
 
         if bot.ghost_model_type == "OFF":
             if os.path.exists(pro_model_path):
@@ -61,7 +67,9 @@ def init_models_and_startup_tasks(bot, export_dataset_fn, backup_database_fn, tf
                 bot.bootstrap_heuristic_mode = False
                 bot.log("👻 Agente Ghost (PRO v2): Ensemble cargado.")
                 send_telegram_msg("🧠 *IA Nivel 6 (Ghost Pro Ensemble) operativa*")
-            elif tf_module and os.path.exists(model_path) and os.path.exists(scaler_path):
+            elif (
+                tf_module and os.path.exists(model_path) and os.path.exists(scaler_path)
+            ):
                 allow_legacy_lstm = str(
                     os.getenv("ALLOW_UNVERIFIED_LSTM_MODEL_LOAD", "false") or ""
                 ).lower() in {"1", "true", "yes", "y", "on"}
@@ -90,7 +98,9 @@ def init_models_and_startup_tasks(bot, export_dataset_fn, backup_database_fn, tf
                     bot.ghost_model = safe_pickle_load(agent_models_path)
                     bot.ghost_model_type = "AGENT_MODELS"
                     bot.bootstrap_heuristic_mode = False
-                    bot.log("👻 Agente Ghost (Agent Models): Modelos de agentes cargados.")
+                    bot.log(
+                        "👻 Agente Ghost (Agent Models): Modelos de agentes cargados."
+                    )
                     send_telegram_msg("🧠 *IA (Agent Models) operativa*")
                 except Exception as error:
                     bot.log(f"⚠️ Error cargando {agent_models_path}: {error}")
@@ -125,7 +135,9 @@ def init_models_and_startup_tasks(bot, export_dataset_fn, backup_database_fn, tf
 
     eliminated = bot.brain.cleanup_stale_snapshots()
     if eliminated > 0:
-        bot.log(f"🧹 Trade Context Snapshots: {eliminated} entradas antiguas eliminadas")
+        bot.log(
+            f"🧹 Trade Context Snapshots: {eliminated} entradas antiguas eliminadas"
+        )
 
     try:
         conn = bot.brain._get_conn()
@@ -137,7 +149,9 @@ def init_models_and_startup_tasks(bot, export_dataset_fn, backup_database_fn, tf
         conn.commit()
         conn.close()
         if migrated > 0:
-            bot.log(f"🔄 Features version migrada: {migrated} señales actualizadas a v3_clean")
+            bot.log(
+                f"🔄 Features version migrada: {migrated} señales actualizadas a v3_clean"
+            )
     except Exception as e:
         bot.log(f"⚠️ Migración features_version omitida: {e}")
 

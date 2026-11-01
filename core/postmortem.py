@@ -9,6 +9,7 @@ class PostMortemLabeler:
         "STOP_LOSS_TIGHT": "SL too tight for asset noise - price reversed immediately after hit",
         "TREND_REVERSAL": "Entry thesis wrong - price reversed from entry without testing TP",
         "TREND_BREAK": "Trend broke structurally - no recovery after entry",
+        "TIME_LIMIT": "Trade closed by maximum hold time limit",
         "TIMEOUT_STAGNATION": "No price action - trade expired by timeout",
         "TAKE_PROFIT": "TP hit successfully",
         "HARD_SL": "Hard stop loss triggered (risk limit)",
@@ -45,6 +46,9 @@ class PostMortemLabeler:
 
         if "BAILOUT" in reason_upper or "ABORT" in reason_upper:
             return "BAILOUT"
+
+        if "TIME LIMIT" in reason_upper or "TIME_LIMIT" in reason_upper:
+            return "TIME_LIMIT"
 
         if "TIMEOUT" in reason_upper:
             return "TIMEOUT_STAGNATION"

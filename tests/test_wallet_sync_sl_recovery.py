@@ -7,7 +7,9 @@ from unittest.mock import MagicMock, patch
 from core.bot_wallet_sync import _manage_partial_fill_trade, sync_wallet
 
 
-def _valid_hard_sl_ack(symbol: str, sl_side: str, amount: float, order_id: str = "sl-1") -> dict:
+def _valid_hard_sl_ack(
+    symbol: str, sl_side: str, amount: float, order_id: str = "sl-1"
+) -> dict:
     """ACK estructuralmente válido para hard_sl_ack_looks_valid."""
     return {
         "id": order_id,
@@ -71,7 +73,9 @@ class WalletSyncSlRecoveryTest(unittest.TestCase):
 
         sync_wallet(bot)
 
-        self.assertEqual(bot.active_trades["BTC/USDT"].get("sl_exchange_order_id"), "sl-123")
+        self.assertEqual(
+            bot.active_trades["BTC/USDT"].get("sl_exchange_order_id"), "sl-123"
+        )
         bot.execution.place_hard_sl.assert_called_once()
 
     @patch("core.bot_wallet_sync.Config.PAPER_MODE", False)
@@ -188,13 +192,17 @@ class WalletSyncSlRecoveryTest(unittest.TestCase):
                 }
             ],
             place_hard_sl=MagicMock(
-                return_value=_valid_hard_sl_ack("ETH/USDT", "sell", 0.5, "should-not-create")
+                return_value=_valid_hard_sl_ack(
+                    "ETH/USDT", "sell", 0.5, "should-not-create"
+                )
             ),
         )
 
         sync_wallet(bot)
 
-        self.assertEqual(bot.active_trades["ETH/USDT"].get("sl_exchange_order_id"), "existing-sl")
+        self.assertEqual(
+            bot.active_trades["ETH/USDT"].get("sl_exchange_order_id"), "existing-sl"
+        )
         bot.execution.place_hard_sl.assert_not_called()
 
     @patch("core.bot_wallet_sync.Config.PAPER_MODE", False)
@@ -377,7 +385,9 @@ class WalletSyncSlRecoveryTest(unittest.TestCase):
 
         sync_wallet(bot)
 
-        self.assertEqual(bot.active_trades["ETH/USDT"].get("sl_exchange_order_id"), "full-sl")
+        self.assertEqual(
+            bot.active_trades["ETH/USDT"].get("sl_exchange_order_id"), "full-sl"
+        )
         bot.execution.place_hard_sl.assert_called_once()
 
     @patch("core.bot_wallet_sync.Config.PAPER_MODE", False)
@@ -425,13 +435,17 @@ class WalletSyncSlRecoveryTest(unittest.TestCase):
 
     @patch("core.bot_wallet_sync.send_telegram_msg")
     @patch("core.bot_wallet_sync.Config.PARTIAL_FILL_TIMEOUT_SECONDS", 1)
-    def test_partial_fill_cancel_failure_halts_for_manual_reconciliation(self, mocked_tg):
+    def test_partial_fill_cancel_failure_halts_for_manual_reconciliation(
+        self, mocked_tg
+    ):
         bot = self._base_bot()
         bot.is_paused = False
         bot.integrity_lock_active = False
         bot.halt_system_active = False
         bot.execution = SimpleNamespace(
-            fetch_open_orders=MagicMock(return_value=[{"id": "entry-1", "clientOrderId": "cid-1"}]),
+            fetch_open_orders=MagicMock(
+                return_value=[{"id": "entry-1", "clientOrderId": "cid-1"}]
+            ),
             cancel_order=MagicMock(side_effect=RuntimeError("cancel down")),
         )
         trade = {
@@ -500,7 +514,9 @@ class WalletSyncSlRecoveryTest(unittest.TestCase):
         sync_wallet(bot)
 
         self.assertIn("SOL/USDT", bot.active_trades)
-        self.assertEqual(bot.active_trades["SOL/USDT"].get("status"), "EMERGENCY_CLOSE_PENDING")
+        self.assertEqual(
+            bot.active_trades["SOL/USDT"].get("status"), "EMERGENCY_CLOSE_PENDING"
+        )
         self.assertTrue(bot.is_paused)
         self.assertTrue(bot.integrity_lock_active)
         self.assertTrue(getattr(bot, "halt_system_active", False))
@@ -641,7 +657,9 @@ class WalletSyncSlRecoveryTest(unittest.TestCase):
                     "clientOrderId": "cid-entry",
                 }
             ],
-            cancel_order=MagicMock(return_value={"id": "entry-ord-1", "status": "canceled"}),
+            cancel_order=MagicMock(
+                return_value={"id": "entry-ord-1", "status": "canceled"}
+            ),
             place_hard_sl=MagicMock(
                 return_value=_valid_hard_sl_ack("BNB/USDT", "sell", 4.0, "sl-1")
             ),

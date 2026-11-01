@@ -24,7 +24,11 @@ class RealAuthHealthTest(unittest.TestCase):
         self.assertTrue(maybe_check_real_auth(bot, now_mono=10.0))
         fetch_balance.assert_not_called()
 
-    @patch("core.real_auth_health.Config.REAL_AUTH_HEALTHCHECK_INTERVAL_SECONDS", 60, create=True)
+    @patch(
+        "core.real_auth_health.Config.REAL_AUTH_HEALTHCHECK_INTERVAL_SECONDS",
+        60,
+        create=True,
+    )
     @patch("core.real_auth_health.Config.PAPER_MODE", False)
     def test_success_records_last_check_and_respects_interval(self):
         from core.real_auth_health import maybe_check_real_auth
@@ -42,7 +46,9 @@ class RealAuthHealthTest(unittest.TestCase):
     def test_auth_like_failure_activates_halt(self, append_event, send_msg):
         from core.real_auth_health import maybe_check_real_auth
 
-        bot = self._bot(MagicMock(side_effect=RuntimeError("Invalid API-key, IP, or permissions")))
+        bot = self._bot(
+            MagicMock(side_effect=RuntimeError("Invalid API-key, IP, or permissions"))
+        )
 
         self.assertFalse(maybe_check_real_auth(bot, now_mono=100.0))
         self.assertTrue(bot.is_paused)

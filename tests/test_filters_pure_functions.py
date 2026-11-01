@@ -62,17 +62,22 @@ class TestGetMarkovSnapshotMode(unittest.TestCase):
 
     @patch("core.signals.filters._snapshot_age_seconds", return_value=100)
     def test_fresh_when_within_max_age(self, _):
-        self.assertEqual(_get_markov_snapshot_mode({"is_ready": True, "ts": "x"}), "fresh")
+        self.assertEqual(
+            _get_markov_snapshot_mode({"is_ready": True, "ts": "x"}), "fresh"
+        )
 
     @patch("core.signals.filters._snapshot_age_seconds", return_value=5 * 60 * 60)
     def test_stale_when_between_max_and_stale(self, _):
         self.assertEqual(
-            _get_markov_snapshot_mode({"is_ready": True, "ts": "x"}), "stale_penalty_only"
+            _get_markov_snapshot_mode({"is_ready": True, "ts": "x"}),
+            "stale_penalty_only",
         )
 
     @patch("core.signals.filters._snapshot_age_seconds", return_value=7 * 60 * 60)
     def test_expired_when_past_stale(self, _):
-        self.assertEqual(_get_markov_snapshot_mode({"is_ready": True, "ts": "x"}), "expired")
+        self.assertEqual(
+            _get_markov_snapshot_mode({"is_ready": True, "ts": "x"}), "expired"
+        )
 
 
 class TestSignalMarkovProbability(unittest.TestCase):
@@ -126,7 +131,14 @@ class TestEvaluateBootstrapHeuristic(unittest.TestCase):
         self.assertTrue(r["bootstrap_ready_real"])
 
     def test_buy_no_hits(self):
-        ctx = {"rsi": 30.0, "adx": 5.0, "vol_rel": 0.5, "atr_pct": 0.1, "close": 90.0, "ema": 100.0}
+        ctx = {
+            "rsi": 30.0,
+            "adx": 5.0,
+            "vol_rel": 0.5,
+            "atr_pct": 0.1,
+            "close": 90.0,
+            "ema": 100.0,
+        }
         r = _evaluate_bootstrap_heuristic("BUY", ctx)
         self.assertEqual(r["heuristic_hits"], [])
         self.assertFalse(r["bootstrap_ready_shadow"])

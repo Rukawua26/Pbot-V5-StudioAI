@@ -124,7 +124,9 @@ class TestAgentWeightMonitor(unittest.TestCase):
         }
         bot_mock = MagicMock()
         with patch("core.strategy.weight_monitor.send_telegram_msg"):
-            with patch("core.strategy.weight_monitor.append_execution_event") as mock_append:
+            with patch(
+                "core.strategy.weight_monitor.append_execution_event"
+            ) as mock_append:
                 monitor.run_check(bot=bot_mock)
                 for call in mock_append.call_args_list:
                     self.assertEqual(call[0][0], bot_mock)

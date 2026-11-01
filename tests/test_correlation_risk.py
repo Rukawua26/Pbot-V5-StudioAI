@@ -63,7 +63,9 @@ class CorrelationReductionTests(unittest.TestCase):
 
     def _make_data_service(self, frames: dict[str, pd.DataFrame]):
         ds = MagicMock()
-        ds.fetch_and_update_data.side_effect = lambda sym, tf, fast_mode=True: frames.get(sym)
+        ds.fetch_and_update_data.side_effect = lambda sym, tf, fast_mode=True: (
+            frames.get(sym)
+        )
         self.bot.data_service = ds
 
     def test_disabled_returns_no_reduction(self):
@@ -75,7 +77,9 @@ class CorrelationReductionTests(unittest.TestCase):
             }
         )
         with patch.object(Config, "CORRELATION_RISK_ENABLED", False):
-            mult, details = compute_correlation_reduction(self.bot, "ETH/USDT", ["BTC/USDT"])
+            mult, details = compute_correlation_reduction(
+                self.bot, "ETH/USDT", ["BTC/USDT"]
+            )
         self.assertEqual(mult, 1.0)
         self.assertEqual(details, [])
 
@@ -100,7 +104,9 @@ class CorrelationReductionTests(unittest.TestCase):
             patch.object(Config, "CORRELATION_RISK_ENABLED", True),
             patch.object(Config, "CORRELATION_RISK_THRESHOLD", 0.80),
         ):
-            mult, details = compute_correlation_reduction(self.bot, "ETH/USDT", ["BTC/USDT"])
+            mult, details = compute_correlation_reduction(
+                self.bot, "ETH/USDT", ["BTC/USDT"]
+            )
         self.assertLess(mult, 1.0)
         self.assertGreaterEqual(mult, 0.50)
         self.assertEqual(len(details), 1)
@@ -120,7 +126,9 @@ class CorrelationReductionTests(unittest.TestCase):
             patch.object(Config, "CORRELATION_RISK_ENABLED", True),
             patch.object(Config, "CORRELATION_RISK_THRESHOLD", 0.80),
         ):
-            mult, details = compute_correlation_reduction(self.bot, "ETH/USDT", ["BTC/USDT"])
+            mult, details = compute_correlation_reduction(
+                self.bot, "ETH/USDT", ["BTC/USDT"]
+            )
         self.assertEqual(mult, 1.0)
         self.assertEqual(len(details), 1)
         self.assertAlmostEqual(details[0]["correlation"], -1.0, places=2)
@@ -172,7 +180,9 @@ class CorrelationReductionTests(unittest.TestCase):
         self.bot.active_trades = {"BTC/USDT": {}}
         self.bot.data_service = None
         with patch.object(Config, "CORRELATION_RISK_ENABLED", True):
-            mult, details = compute_correlation_reduction(self.bot, "ETH/USDT", ["BTC/USDT"])
+            mult, details = compute_correlation_reduction(
+                self.bot, "ETH/USDT", ["BTC/USDT"]
+            )
         self.assertEqual(mult, 1.0)
 
     def test_insufficient_data_returns_no_reduction(self):
@@ -187,7 +197,9 @@ class CorrelationReductionTests(unittest.TestCase):
             patch.object(Config, "CORRELATION_RISK_ENABLED", True),
             patch.object(Config, "CORRELATION_RISK_MIN_CANDLES", 24),
         ):
-            mult, details = compute_correlation_reduction(self.bot, "ETH/USDT", ["BTC/USDT"])
+            mult, details = compute_correlation_reduction(
+                self.bot, "ETH/USDT", ["BTC/USDT"]
+            )
         self.assertEqual(mult, 1.0)
 
 

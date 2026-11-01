@@ -5,17 +5,19 @@ import os
 import re
 
 CMD_FILE = "/dev/shm/sniper_cmd/command.json"
-ALLOWED_DASHBOARD_COMMANDS = frozenset({
-    "/pause",
-    "/resume",
-    "/panic",
-    "/recover_halt",
-    "/rebase_capital",
-    "/sync_wallet",
-    "/scan",
-    "/force_shadow",
-    "/reset",
-})
+ALLOWED_DASHBOARD_COMMANDS = frozenset(
+    {
+        "/pause",
+        "/resume",
+        "/panic",
+        "/recover_halt",
+        "/rebase_capital",
+        "/sync_wallet",
+        "/scan",
+        "/force_shadow",
+        "/reset",
+    }
+)
 
 
 def _is_safe_command(action: str) -> bool:

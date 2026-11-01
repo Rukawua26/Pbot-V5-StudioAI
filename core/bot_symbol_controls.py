@@ -30,7 +30,9 @@ def load_runtime_symbol_controls(bot):
             with open(controls_path, encoding="utf-8") as file_obj:
                 payload = json.load(file_obj)
             blocked = {
-                str(symbol).split("/")[0] for symbol in payload.get("blocked_symbols", []) if symbol
+                str(symbol).split("/")[0]
+                for symbol in payload.get("blocked_symbols", [])
+                if symbol
             }
             preferred = {
                 str(symbol).split("/")[0]
@@ -38,7 +40,9 @@ def load_runtime_symbol_controls(bot):
                 if symbol
             }
             reduced = {
-                str(symbol).split("/")[0] for symbol in payload.get("reduced_symbols", []) if symbol
+                str(symbol).split("/")[0]
+                for symbol in payload.get("reduced_symbols", [])
+                if symbol
             }
     except Exception as error:
         bot.log(f"⚠️ Error leyendo symbol_controls.json: {error}")
@@ -61,7 +65,9 @@ def refresh_symbol_controls_if_due(bot):
         return
 
     try:
-        script_path = resolve_script_path(ROOT / "tools" / "generate_symbol_controls.py")
+        script_path = resolve_script_path(
+            ROOT / "tools" / "generate_symbol_controls.py"
+        )
         proc = subprocess.run(
             [sys.executable, str(script_path)],
             capture_output=True,

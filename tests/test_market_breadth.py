@@ -64,7 +64,11 @@ class MarketBreadthTest(unittest.TestCase):
     def test_symbol_context_propagates_market_breadth_and_hmm(self, _snapshot, _ob):
         hmm = {"is_ready": True, "state": "RANGE", "ts": "2026-06-11T00:00:00+00:00"}
         bot = SimpleNamespace(
-            market_breadth={"sentiment": "FEAR", "dump_ratio": 0.75, "pump_ratio": 0.10},
+            market_breadth={
+                "sentiment": "FEAR",
+                "dump_ratio": 0.75,
+                "pump_ratio": 0.10,
+            },
             hmm_markov_snapshot=hmm,
             _snapshot_tickers={},
             _get_cached_funding_rate=MagicMock(return_value=0.0),
@@ -86,7 +90,9 @@ class MarketBreadthTest(unittest.TestCase):
         "core.signals.context.Strategy.compute_runtime_snapshot",
         return_value={"rows": 200, "ema": 99.0, "adx": 23.0, "rsi": 50.0, "atr": 1.0},
     )
-    def test_symbol_context_uses_side_parity_adx_threshold_for_uptrend(self, _snapshot, _ob):
+    def test_symbol_context_uses_side_parity_adx_threshold_for_uptrend(
+        self, _snapshot, _ob
+    ):
         bot = SimpleNamespace(
             market_breadth={},
             _snapshot_tickers={},
@@ -108,7 +114,9 @@ class MarketBreadthTest(unittest.TestCase):
         "core.signals.context.Strategy.compute_runtime_snapshot",
         return_value={"rows": 200, "ema": 101.0, "adx": 23.0, "rsi": 50.0, "atr": 1.0},
     )
-    def test_symbol_context_uses_side_parity_adx_threshold_for_downtrend(self, _snapshot, _ob):
+    def test_symbol_context_uses_side_parity_adx_threshold_for_downtrend(
+        self, _snapshot, _ob
+    ):
         bot = SimpleNamespace(
             market_breadth={},
             _snapshot_tickers={},
@@ -130,7 +138,9 @@ class MarketBreadthTest(unittest.TestCase):
         "core.signals.context.Strategy.compute_runtime_snapshot",
         return_value={"rows": 200, "ema": 99.0, "adx": 21.0, "rsi": 50.0, "atr": 1.0},
     )
-    def test_symbol_context_keeps_range_below_side_parity_adx_threshold(self, _snapshot, _ob):
+    def test_symbol_context_keeps_range_below_side_parity_adx_threshold(
+        self, _snapshot, _ob
+    ):
         bot = SimpleNamespace(
             market_breadth={},
             _snapshot_tickers={},
@@ -161,7 +171,9 @@ class MarketBreadthTest(unittest.TestCase):
             log=MagicMock(),
             _get_shock_distance_pct=MagicMock(return_value=(None, None)),
             _get_market_regime=MagicMock(return_value="RANGE"),
-            _calculate_quant_consensus=MagicMock(side_effect=lambda prob, _ctx: (prob, "OK")),
+            _calculate_quant_consensus=MagicMock(
+                side_effect=lambda prob, _ctx: (prob, "OK")
+            ),
             bootstrap_heuristic_mode=False,
         )
         ctx = {
@@ -194,7 +206,9 @@ class MarketBreadthTest(unittest.TestCase):
     @patch("core.signals.filters.Config.HMM_RANGE_LEARNING_OVERRIDE_ENABLED", True)
     @patch("core.signals.filters.Config.BREAKOUT_WATCH_ENABLED", False)
     @patch("core.signals.filters.Strategy.check_entry_filters")
-    def test_entry_filter_allows_buy_when_market_breadth_fear_filter_disabled(self, mocked_filters):
+    def test_entry_filter_allows_buy_when_market_breadth_fear_filter_disabled(
+        self, mocked_filters
+    ):
         mocked_filters.return_value = (True, "Filter Pass", "RANGO", {})
         bot = SimpleNamespace(
             db_lock=RLock(),
@@ -205,7 +219,9 @@ class MarketBreadthTest(unittest.TestCase):
             log=MagicMock(),
             _get_shock_distance_pct=MagicMock(return_value=(None, None)),
             _get_market_regime=MagicMock(return_value="RANGE"),
-            _calculate_quant_consensus=MagicMock(side_effect=lambda prob, _ctx: (prob, "OK")),
+            _calculate_quant_consensus=MagicMock(
+                side_effect=lambda prob, _ctx: (prob, "OK")
+            ),
             bootstrap_heuristic_mode=False,
         )
         ctx = {

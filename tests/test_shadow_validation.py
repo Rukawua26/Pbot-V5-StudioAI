@@ -15,7 +15,9 @@ class ShadowValidationMetricTests(unittest.TestCase):
             patch.object(shadow_validation.Config, "SHADOW_VALIDATION_ENABLED", True),
             patch("core.shadow_validation.append_runtime_metric") as append_metric,
         ):
-            shadow_validation.emit_scan_cycle(125.5, candidates=30, heavy_analysis_calls=8)
+            shadow_validation.emit_scan_cycle(
+                125.5, candidates=30, heavy_analysis_calls=8
+            )
 
         payload = append_metric.call_args.args[1]
         self.assertEqual(payload["event"], "scan_cycle")
@@ -23,10 +25,14 @@ class ShadowValidationMetricTests(unittest.TestCase):
         self.assertEqual(payload["heavy_analysis_calls"], 8)
 
     def test_config_snapshot_identifies_config_mode_version_and_model(self):
-        bot = SimpleNamespace(ghost_model_type="PRO_ENSEMBLE", bootstrap_heuristic_mode=False)
+        bot = SimpleNamespace(
+            ghost_model_type="PRO_ENSEMBLE", bootstrap_heuristic_mode=False
+        )
         with (
             patch.object(shadow_validation.Config, "SHADOW_VALIDATION_ENABLED", True),
-            patch.object(shadow_validation.Config, "SHADOW_VALIDATION_CAMPAIGN", "campaign-v2"),
+            patch.object(
+                shadow_validation.Config, "SHADOW_VALIDATION_CAMPAIGN", "campaign-v2"
+            ),
             patch.object(shadow_validation.Config, "PAPER_MODE", True),
             patch.dict("os.environ", {"SNIPER_CODE_VERSION": "abc123"}),
             patch("core.shadow_validation.append_runtime_metric") as append_metric,
@@ -46,7 +52,9 @@ class ShadowValidationMetricTests(unittest.TestCase):
     def test_filter_decision_payload_is_observational(self):
         with (
             patch.object(shadow_validation.Config, "SHADOW_VALIDATION_ENABLED", True),
-            patch.object(shadow_validation.Config, "SHADOW_VALIDATION_CAMPAIGN", "test-campaign"),
+            patch.object(
+                shadow_validation.Config, "SHADOW_VALIDATION_CAMPAIGN", "test-campaign"
+            ),
             patch("core.shadow_validation.append_runtime_metric") as append_metric,
         ):
             shadow_validation.emit_filter_decision(
@@ -88,7 +96,12 @@ class ShadowValidationMetricTests(unittest.TestCase):
                 "MANUAL",
             )
             shadow_validation.emit_shadow_trade_closed(
-                {"symbol": "ETH/USDT", "side": "SELL", "is_shadow": True, "entry": 110.0},
+                {
+                    "symbol": "ETH/USDT",
+                    "side": "SELL",
+                    "is_shadow": True,
+                    "entry": 110.0,
+                },
                 "ATR_TRAILING_HIT",
                 100.0,
                 2.0,
@@ -132,7 +145,9 @@ class ShadowValidationReportTests(unittest.TestCase):
                 }
                 for index, run_id in enumerate(("run-a", "run-b"))
             ]
-            path.write_text("\n".join(json.dumps(record) for record in records), encoding="utf-8")
+            path.write_text(
+                "\n".join(json.dumps(record) for record in records), encoding="utf-8"
+            )
 
             summary = build_summary(path)
 
@@ -147,13 +162,14 @@ class ShadowValidationReportTests(unittest.TestCase):
             path = Path(tmpdir) / "runtime_metrics.jsonl"
             records = [
                 {
-                    "ts": f"2026-09-07T00:0{index}:00+00:00",
+                    "ts": "2026-09-07T00:00:00+00:00",
                     "metric": "shadow_validation",
                     "payload": {
                         "campaign": "dedupe",
                         "config_fingerprint": "fixed",
                         "code_version": "code-4",
                         "event": "shadow_trade_closed",
+                        "entry_client_order_id": "duplicate-order-1",
                         "trade_key": "BTC/USDT|BUY|1",
                         "pnl_percent": 1.0,
                         "pnl_usd": 0.1,
@@ -162,7 +178,9 @@ class ShadowValidationReportTests(unittest.TestCase):
                 }
                 for index in range(2)
             ]
-            path.write_text("\n".join(json.dumps(record) for record in records), encoding="utf-8")
+            path.write_text(
+                "\n".join(json.dumps(record) for record in records), encoding="utf-8"
+            )
 
             summary = build_summary(path)
 
@@ -186,7 +204,9 @@ class ShadowValidationReportTests(unittest.TestCase):
                 }
                 for index in range(20)
             ]
-            path.write_text("\n".join(json.dumps(record) for record in records), encoding="utf-8")
+            path.write_text(
+                "\n".join(json.dumps(record) for record in records), encoding="utf-8"
+            )
 
             summary = build_summary(path)
 
@@ -214,7 +234,9 @@ class ShadowValidationReportTests(unittest.TestCase):
                 }
                 for index in range(20)
             ]
-            path.write_text("\n".join(json.dumps(record) for record in records), encoding="utf-8")
+            path.write_text(
+                "\n".join(json.dumps(record) for record in records), encoding="utf-8"
+            )
 
             summary = build_summary(path)
 
@@ -255,7 +277,9 @@ class ShadowValidationReportTests(unittest.TestCase):
                     },
                 },
             ]
-            path.write_text("\n".join(json.dumps(record) for record in records), encoding="utf-8")
+            path.write_text(
+                "\n".join(json.dumps(record) for record in records), encoding="utf-8"
+            )
 
             summary = build_summary(path)
 
@@ -330,7 +354,9 @@ class ShadowValidationReportTests(unittest.TestCase):
                     )
                 ]
             )
-            path.write_text("\n".join(json.dumps(record) for record in records), encoding="utf-8")
+            path.write_text(
+                "\n".join(json.dumps(record) for record in records), encoding="utf-8"
+            )
 
             summary = build_summary(path)
             trades = summary["shadow_trades"]
@@ -342,7 +368,9 @@ class ShadowValidationReportTests(unittest.TestCase):
         self.assertEqual(trades["by_regime"], {"RANGE": 2})
         self.assertEqual(summary["operations"]["scan_cycle_avg_latency_ms"], 250.0)
         self.assertEqual(summary["operations"]["heavy_analysis_calls_per_cycle"], 6.0)
-        self.assertEqual(summary["filters"]["veto_reasons"], {"SHOCK DEMASIADO CERCA": 2})
+        self.assertEqual(
+            summary["filters"]["veto_reasons"], {"SHOCK DEMASIADO CERCA": 2}
+        )
 
     def test_report_orders_equity_snapshots_and_computes_account_metrics(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -384,7 +412,9 @@ class ShadowValidationReportTests(unittest.TestCase):
                     },
                 },
             ]
-            path.write_text("\n".join(json.dumps(record) for record in records), encoding="utf-8")
+            path.write_text(
+                "\n".join(json.dumps(record) for record in records), encoding="utf-8"
+            )
 
             trades = build_summary(path)["shadow_trades"]
 
@@ -417,6 +447,8 @@ class ShadowValidationReportTests(unittest.TestCase):
                     "metric": "shadow_validation",
                     "payload": {
                         "event": "shadow_trade_closed",
+                        "entry_client_order_id": "order-1",
+                        "trade_key": "BTC/USDT|BUY|1",
                         "pnl_percent": 2.0,
                         "pnl_usd": 1.2,
                         "mae_percent": -0.5,
@@ -427,6 +459,8 @@ class ShadowValidationReportTests(unittest.TestCase):
                     "metric": "shadow_validation",
                     "payload": {
                         "event": "shadow_trade_closed",
+                        "entry_client_order_id": "order-2",
+                        "trade_key": "ETH/USDT|SELL|2",
                         "pnl_percent": -1.0,
                         "pnl_usd": -0.8,
                         "mae_percent": -1.5,

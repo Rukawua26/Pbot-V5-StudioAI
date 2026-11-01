@@ -131,6 +131,10 @@ class Strategy:
         ).lower()
         if strategy_engine == "triple_tf":
             from core.strategy.triple_tf.bias_1h import evaluate_bias_1h
+            from core.strategy.triple_tf.closed_candles import (
+                closed_candles,
+                last_close_ms,
+            )
             from core.strategy.triple_tf.structure_5m import evaluate_structure_5m
             from core.strategy.triple_tf.trigger_1m import evaluate_trigger_1m
 
@@ -146,14 +150,25 @@ class Strategy:
             df_1m = kwargs.get("df_1m")
             spread_val = float(kwargs.get("spread", 0.0) or 0.0)
 
+            # Timestamp unico de evaluacion: los 3 TFs comparten el mismo instante
+            # para evitar cruzar fronteras de vela durante el analisis.
+            from core.time_utils import utc_now as _utc_now
+
+            evaluation_time = _utc_now()
+
+            # Frontera temporal: solo velas 1H cerradas alimentan al evaluador
+            df_1h_target = closed_candles(
+                df_1h_target, "1h", evaluation_time=evaluation_time
+            )
+
             # Paso 1: Evaluar Sesgo en 1H
             bias_res = evaluate_bias_1h(df_1h=df_1h_target)
 
             # Capa 2: RVol Adaptativo – vetar par dormido antes de gastar API en 5M/1M
             # Solo aplicar cuando df_1h es el DataFrame real de 1H (no el fallback base_df)
             _df_1h_real = (
-                df_1h
-                if df_1h is not None and not getattr(df_1h, "empty", True)
+                df_1h_target
+                if df_1h_target is not None and not getattr(df_1h_target, "empty", True)
                 else None
             )
             if (
@@ -260,7 +275,14 @@ class Strategy:
                 except Exception:
                     df_5m = None
 
-            struct_res = evaluate_structure_5m(df_5m=df_5m, bias_1h=bias_res.bias)
+            # Solo velas 5M cerradas (la vela en formacion no valida el setup)
+            df_5m = closed_candles(df_5m, "5m", evaluation_time=evaluation_time)
+            max_pullback_age = int(getattr(Config, "TTF_MAX_PULLBACK_AGE_MINUTES", 15))
+            struct_res = evaluate_structure_5m(
+                df_5m=df_5m,
+                bias_1h=bias_res.bias,
+                max_setup_minutes=max_pullback_age,
+            )
             if not struct_res.valid_setup:
                 # Retorno temprano: si no hay MSS o toque a EMA 50 en 5M, no consultamos 1M
                 votos = {
@@ -290,6 +312,14 @@ class Strategy:
                 }
                 return "WAIT", "NONE", precio, 40.0, telemetry, votos
 
+            # Detección de Fair Value Gap (FVG) en 5M con tamaño mínimo
+            from core.strategy.triple_tf.fvg_5m import detect_fvg_5m
+
+            min_gap_pct = float(getattr(Config, "TTF_MIN_FVG_GAP_PCT", 0.30))
+            fvg_res = detect_fvg_5m(
+                df_5m=df_5m, bias_1h=bias_res.bias, min_gap_pct=min_gap_pct
+            )
+
             # Paso 3: Si 5M confirmó setup, obtener y evaluar 1M para el gatillo
             if (
                 df_1m is None or getattr(df_1m, "empty", True)
@@ -301,17 +331,55 @@ class Strategy:
                 except Exception:
                     df_1m = None
 
+            # Solo velas 1M cerradas (identidad de senal y gatillo causal)
+            df_1m = closed_candles(df_1m, "1m", evaluation_time=evaluation_time)
             trigger_res = evaluate_trigger_1m(
                 df_1m=df_1m,
                 bias_1h=bias_res.bias,
                 setup_5m_valid=True,
                 spread=spread_val,
+                fvg_zone=fvg_res,
             )
 
             if trigger_res.triggered and trigger_res.side in {"BUY", "SELL"}:
-                sig = trigger_res.side
-                conf = 85.0
-                reason = f"TTF_ENTRY_CONFIRMED: 1H={bias_res.bias}, 5M=MSS+Pullback, 1M={trigger_res.reason}"
+                causality_ok = True
+                if (
+                    struct_res.mss_time
+                    and struct_res.pullback_time
+                    and trigger_res.trigger_time
+                ):
+                    if not (
+                        struct_res.mss_time
+                        < struct_res.pullback_time
+                        <= trigger_res.trigger_time
+                    ):
+                        causality_ok = False
+                        trigger_res.reason = "TTF_CAUSALITY_VIOLATION"
+
+                consumed = False
+                setup_key = None
+                if causality_ok:
+                    if not hasattr(brain_instance, "_ttf_consumed_setups"):
+                        brain_instance._ttf_consumed_setups = set()
+                    setup_key = (symbol, struct_res.mss_time, struct_res.pullback_time)
+                    if setup_key in brain_instance._ttf_consumed_setups:
+                        consumed = True
+                        trigger_res.reason = "TTF_SETUP_ALREADY_CONSUMED"
+
+                if not causality_ok or consumed:
+                    sig = "WAIT"
+                    conf = 50.0
+                    reason = f"1H:{bias_res.reason} | 5M:{struct_res.reason} | 1M:{trigger_res.reason}"
+                else:
+                    if setup_key:
+                        brain_instance._ttf_consumed_setups.add(setup_key)
+                        if len(brain_instance._ttf_consumed_setups) > 200:
+                            brain_instance._ttf_consumed_setups = set(
+                                list(brain_instance._ttf_consumed_setups)[-100:]
+                            )
+                    sig = trigger_res.side
+                    conf = 85.0
+                    reason = f"TTF_ENTRY_CONFIRMED: 1H={bias_res.bias}, 5M=MSS+Pullback, 1M={trigger_res.reason}"
             else:
                 sig = "WAIT"
                 conf = 50.0
@@ -321,17 +389,24 @@ class Strategy:
                 "TTF_1H": 100.0 if bias_res.bias == "BUY" else 0.0,
                 "TTF_5M": 100.0,
             }
+            suggested_sl = float(
+                fvg_res.suggested_sl
+                if fvg_res is not None
+                else (struct_res.suggested_sl or 0.0)
+            )
             telemetry = {
                 "regime": f"TTF_{bias_res.bias}",
                 "reason": reason,
                 "bias_1h": bias_res.bias,
                 "setup_5m_valid": True,
                 "trigger_1m_ready": trigger_res.triggered,
-                "stop_loss": float(struct_res.suggested_sl or 0.0),
+                "signal_close_time": last_close_ms(df_1m, "1m"),
+                "stop_loss": suggested_sl,
                 "votos": votos,
                 "ttf_metrics": {
                     "bias_1h": bias_res.__dict__,
                     "structure_5m": struct_res.__dict__,
+                    "fvg_5m": fvg_res.__dict__ if fvg_res is not None else None,
                     "trigger_1m": trigger_res.__dict__,
                 },
                 "atr_pct": 0.01,

@@ -40,7 +40,9 @@ def _order_client_id(order: dict) -> str:
 
 
 def _is_protective_stop_for_trade(order: dict, trade: dict) -> bool:
-    order_type = str(order.get("type") or (order.get("info") or {}).get("type") or "").upper()
+    order_type = str(
+        order.get("type") or (order.get("info") or {}).get("type") or ""
+    ).upper()
     if "STOP" not in order_type:
         return False
     if not _bool_reduce_only(order):
@@ -54,7 +56,9 @@ def _is_protective_stop_for_trade(order: dict, trade: dict) -> bool:
     return False
 
 
-def _hard_sl_order_covers_trade(order: dict, trade: dict, info: dict | None = None) -> bool:
+def _hard_sl_order_covers_trade(
+    order: dict, trade: dict, info: dict | None = None
+) -> bool:
     if not _is_protective_stop_for_trade(order, trade):
         return False
 
@@ -64,11 +68,17 @@ def _hard_sl_order_covers_trade(order: dict, trade: dict, info: dict | None = No
         return False
 
     known_client_id = str(trade.get("sl_client_order_id") or "")
-    if known_client_id and _order_client_id(order) and _order_client_id(order) != known_client_id:
+    if (
+        known_client_id
+        and _order_client_id(order)
+        and _order_client_id(order) != known_client_id
+    ):
         return False
 
     order_info = order.get("info") or {}
-    close_position_raw = order.get("closePosition", order_info.get("closePosition", False))
+    close_position_raw = order.get(
+        "closePosition", order_info.get("closePosition", False)
+    )
     close_position = str(close_position_raw).lower() in {"true", "1", "yes"}
     if close_position:
         return True
@@ -108,8 +118,12 @@ def _find_verified_hard_sl_order(bot, symbol: str, trade: dict, info: dict):
         bot.integrity_lock_active = True
         setattr(bot, "halt_system_active", True)
         with bot.db_lock:
-            bot.brain.save_error_snapshot(symbol, "SL_VERIFY_FAILED_HALT", {"error": str(error)})
-        bot.log(f"🛑 SL_VERIFY_FAILED_HALT {symbol}: {error}. No se pudo verificar HARD SL.")
+            bot.brain.save_error_snapshot(
+                symbol, "SL_VERIFY_FAILED_HALT", {"error": str(error)}
+            )
+        bot.log(
+            f"🛑 SL_VERIFY_FAILED_HALT {symbol}: {error}. No se pudo verificar HARD SL."
+        )
         append_execution_event(
             bot,
             "SL_VERIFY_FAILED_HALT",
@@ -224,7 +238,9 @@ def _ensure_hard_sl_attached(bot, symbol: str, trade: dict, info: dict):
         trade["sl_exchange_order_id"] = existing_sl.get("id")
         trade["status"] = "OPEN"
         with bot.db_lock:
-            bot.brain.save_active_trade_state(str(trade.get("trade_key") or symbol), trade)
+            bot.brain.save_active_trade_state(
+                str(trade.get("trade_key") or symbol), trade
+            )
         bot.log(f"🛡️ SL existente detectado para {symbol}: {existing_sl.get('id')}")
         return False
 
@@ -270,11 +286,15 @@ def _ensure_hard_sl_attached(bot, symbol: str, trade: dict, info: dict):
         trade["hard_sl_attach_fail_count"] = 0
         trade["status"] = "OPEN"
         with bot.db_lock:
-            bot.brain.save_active_trade_state(str(trade.get("trade_key") or symbol), trade)
+            bot.brain.save_active_trade_state(
+                str(trade.get("trade_key") or symbol), trade
+            )
         bot.log(f"🛡️ HARD SL recuperado para {symbol}: {sl_order.get('id')}")
     else:
         if sl_order is not None:
-            sl_error = sl_ack_reason or str(getattr(bot.execution, "last_hard_sl_error", "") or "")
+            sl_error = sl_ack_reason or str(
+                getattr(bot.execution, "last_hard_sl_error", "") or ""
+            )
         else:
             sl_error = str(getattr(bot.execution, "last_hard_sl_error", "") or "")
         if _is_immediate_trigger_rejection(sl_error):
@@ -284,7 +304,9 @@ def _ensure_hard_sl_attached(bot, symbol: str, trade: dict, info: dict):
         trade["hard_sl_attach_fail_count"] = fail_count
         trade["status"] = "HARD_SL_UNPROTECTED"
         with bot.db_lock:
-            bot.brain.save_active_trade_state(str(trade.get("trade_key") or symbol), trade)
+            bot.brain.save_active_trade_state(
+                str(trade.get("trade_key") or symbol), trade
+            )
         max_retries = int(getattr(Config, "HARD_SL_ATTACH_MAX_RETRIES", 3) or 3)
         if fail_count >= max_retries:
             bot.log(
@@ -343,7 +365,9 @@ def _find_open_entry_order(bot, symbol: str, trade: dict):
             continue
         order_id = str(order.get("id") or "")
         coid = str(
-            order.get("clientOrderId") or (order.get("info") or {}).get("clientOrderId") or ""
+            order.get("clientOrderId")
+            or (order.get("info") or {}).get("clientOrderId")
+            or ""
         )
         if entry_order_id and order_id == entry_order_id:
             return order
@@ -353,7 +377,10 @@ def _find_open_entry_order(bot, symbol: str, trade: dict):
 
 
 def _manage_partial_fill_trade(bot, symbol: str, trade: dict, info: dict):
-    if not trade.get("partial_fill_pending") and trade.get("status") != "PARTIAL_FILL_PENDING":
+    if (
+        not trade.get("partial_fill_pending")
+        and trade.get("status") != "PARTIAL_FILL_PENDING"
+    ):
         return
 
     executed_amount = float(info.get("amount") or trade.get("amount") or 0.0)
@@ -374,7 +401,9 @@ def _manage_partial_fill_trade(bot, symbol: str, trade: dict, info: dict):
         trade["status"] = "PARTIAL_FILL_PENDING"
         trade["partial_fill_pending"] = True
         with bot.db_lock:
-            bot.brain.save_active_trade_state(str(trade.get("trade_key") or symbol), trade)
+            bot.brain.save_active_trade_state(
+                str(trade.get("trade_key") or symbol), trade
+            )
         return
 
     if open_entry_order is None:
@@ -382,7 +411,9 @@ def _manage_partial_fill_trade(bot, symbol: str, trade: dict, info: dict):
         trade["partial_fill_pending"] = False
         trade["status"] = "OPEN"
         with bot.db_lock:
-            bot.brain.save_active_trade_state(str(trade.get("trade_key") or symbol), trade)
+            bot.brain.save_active_trade_state(
+                str(trade.get("trade_key") or symbol), trade
+            )
         append_execution_event(
             bot,
             "PARTIAL_FILL_COMPLETED",
@@ -409,11 +440,15 @@ def _manage_partial_fill_trade(bot, symbol: str, trade: dict, info: dict):
     timeout_s = int(getattr(Config, "PARTIAL_FILL_TIMEOUT_SECONDS", 300) or 300)
     if age_seconds < timeout_s:
         with bot.db_lock:
-            bot.brain.save_active_trade_state(str(trade.get("trade_key") or symbol), trade)
+            bot.brain.save_active_trade_state(
+                str(trade.get("trade_key") or symbol), trade
+            )
         return
 
     cancel_order = getattr(bot.execution, "cancel_order", None)
-    order_id = str(open_entry_order.get("id") or trade.get("entry_exchange_order_id") or "")
+    order_id = str(
+        open_entry_order.get("id") or trade.get("entry_exchange_order_id") or ""
+    )
     if callable(cancel_order) and order_id:
         try:
             cancel_order(symbol, order_id)
@@ -422,7 +457,9 @@ def _manage_partial_fill_trade(bot, symbol: str, trade: dict, info: dict):
             trade["status"] = "OPEN"
             trade["partial_fill_pending"] = False
             with bot.db_lock:
-                bot.brain.save_active_trade_state(str(trade.get("trade_key") or symbol), trade)
+                bot.brain.save_active_trade_state(
+                    str(trade.get("trade_key") or symbol), trade
+                )
             append_execution_event(
                 bot,
                 "PARTIAL_FILL_TIMEOUT_CANCEL",
@@ -446,7 +483,9 @@ def _manage_partial_fill_trade(bot, symbol: str, trade: dict, info: dict):
                 bot.integrity_lock_active = True
                 setattr(bot, "halt_system_active", True)
                 with bot.db_lock:
-                    bot.brain.save_active_trade_state(str(trade.get("trade_key") or symbol), trade)
+                    bot.brain.save_active_trade_state(
+                        str(trade.get("trade_key") or symbol), trade
+                    )
             append_execution_event(
                 bot,
                 "PARTIAL_FILL_CANCEL_FAILED",
@@ -529,9 +568,12 @@ def sync_wallet(bot):
             side_key = make_trade_key(symbol, side, force_side=True)
             local_key = find_trade_key(bot.active_trades, symbol, side)
             force_side_key = (
-                len(sides_by_symbol.get(symbol, set())) > 1 or side_key in bot.active_trades
+                len(sides_by_symbol.get(symbol, set())) > 1
+                or side_key in bot.active_trades
             )
-            trade_key = local_key or make_trade_key(symbol, side, force_side=force_side_key)
+            trade_key = local_key or make_trade_key(
+                symbol, side, force_side=force_side_key
+            )
             real_active_on_binance[trade_key] = {
                 "symbol": symbol,
                 "trade_key": trade_key,
@@ -543,7 +585,9 @@ def sync_wallet(bot):
 
         # LOG DE DIAGNÓSTICO: Ver qué detecta Binance
         if real_active_on_binance:
-            bot.log(f"🔍 Wallet Sync: Binance reporta {list(real_active_on_binance.keys())}")
+            bot.log(
+                f"🔍 Wallet Sync: Binance reporta {list(real_active_on_binance.keys())}"
+            )
 
         current_balance = bot.get_current_balance()
         balance_lock = getattr(bot, "balance_lock", None)
@@ -559,23 +603,30 @@ def sync_wallet(bot):
             # A. ACTUALIZACIÓN DE PRECIOS REALES (Corrige el PnL)
             for trade_key, info in real_active_on_binance.items():
                 symbol = info["symbol"]
-                if trade_key in bot.active_trades and not bot.active_trades[trade_key].get(
-                    "is_shadow"
-                ):
+                if trade_key in bot.active_trades and not bot.active_trades[
+                    trade_key
+                ].get("is_shadow"):
                     # Sincronizamos el precio de entrada del bot con el de Binance
                     # Validamos que el precio sea > 0 para evitar errores de API
-                    if info["entry"] > 0 and bot.active_trades[trade_key]["entry"] != info["entry"]:
+                    if (
+                        info["entry"] > 0
+                        and bot.active_trades[trade_key]["entry"] != info["entry"]
+                    ):
                         bot.log(
                             f"⚖️ Sincronizando precio {symbol}: {bot.active_trades[trade_key]['entry']} -> {info['entry']}"
                         )
                         bot.active_trades[trade_key]["entry"] = info["entry"]
                         bot.active_trades[trade_key]["amount"] = info["amount"]
-                        bot.active_trades[trade_key]["size_usd"] = info["entry"] * info["amount"]
+                        bot.active_trades[trade_key]["size_usd"] = (
+                            info["entry"] * info["amount"]
+                        )
 
                     emergency_closed = _ensure_hard_sl_attached(
                         bot, symbol, bot.active_trades[trade_key], info
                     )
-                    _manage_partial_fill_trade(bot, symbol, bot.active_trades[trade_key], info)
+                    _manage_partial_fill_trade(
+                        bot, symbol, bot.active_trades[trade_key], info
+                    )
                     if emergency_closed:
                         emergency_closed_symbols.add(trade_key)
 
@@ -659,7 +710,11 @@ def sync_wallet(bot):
                         ),
                         "OTHE",
                     )
-                    sl = info["entry"] * 0.95 if info["side"] == "BUY" else info["entry"] * 1.05
+                    sl = (
+                        info["entry"] * 0.95
+                        if info["side"] == "BUY"
+                        else info["entry"] * 1.05
+                    )
 
                     # Generate stable client order IDs for this adopted position
                     entry_coid, sl_coid, _tp_coid = generate_order_ids(
@@ -695,8 +750,12 @@ def sync_wallet(bot):
                         "sl_exchange_order_id": None,
                     }
                     with bot.db_lock:
-                        bot.brain.save_active_trade_state(trade_key, bot.active_trades[trade_key])
-                    _ensure_hard_sl_attached(bot, symbol, bot.active_trades[trade_key], info)
+                        bot.brain.save_active_trade_state(
+                            trade_key, bot.active_trades[trade_key]
+                        )
+                    _ensure_hard_sl_attached(
+                        bot, symbol, bot.active_trades[trade_key], info
+                    )
     except Exception as error:
         bot.log(f"⚠️ Error Sync: {error}")
         if not Config.PAPER_MODE:

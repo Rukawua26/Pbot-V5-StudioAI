@@ -54,7 +54,10 @@ class AsyncShadowLogger:
                 except Exception as error:
                     print(f"⚠️ [SHADOW] Error leyendo cola async: {error}")
 
-                if time.time() - last_flush > self.FLUSH_INTERVAL or len(self.buffer) > 100:
+                if (
+                    time.time() - last_flush > self.FLUSH_INTERVAL
+                    or len(self.buffer) > 100
+                ):
                     self._flush()
                     last_flush = time.time()
             except Exception as error:
@@ -96,7 +99,9 @@ class AsyncShadowLogger:
                     return
                 except Exception as error:
                     last_error = error
-                    print(f"⚠️ [SHADOW] Intento {attempt}/3 fallido al escribir en DB: {error}")
+                    print(
+                        f"⚠️ [SHADOW] Intento {attempt}/3 fallido al escribir en DB: {error}"
+                    )
                     if attempt < 3:
                         time.sleep(2**attempt)  # 2s, 4s de espera entre intentos
 

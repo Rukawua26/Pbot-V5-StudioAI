@@ -49,7 +49,9 @@ class WalkForwardValidationTest(unittest.TestCase):
 
         self.assertEqual(windows[0]["val_months"], ["2026-04", "2026-05"])
         self.assertEqual(windows[1]["val_months"], ["2026-06", "2026-07"])
-        self.assertTrue(set(windows[0]["val_months"]).isdisjoint(windows[1]["val_months"]))
+        self.assertTrue(
+            set(windows[0]["val_months"]).isdisjoint(windows[1]["val_months"])
+        )
 
     def test_training_pipeline_does_not_use_random_train_test_split(self):
         source = Path("tools/train_models.py").read_text(encoding="utf-8")

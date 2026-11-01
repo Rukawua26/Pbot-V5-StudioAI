@@ -32,7 +32,9 @@ class GlobalMarketProvider:
         if self._enabled:
             logger.info("GlobalMarketProvider activado (CoinGecko REST)")
         else:
-            logger.info("GlobalMarketProvider desactivado (GLOBAL_MARKET_PROVIDER_ENABLED=false)")
+            logger.info(
+                "GlobalMarketProvider desactivado (GLOBAL_MARKET_PROVIDER_ENABLED=false)"
+            )
 
     def stop(self) -> None:
         self._enabled = False
@@ -88,7 +90,9 @@ class GlobalMarketProvider:
                 result["total_market_cap"] = float(tmc.get("usd", 0.0) or 0.0)
                 tv = gd.get("total_volume", {}) or {}
                 result["total_volume_24h"] = float(tv.get("usd", 0.0) or 0.0)
-                result["active_cryptos"] = int(gd.get("active_cryptocurrencies", 0) or 0)
+                result["active_cryptos"] = int(
+                    gd.get("active_cryptocurrencies", 0) or 0
+                )
         except Exception as exc:
             logger.warning("CoinGecko /global error: %s", exc)
 
@@ -100,7 +104,9 @@ class GlobalMarketProvider:
             tresp.raise_for_status()
             coins = tresp.json().get("coins", []) or []
             result["trending_coins"] = [
-                c.get("item", {}).get("id", "") for c in coins if c.get("item", {}).get("id")
+                c.get("item", {}).get("id", "")
+                for c in coins
+                if c.get("item", {}).get("id")
             ][:15]
         except Exception:
             None

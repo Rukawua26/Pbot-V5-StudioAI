@@ -30,7 +30,9 @@ class TelemetryCoverageTest(unittest.TestCase):
             risk_multiplier=1.1,
             data_service=SimpleNamespace(data_cache={"BTC": object()}),
             brain=SimpleNamespace(
-                get_ai_maturity=MagicMock(return_value={"xp_percent": 42, "rank": "SILVER"}),
+                get_ai_maturity=MagicMock(
+                    return_value={"xp_percent": 42, "rank": "SILVER"}
+                ),
                 get_stats=MagicMock(
                     return_value={
                         "shadow_win_rate": 60.0,
@@ -79,7 +81,9 @@ class CommandCoverageTest(unittest.TestCase):
             },
             breakout_agent=SimpleNamespace(
                 size=MagicMock(return_value=3),
-                summary_by_source=MagicMock(return_value={"SHOCK_VETO": 1, "COHERENCE_VETO": 2}),
+                summary_by_source=MagicMock(
+                    return_value={"SHOCK_VETO": 1, "COHERENCE_VETO": 2}
+                ),
                 watchlist={
                     "BTC": {
                         "symbol": "BTC",
@@ -99,21 +103,30 @@ class CommandCoverageTest(unittest.TestCase):
             ],
             brain=SimpleNamespace(
                 get_last_n_trades=MagicMock(return_value=trades),
-                get_ai_maturity=MagicMock(return_value={"rank": "GOLD", "xp_percent": 75}),
+                get_ai_maturity=MagicMock(
+                    return_value={"rank": "GOLD", "xp_percent": 75}
+                ),
                 get_daily_real_pnl=MagicMock(return_value=(1.0, 10.0)),
                 _get_conn=MagicMock(return_value=conn),
                 get_recent_vetos=MagicMock(
-                    return_value=[{"symbol": "BTC", "reason": "RISK", "context_summary": "ctx"}]
+                    return_value=[
+                        {"symbol": "BTC", "reason": "RISK", "context_summary": "ctx"}
+                    ]
                 ),
                 check_consecutive_losses=MagicMock(
                     side_effect=lambda symbol, _n: symbol.startswith("ETH")
                 ),
                 get_agent_reputation=MagicMock(return_value={"MT": 101.0, "G": 88.0}),
                 get_model_insights=MagicMock(
-                    return_value={"top_features": [("rsi", 0.2)], "learned_rule": "rule"}
+                    return_value={
+                        "top_features": [("rsi", 0.2)],
+                        "learned_rule": "rule",
+                    }
                 ),
             ),
-            weight_tracker=SimpleNamespace(get_formatted_report=MagicMock(return_value="ok")),
+            weight_tracker=SimpleNamespace(
+                get_formatted_report=MagicMock(return_value="ok")
+            ),
         )
 
     @patch("core.commands.api_status.send_telegram_msg")
@@ -209,7 +222,14 @@ class DataServiceCoverageTest(unittest.TestCase):
         service = self._service()
         self.assertFalse(service.save_cache_async())
         service.data_cache["BTC_1h"] = pd.DataFrame(
-            {"time": [1], "open": [1], "high": [1], "low": [1], "close": [1], "volume": [1]}
+            {
+                "time": [1],
+                "open": [1],
+                "high": [1],
+                "low": [1],
+                "close": [1],
+                "volume": [1],
+            }
         )
         self.assertTrue(service.save_cache_async())
         self.assertFalse(service.save_cache_async())
@@ -241,7 +261,9 @@ class DataServiceCoverageTest(unittest.TestCase):
 
     def test_download_multiscale_uses_download_historical(self):
         service = self._service()
-        service.download_historical_data = MagicMock(return_value=pd.DataFrame({"time": [1]}))
+        service.download_historical_data = MagicMock(
+            return_value=pd.DataFrame({"time": [1]})
+        )
         result = service.download_multiscale_historical_data(
             "BTC/USDT", days=1, timeframes=["15m", "1h"]
         )
@@ -263,7 +285,9 @@ class DataServiceCoverageTest(unittest.TestCase):
             patch("core.data_service.time.sleep"),
             patch("pandas.DataFrame.to_parquet") as to_parquet,
         ):
-            df = service.download_historical_data("BTC/USDT", "30m", days=1, limit_per_call=1)
+            df = service.download_historical_data(
+                "BTC/USDT", "30m", days=1, limit_per_call=1
+            )
         self.assertEqual(len(df), 2)
         self.assertIn("BTC/USDT_30m", service.data_cache)
         self.assertEqual(service.exchange.fetch_ohlcv.call_count, 2)
@@ -302,14 +326,19 @@ class BotCycleAndSignalCoverageTest(unittest.TestCase):
             run_market_refresh_cycle(bot)
         bot.acquire_targets.assert_called_once()
         with (
-            patch("core.bot_cycles.build_operable_targets", return_value=[{"symbol": "BTC/USDT"}]),
+            patch(
+                "core.bot_cycles.build_operable_targets",
+                return_value=[{"symbol": "BTC/USDT"}],
+            ),
             patch("core.bot_cycles.get_candidate_pool_limit", return_value=1),
         ):
             triage, tickers = run_triage_cycle(bot)
         self.assertEqual(triage[0]["symbol"], "BTC/USDT")
         self.assertIn("BTC/USDT", tickers)
         with patch("core.bot_cycles.Config.TOP_TRIAGE_COUNT", 1):
-            top = prepare_top_triage(bot, [{"symbol": "BTC/USDT"}, {"symbol": "ETH/USDT"}])
+            top = prepare_top_triage(
+                bot, [{"symbol": "BTC/USDT"}, {"symbol": "ETH/USDT"}]
+            )
         self.assertEqual(top, [{"symbol": "BTC/USDT"}])
 
     @patch("core.bot_cycles.send_telegram_msg")
@@ -329,7 +358,9 @@ class BotCycleAndSignalCoverageTest(unittest.TestCase):
         bot = SimpleNamespace(
             daily_initial_balance=100.0,
             balance=100.0,
-            brain=SimpleNamespace(get_daily_real_pnl=MagicMock(return_value=(1.0, 10.0))),
+            brain=SimpleNamespace(
+                get_daily_real_pnl=MagicMock(return_value=(1.0, 10.0))
+            ),
             price_lock=RLock(),
             live_prices={},
             live_prices_ts={},
@@ -339,7 +370,9 @@ class BotCycleAndSignalCoverageTest(unittest.TestCase):
             _get_cached_btc_data=MagicMock(return_value=btc_1h),
             current_sentiment=("🔴 TENDENCIA BAJISTA", "red"),
             log=MagicMock(),
-            execution=SimpleNamespace(fetch_ticker=MagicMock(return_value={"last": 100.0})),
+            execution=SimpleNamespace(
+                fetch_ticker=MagicMock(return_value={"last": 100.0})
+            ),
         )
 
         pnl = run_market_context_cycle(bot, {"BTC/USDT": {"last": 100.0}})
@@ -364,18 +397,26 @@ class BotCycleAndSignalCoverageTest(unittest.TestCase):
             db_lock=RLock(),
             active_trades={},
             scanner_history=[{"symbol": "BTC/USDT", "result": ""}],
-            data_service=SimpleNamespace(sanitize_context=MagicMock(side_effect=lambda ctx: ctx)),
+            data_service=SimpleNamespace(
+                sanitize_context=MagicMock(side_effect=lambda ctx: ctx)
+            ),
             brain=SimpleNamespace(log_signal_alert=MagicMock()),
             main_loop=None,
             _update_signal_diagnostics=MagicMock(),
             _build_symbol_context=MagicMock(
                 return_value=({"signal": "BUY", "mode": "SHADOW"}, {}, "⚪", 1.0)
             ),
-            _apply_entry_filters_and_adjust_prob=MagicMock(return_value=(75.0, True, "OK", {})),
+            _apply_entry_filters_and_adjust_prob=MagicMock(
+                return_value=(75.0, True, "OK", {})
+            ),
             _resolve_audit_verdict_and_stats=MagicMock(return_value="OK"),
-            _plan_execution_mode=MagicMock(return_value=(False, True, "OK", True, "OK")),
+            _plan_execution_mode=MagicMock(
+                return_value=(False, True, "OK", True, "OK")
+            ),
             _execute_and_update_symbol=MagicMock(),
-            _analyze_symbol_candidate=MagicMock(return_value=("BUY", "SHADOW", 10.0, 75.0, {}, {})),
+            _analyze_symbol_candidate=MagicMock(
+                return_value=("BUY", "SHADOW", 10.0, 75.0, {}, {})
+            ),
         )
         top = [{"symbol": "BTC/USDT"}, {"symbol": "ETH/USDT"}]
         results = {
@@ -428,7 +469,9 @@ class OpsCommandCoverageTest(unittest.TestCase):
             ),
             main_loop=None,
             data_service=SimpleNamespace(
-                fetch_and_update_data=MagicMock(return_value=pd.DataFrame({"close": [1]}))
+                fetch_and_update_data=MagicMock(
+                    return_value=pd.DataFrame({"close": [1]})
+                )
             ),
             brain=SimpleNamespace(
                 pending_model_update=False,
@@ -440,7 +483,9 @@ class OpsCommandCoverageTest(unittest.TestCase):
             market_btc_change_tf=0.0,
             cooldown_pairs={"BTC": "x"},
             cooldown_deadlines_mono={"BTC": 1.0},
-            risk_engine=SimpleNamespace(temp_blacklist={"ETH": 1}, symbol_streaks={"ETH": 2}),
+            risk_engine=SimpleNamespace(
+                temp_blacklist={"ETH": 1}, symbol_streaks={"ETH": 2}
+            ),
             active_trades={"BTC/USDT": {"entry_client_order_id": "cid"}},
             execution=SimpleNamespace(
                 fetch_open_orders=MagicMock(return_value=[]),
@@ -513,9 +558,13 @@ class OpsCommandCoverageTest(unittest.TestCase):
                 {"G": 60, "MT": 70, "SR": 80},
             ),
         ):
-            self.assertTrue(_handle_training_and_maintenance_commands(bot, "/explain BTC/USDT"))
+            self.assertTrue(
+                _handle_training_and_maintenance_commands(bot, "/explain BTC/USDT")
+            )
         self.assertTrue(_handle_training_and_maintenance_commands(bot, "/force_clear"))
-        self.assertTrue(_handle_training_and_maintenance_commands(bot, "/force_clear BTC/USDT"))
+        self.assertTrue(
+            _handle_training_and_maintenance_commands(bot, "/force_clear BTC/USDT")
+        )
         bot.brain.delete_active_trade_state.assert_called_once_with("BTC/USDT")
 
 
@@ -579,7 +628,9 @@ class BotIoLoopsCoverageTest(unittest.TestCase):
         bot = SimpleNamespace(
             db_lock=RLock(),
             log=MagicMock(),
-            execution=SimpleNamespace(fetch_ticker=MagicMock(return_value={"last": 90.0})),
+            execution=SimpleNamespace(
+                fetch_ticker=MagicMock(return_value={"last": 90.0})
+            ),
             brain=SimpleNamespace(
                 get_trades_pending_post_mortem=MagicMock(
                     return_value=[
@@ -610,23 +661,39 @@ class BotIoLoopsCoverageTest(unittest.TestCase):
     @patch("core.bot_io_loops.Config.TELEGRAM_TOKEN", "token")
     @patch("core.bot_io_loops.Config.TELEGRAM_CHAT_ID", "123")
     @patch("core.bot_io_loops.Config.TELEGRAM_ADMIN_IDS", "7")
-    def test_telegram_listener_accepts_and_rejects_once(self, get_json, append_event, _sleep):
+    def test_telegram_listener_accepts_and_rejects_once(
+        self, get_json, append_event, _sleep
+    ):
         from core.bot_io_loops import telegram_listener
 
         bot = SimpleNamespace(
-            is_running=True, handle_command=MagicMock(), _telegram_last_err_log=0.0, log=MagicMock()
+            is_running=True,
+            handle_command=MagicMock(),
+            _telegram_last_err_log=0.0,
+            log=MagicMock(),
         )
         get_json.return_value = {
             "result": [
                 {
                     "update_id": 1,
-                    "message": {"text": "/ok", "chat": {"id": "123"}, "from": {"id": 7}},
+                    "message": {
+                        "text": "/ok",
+                        "chat": {"id": "123"},
+                        "from": {"id": 7},
+                    },
                 },
                 {
                     "update_id": 2,
-                    "message": {"text": "/bad", "chat": {"id": "999"}, "from": {"id": 7}},
+                    "message": {
+                        "text": "/bad",
+                        "chat": {"id": "999"},
+                        "from": {"id": 7},
+                    },
                 },
-                {"update_id": 3, "message": {"text": "", "chat": {"id": "123"}, "from": {"id": 7}}},
+                {
+                    "update_id": 3,
+                    "message": {"text": "", "chat": {"id": "123"}, "from": {"id": 7}},
+                },
             ]
         }
 

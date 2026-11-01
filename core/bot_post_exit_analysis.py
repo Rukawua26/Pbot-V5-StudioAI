@@ -15,7 +15,11 @@ def load_local_candles(symbol, timeframe="1h"):
         required = {"time", "high", "low"}
         if not required.issubset(set(df.columns)):
             return None
-        return df.sort_values("time").drop_duplicates(subset=["time"]).reset_index(drop=True)
+        return (
+            df.sort_values("time")
+            .drop_duplicates(subset=["time"])
+            .reset_index(drop=True)
+        )
     except Exception:
         return None
 

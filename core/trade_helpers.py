@@ -75,7 +75,9 @@ def _emergency_market_close(
         if bool(getattr(bot, "is_hedge_mode", False))
         else None
     )
-    emergency_params = {"positionSide": hedge_position_side} if hedge_position_side else None
+    emergency_params = (
+        {"positionSide": hedge_position_side} if hedge_position_side else None
+    )
 
     def _close_result_confirmed(order_result) -> bool:
         if verify_flat:
@@ -106,7 +108,9 @@ def _emergency_market_close(
                 close_ok = True
                 break
             last_close_error = "close order not confirmed flat"
-            bot.log(f"⚠️ EMERGENCY_CLOSE {symbol}: cierre no confirmado, exposición sigue abierta")
+            bot.log(
+                f"⚠️ EMERGENCY_CLOSE {symbol}: cierre no confirmado, exposición sigue abierta"
+            )
         except Exception as close_error:
             last_close_error = str(close_error)
             bot.log(
@@ -163,7 +167,9 @@ def _emergency_market_close(
         with bot.lock:
             if trade_key in bot.active_trades:
                 del bot.active_trades[trade_key]
-        bot.log(f"🧯 EMERGENCY CLOSE {symbol}: SL inválido por gap, cierre MARKET ejecutado")
+        bot.log(
+            f"🧯 EMERGENCY CLOSE {symbol}: SL inválido por gap, cierre MARKET ejecutado"
+        )
 
     if not close_ok and halt_on_failure:
         bot.is_paused = True
@@ -204,7 +210,9 @@ def _emergency_market_close(
     return close_ok, result
 
 
-def _fail_safe_close_when_sl_missing(bot, symbol: str, side: str, amount: float) -> bool:
+def _fail_safe_close_when_sl_missing(
+    bot, symbol: str, side: str, amount: float
+) -> bool:
     close_ok, _result = _emergency_market_close(
         bot=bot,
         symbol=symbol,
@@ -244,7 +252,9 @@ def _validate_symbol_entry(bot, symbol: str, is_shadow: bool) -> str | None:
     if not is_shadow:
         execution = getattr(bot, "execution", None)
         is_quarantined = getattr(execution, "is_symbol_quarantined", None)
-        get_remaining = getattr(execution, "get_symbol_quarantine_remaining_seconds", None)
+        get_remaining = getattr(
+            execution, "get_symbol_quarantine_remaining_seconds", None
+        )
         if callable(is_quarantined) and is_quarantined(symbol):
             remaining_s = int(get_remaining(symbol) if callable(get_remaining) else 0)
             bot.log(
@@ -270,7 +280,9 @@ def _calculate_pnl_and_metrics(
         leverage=trade.get("leverage", 1),
         fee_usd=float(fees or 0.0),
         margin_used=trade.get("margin_used"),
-        percent_on_margin=bool(trade.get("is_shadow", False) or trade.get("simulated_real", False)),
+        percent_on_margin=bool(
+            trade.get("is_shadow", False) or trade.get("simulated_real", False)
+        ),
     )
     pnl_bruto_usd = pnl_core["gross_usd"]
     pnl_neto_usd = pnl_core["net_usd"]
@@ -281,11 +293,23 @@ def _calculate_pnl_and_metrics(
     mfe_price = trade.get("mfe_price", entry_price)
 
     if side == "BUY":
-        mae_percent = ((entry_price - mae_price) / entry_price) * 100 if mae_price else 0
-        mfe_percent = ((mfe_price - entry_price) / entry_price) * 100 if mfe_price else 0
+        mae_percent = (
+            ((entry_price - mae_price) / entry_price) * 100 if mae_price else 0
+        )
+        mfe_percent = (
+            ((mfe_price - entry_price) / entry_price) * 100 if mfe_price else 0
+        )
     else:
-        mae_percent = ((mae_price - entry_price) / entry_price) * 100 if mae_price else 0
-        mfe_percent = ((entry_price - mfe_price) / entry_price) * 100 if mfe_price else 0
+        mae_percent = (
+            ((mae_price - entry_price) / entry_price) * 100 if mae_price else 0
+        )
+        mfe_percent = (
+            ((entry_price - mfe_price) / entry_price) * 100 if mfe_price else 0
+        )
+
+    # Defensa: MAE y MFE nunca pueden ser negativos por definicion
+    mae_percent = max(0.0, float(mae_percent or 0.0))
+    mfe_percent = max(0.0, float(mfe_percent or 0.0))
 
     return {
         "amt": amt,
@@ -335,7 +359,9 @@ def restore_simulated_wallet_state(bot) -> bool:
         balance = float(state["balance"])
         daily_initial_balance = float(state["daily_initial_balance"])
     except (KeyError, TypeError, ValueError):
-        raise RuntimeError("SIMULATED_WALLET_STATE_INVALID: missing numeric fields") from None
+        raise RuntimeError(
+            "SIMULATED_WALLET_STATE_INVALID: missing numeric fields"
+        ) from None
     if not math.isfinite(balance) or balance < 0.0:
         raise RuntimeError("SIMULATED_WALLET_STATE_INVALID: invalid balance")
     if not math.isfinite(daily_initial_balance) or daily_initial_balance < 0.0:
@@ -352,7 +378,9 @@ def persist_simulated_wallet_state(bot) -> bool:
         return True
     state = {
         "balance": float(getattr(bot, "balance", 0.0) or 0.0),
-        "daily_initial_balance": float(getattr(bot, "daily_initial_balance", 0.0) or 0.0),
+        "daily_initial_balance": float(
+            getattr(bot, "daily_initial_balance", 0.0) or 0.0
+        ),
     }
     db_lock = getattr(bot, "db_lock", None)
     ctx = db_lock if db_lock is not None else nullcontext()
@@ -410,7 +438,9 @@ def _calculate_trade_pnl(
         "net_pct": net_pct,
         "fee_usd": fee_total,
         "notional_usd": notional,
-        "margin_used": pct_base if percent_on_margin else _calculate_margin_used(notional, lev),
+        "margin_used": pct_base
+        if percent_on_margin
+        else _calculate_margin_used(notional, lev),
     }
 
 
@@ -455,16 +485,22 @@ def _release_simulated_margin(bot, trade: dict[str, Any], pnl_usd: float) -> boo
         trade["margin_released"] = True
         wallet_state = {
             "balance": float(bot.balance),
-            "daily_initial_balance": float(getattr(bot, "daily_initial_balance", 0.0) or 0.0),
+            "daily_initial_balance": float(
+                getattr(bot, "daily_initial_balance", 0.0) or 0.0
+            ),
         }
         trade_key = str(trade.get("trade_key") or "")
-        settler = getattr(getattr(bot, "brain", None), "settle_simulated_trade_wallet", None)
+        settler = getattr(
+            getattr(bot, "brain", None), "settle_simulated_trade_wallet", None
+        )
         if trade_key and callable(settler):
             db_lock = getattr(bot, "db_lock", None)
             db_ctx = db_lock if db_lock is not None else nullcontext()
             try:
                 with db_ctx:
-                    persisted = bool(settler(trade_key, SIMULATED_WALLET_META_KEY, wallet_state))
+                    persisted = bool(
+                        settler(trade_key, SIMULATED_WALLET_META_KEY, wallet_state)
+                    )
             except Exception:
                 persisted = False
         else:
@@ -500,14 +536,18 @@ def _safe_update_signal_alert_status(bot, entry_client_order_id, status) -> None
 def _order_looks_filled(order: dict) -> bool:
     if not isinstance(order, dict):
         return False
-    status = str(order.get("status") or (order.get("info") or {}).get("status") or "").lower()
+    status = str(
+        order.get("status") or (order.get("info") or {}).get("status") or ""
+    ).lower()
     return status in {"closed", "filled"}
 
 
 def _exchange_position_is_flat(bot, symbol: str, side: str | None = None) -> bool:
     fetch_positions = getattr(getattr(bot, "execution", None), "fetch_positions", None)
     if not callable(fetch_positions):
-        raise RuntimeError("No se puede confirmar exposición cero: fetch_positions no disponible")
+        raise RuntimeError(
+            "No se puede confirmar exposición cero: fetch_positions no disponible"
+        )
 
     positions = fetch_positions() or []
     for pos in positions:

@@ -14,8 +14,12 @@ class BotSecurityRuntimeTest(unittest.TestCase):
     @patch("core.bot_io_loops.telegram_get_json")
     @patch("core.bot_io_loops.Config.TELEGRAM_CHAT_ID", "123")
     @patch("core.bot_io_loops.Config.TELEGRAM_TOKEN", "token")
-    def test_telegram_listener_ignores_unauthorized_chat(self, mocked_updates, _mocked_sleep):
-        bot = SimpleNamespace(is_running=True, handle_command=MagicMock(), log=MagicMock())
+    def test_telegram_listener_ignores_unauthorized_chat(
+        self, mocked_updates, _mocked_sleep
+    ):
+        bot = SimpleNamespace(
+            is_running=True, handle_command=MagicMock(), log=MagicMock()
+        )
 
         def _updates(*_args, **_kwargs):
             bot.is_running = False
@@ -50,8 +54,12 @@ class BotSecurityRuntimeTest(unittest.TestCase):
     @patch("core.bot_io_loops.telegram_get_json")
     @patch("core.bot_io_loops.Config.TELEGRAM_CHAT_ID", "123")
     @patch("core.bot_io_loops.Config.TELEGRAM_TOKEN", "token")
-    def test_telegram_listener_accepts_authorized_chat(self, mocked_updates, _mocked_sleep):
-        bot = SimpleNamespace(is_running=True, handle_command=MagicMock(), log=MagicMock())
+    def test_telegram_listener_accepts_authorized_chat(
+        self, mocked_updates, _mocked_sleep
+    ):
+        bot = SimpleNamespace(
+            is_running=True, handle_command=MagicMock(), log=MagicMock()
+        )
 
         def _handle(text):
             bot.is_running = False
@@ -185,7 +193,9 @@ class BotSecurityRuntimeTest(unittest.TestCase):
                     ]
                 ),
                 fetch_position_mode=MagicMock(return_value={"hedged": False}),
-                get_position_side_dual=MagicMock(return_value={"dualSidePosition": False}),
+                get_position_side_dual=MagicMock(
+                    return_value={"dualSidePosition": False}
+                ),
             ),
             data_service=SimpleNamespace(exchange=None),
             sync_wallet=MagicMock(),
@@ -236,7 +246,9 @@ class BotSecurityRuntimeTest(unittest.TestCase):
                 load_markets=MagicMock(),
                 fetch_balance=MagicMock(return_value={"USDT": {"total": 1}}),
                 fetch_position_mode=MagicMock(return_value={"hedged": False}),
-                get_position_side_dual=MagicMock(return_value={"dualSidePosition": False}),
+                get_position_side_dual=MagicMock(
+                    return_value={"dualSidePosition": False}
+                ),
             ),
             data_service=SimpleNamespace(exchange=None),
             sync_wallet=MagicMock(),
@@ -250,7 +262,9 @@ class BotSecurityRuntimeTest(unittest.TestCase):
     @patch("core.bot_connection.Config.USE_TESTNET", False)
     @patch("core.bot_connection.Config.PAPER_MODE", False)
     @patch("core.bot_connection.ccxt.binance")
-    def test_connect_to_binance_aborts_when_position_mode_detection_fails(self, mocked_binance):
+    def test_connect_to_binance_aborts_when_position_mode_detection_fails(
+        self, mocked_binance
+    ):
         exchange = MagicMock()
         mocked_binance.return_value = exchange
 
@@ -340,7 +354,9 @@ class BotSecurityRuntimeTest(unittest.TestCase):
                 return self.exchange.load_markets()
 
         live_execution = _LiveExecution()
-        adapter = ShadowExecutionAdapter(live_execution, min_latency_ms=0, max_latency_ms=0)
+        adapter = ShadowExecutionAdapter(
+            live_execution, min_latency_ms=0, max_latency_ms=0
+        )
         bot = SimpleNamespace(
             log=MagicMock(),
             execution=adapter,
@@ -364,7 +380,9 @@ class BotSecurityRuntimeTest(unittest.TestCase):
     @patch("core.bot_connection.Config.USE_TESTNET", True)
     @patch("core.bot_connection.Config.PAPER_MODE", True)
     @patch("core.bot_connection.ccxt.binance")
-    def test_paper_testnet_fallback_updates_shadow_live_inner_exchange(self, mocked_binance):
+    def test_paper_testnet_fallback_updates_shadow_live_inner_exchange(
+        self, mocked_binance
+    ):
         sandbox_exchange = MagicMock()
         sandbox_exchange.load_markets.side_effect = RuntimeError(
             "binance does not have a testnet/sandbox URL for public endpoints"
@@ -386,7 +404,9 @@ class BotSecurityRuntimeTest(unittest.TestCase):
                 return self.exchange.load_markets()
 
         live_execution = _LiveExecution()
-        adapter = ShadowExecutionAdapter(live_execution, min_latency_ms=0, max_latency_ms=0)
+        adapter = ShadowExecutionAdapter(
+            live_execution, min_latency_ms=0, max_latency_ms=0
+        )
         bot = SimpleNamespace(
             log=MagicMock(),
             execution=adapter,
@@ -410,7 +430,9 @@ class BotSecurityRuntimeTest(unittest.TestCase):
     @patch("core.bot_connection.Config.USE_TESTNET", True)
     @patch("core.bot_connection.Config.PAPER_MODE", False)
     @patch("core.bot_connection.ccxt.binance")
-    def test_connect_to_binance_fails_clearly_when_sandbox_activation_breaks(self, mocked_binance):
+    def test_connect_to_binance_fails_clearly_when_sandbox_activation_breaks(
+        self, mocked_binance
+    ):
         exchange = MagicMock()
         exchange.set_sandbox_mode.side_effect = RuntimeError("unsupported")
         mocked_binance.return_value = exchange

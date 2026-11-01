@@ -88,7 +88,18 @@ class StrategyUtils:
 
             if any(
                 pd.isna(v)
-                for v in [ema_9, ema_21, ema, rsi, atr, adx, bb_lower, bb_upper, volume_ma, close]
+                for v in [
+                    ema_9,
+                    ema_21,
+                    ema,
+                    rsi,
+                    atr,
+                    adx,
+                    bb_lower,
+                    bb_upper,
+                    volume_ma,
+                    close,
+                ]
             ):
                 return None
             if (
@@ -107,7 +118,9 @@ class StrategyUtils:
             try:
                 from config import Config
 
-                slope_lookback = max(1, int(getattr(Config, "EMA_SLOPE_LOOKBACK", 2) or 2))
+                slope_lookback = max(
+                    1, int(getattr(Config, "EMA_SLOPE_LOOKBACK", 2) or 2)
+                )
                 slope_comparison_enabled = bool(
                     getattr(Config, "EMA_SLOPE_COMPARISON_ENABLED", True)
                 )
@@ -133,7 +146,9 @@ class StrategyUtils:
                     if len(work) > slope_alt_lookback
                     else ema
                 )
-                ema50_slope_alt = ((ema - ema_prev_alt) / ema_prev_alt) if ema_prev_alt > 0 else 0.0
+                ema50_slope_alt = (
+                    ((ema - ema_prev_alt) / ema_prev_alt) if ema_prev_alt > 0 else 0.0
+                )
             result = {
                 "rows": float(len(work)),
                 "ema_9": ema_9,
@@ -157,7 +172,9 @@ class StrategyUtils:
 
             if cc is not None and "time" in df.columns:
                 try:
-                    cc.set("snapshot", cache_symbol, "1h", int(df["time"].iloc[-1]), result)
+                    cc.set(
+                        "snapshot", cache_symbol, "1h", int(df["time"].iloc[-1]), result
+                    )
                 except Exception:
                     logger.debug("CandleCloseCache write failed", exc_info=True)
 
@@ -218,7 +235,9 @@ class StrategyUtils:
             body = abs(candle["close"] - candle["open"])
             vol = candle["volume"] if "volume" in df.columns else 1.0
 
-            if float(body) > (float(avg_body) * 1.6) and float(vol) > (float(avg_volume) * 1.2):
+            if float(body) > (float(avg_body) * 1.6) and float(vol) > (
+                float(avg_volume) * 1.2
+            ):
                 is_bullish_ob = candle["close"] < candle["open"]
                 is_bearish_ob = candle["close"] > candle["open"]
                 current_price = df["close"].iloc[-1]
@@ -248,7 +267,9 @@ class StrategyUtils:
     @staticmethod
     def preprocess_data(df: pd.DataFrame, mode: str = "full") -> pd.DataFrame | None:
         """Punto único de cálculo de indicadores y normalización dinámica Z-Score."""
-        if df is None or len(df) < 100:  # Aumentado a 100 para soportar la ventana de normalización
+        if (
+            df is None or len(df) < 100
+        ):  # Aumentado a 100 para soportar la ventana de normalización
             return None
 
         try:
@@ -412,9 +433,14 @@ class StrategyUtils:
             window_size = 100
             for col in all_scaled_cols:
                 if col in df.columns:
-                    rolling_mean = df[col].rolling(window=window_size, min_periods=10).mean()
+                    rolling_mean = (
+                        df[col].rolling(window=window_size, min_periods=10).mean()
+                    )
                     rolling_std = (
-                        df[col].rolling(window=window_size, min_periods=10).std().replace(0, 1e-10)
+                        df[col]
+                        .rolling(window=window_size, min_periods=10)
+                        .std()
+                        .replace(0, 1e-10)
                     )
                     df[col] = (df[col] - rolling_mean) / rolling_std
 
@@ -424,5 +450,7 @@ class StrategyUtils:
 
             return df
         except Exception as e:
-            logger.error(f"❌ Error en preprocess_data (mode={mode}): {e}", exc_info=True)
+            logger.error(
+                f"❌ Error en preprocess_data (mode={mode}): {e}", exc_info=True
+            )
             return None

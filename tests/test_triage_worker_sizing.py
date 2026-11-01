@@ -35,11 +35,15 @@ class TriageWorkerSizingTest(unittest.TestCase):
     @patch("core.bot_cycles.asyncio.run_coroutine_threadsafe")
     @patch("core.bot_cycles._resolve_triage_worker_count", return_value=16)
     @patch("core.bot_cycles.Config.TRIAGE_TIMEOUT_SECONDS", 4)
-    def test_async_wait_budget_accounts_for_worker_waves(self, _workers, run_threadsafe):
+    def test_async_wait_budget_accounts_for_worker_waves(
+        self, _workers, run_threadsafe
+    ):
         completed = MagicMock()
         completed.result.return_value = {}
         run_threadsafe.return_value = completed
-        bot = SimpleNamespace(main_loop=SimpleNamespace(is_running=MagicMock(return_value=True)))
+        bot = SimpleNamespace(
+            main_loop=SimpleNamespace(is_running=MagicMock(return_value=True))
+        )
         top_triage = [{"symbol": f"S{i}/USDT"} for i in range(30)]
 
         fetch_triage_data_parallel(bot, top_triage)

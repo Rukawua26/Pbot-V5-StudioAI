@@ -23,7 +23,9 @@ def _create_trade_db(rows):
         )
         """
     )
-    conn.executemany("INSERT INTO trades (timestamp, pnl, is_shadow) VALUES (?, ?, ?)", rows)
+    conn.executemany(
+        "INSERT INTO trades (timestamp, pnl, is_shadow) VALUES (?, ?, ?)", rows
+    )
     conn.commit()
     conn.close()
     return tmpdir, db_path
@@ -72,7 +74,9 @@ class DailyCircuitBreakerTest(unittest.TestCase):
     @patch("core.bot_main_loop.Config.PAPER_MODE", False)
     @patch("core.risk_policy.send_telegram_msg")
     @patch("core.bot_main_loop.get_daily_pnl_pct", return_value=(None, None))
-    def test_breaker_fails_closed_when_drawdown_is_unverifiable(self, _mock_drawdown, mocked_send):
+    def test_breaker_fails_closed_when_drawdown_is_unverifiable(
+        self, _mock_drawdown, mocked_send
+    ):
         bot = SimpleNamespace(
             brain=SimpleNamespace(db_name="missing.db"),
             get_current_balance=MagicMock(return_value=1000.0),

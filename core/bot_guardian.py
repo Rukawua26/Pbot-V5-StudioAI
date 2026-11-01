@@ -82,7 +82,9 @@ def _sync_tightened_hard_sl(bot, symbol: str, trade: dict, previous_sl: float) -
         expected_amount=amount,
     )
     if not new_order or not sl_ack_ok:
-        ack_detail = sl_ack_reason or str(getattr(bot.execution, "last_hard_sl_error", "") or "")
+        ack_detail = sl_ack_reason or str(
+            getattr(bot.execution, "last_hard_sl_error", "") or ""
+        )
         bot.is_paused = True
         bot.integrity_lock_active = True
         setattr(bot, "halt_system_active", True)
@@ -149,7 +151,9 @@ def _sync_tightened_hard_sl(bot, symbol: str, trade: dict, previous_sl: float) -
                     "new_order_id": new_order.get("id"),
                 },
             )
-            bot.log(f"🛑 HARD_SL_AMEND_CANCEL_AMBIGUOUS {symbol}/{old_order_id}: {error}")
+            bot.log(
+                f"🛑 HARD_SL_AMEND_CANCEL_AMBIGUOUS {symbol}/{old_order_id}: {error}"
+            )
             return
 
     trade["sl_exchange_order_id"] = new_order.get("id")
@@ -161,7 +165,12 @@ def _sync_tightened_hard_sl(bot, symbol: str, trade: dict, previous_sl: float) -
     append_execution_event(
         bot,
         "HARD_SL_AMENDED",
-        {"symbol": symbol, "old_sl": previous_sl, "new_sl": new_sl, "old_order_id": old_order_id},
+        {
+            "symbol": symbol,
+            "old_sl": previous_sl,
+            "new_sl": new_sl,
+            "old_order_id": old_order_id,
+        },
     )
     append_runtime_metric(
         "hard_sl",
@@ -188,12 +197,17 @@ def _tp1_confirmed_fill(
     if not math.isfinite(parsed_fill) or parsed_fill <= 0.0:
         return None
     tolerance = max(1e-12, abs(requested_amount) * 1e-9)
-    if parsed_fill > requested_amount + tolerance or parsed_fill > current_amount + tolerance:
+    if (
+        parsed_fill > requested_amount + tolerance
+        or parsed_fill > current_amount + tolerance
+    ):
         return None
     return min(parsed_fill, current_amount)
 
 
-def _mark_tp1_local(bot, symbol: str, trade: dict, filled_amount: float | None = None) -> None:
+def _mark_tp1_local(
+    bot, symbol: str, trade: dict, filled_amount: float | None = None
+) -> None:
     trade_key = str(trade.get("trade_key") or symbol)
     current_amount = float(trade.get("amount") or 0.0)
     if filled_amount is None:
@@ -201,7 +215,9 @@ def _mark_tp1_local(bot, symbol: str, trade: dict, filled_amount: float | None =
         remaining_amount = current_amount * remaining_ratio
     else:
         remaining_amount = max(0.0, current_amount - filled_amount)
-        remaining_ratio = remaining_amount / current_amount if current_amount > 0.0 else 0.0
+        remaining_ratio = (
+            remaining_amount / current_amount if current_amount > 0.0 else 0.0
+        )
     trade["tp1_triggered"] = True
     trade["size_usd"] = float(trade.get("size_usd") or 0.0) * remaining_ratio
     trade["amount"] = remaining_amount
@@ -217,7 +233,9 @@ def _halt_tp1_ambiguous(bot, symbol: str, trade: dict, error: str) -> None:
     trade["status"] = "TP1_EXIT_AMBIGUOUS"
     with bot.db_lock:
         bot.brain.save_active_trade_state(trade_key, trade)
-    append_execution_event(bot, "TP1_EXIT_AMBIGUOUS_HALT", {"symbol": symbol, "error": error[:180]})
+    append_execution_event(
+        bot, "TP1_EXIT_AMBIGUOUS_HALT", {"symbol": symbol, "error": error[:180]}
+    )
     append_runtime_metric(
         "halt", {"reason": "TP1_EXIT_AMBIGUOUS", "symbol": symbol, "error": error[:180]}
     )
@@ -356,7 +374,9 @@ def run_guardian_loop(bot):
                                 "symbol": s,
                                 "status": t.get("status"),
                                 "amount": float(t.get("amount") or 0.0),
-                                "remaining_amount": float(t.get("remaining_amount") or 0.0),
+                                "remaining_amount": float(
+                                    t.get("remaining_amount") or 0.0
+                                ),
                             },
                         )
                         bot.log(
@@ -374,14 +394,16 @@ def run_guardian_loop(bot):
                     else:
                         ot = utc_now()
 
-                    current_conf = t.get("current_confidence", t.get("entry_confidence", 75.0))
+                    current_conf = t.get(
+                        "current_confidence", t.get("entry_confidence", 75.0)
+                    )
                     entry_conf = t.get("entry_confidence", 75.0)
                     bailout_armed = (utc_now() - ot).total_seconds() >= (15 * 60)
                     abort_needed = False
                     abort_reason = "CONF_BAILOUT_COOLDOWN"
-                    trade_is_ttf = str(t.get("strategy_engine", "")).lower() == "triple_tf" or bool(
-                        t.get("ttf_metrics")
-                    )
+                    trade_is_ttf = str(
+                        t.get("strategy_engine", "")
+                    ).lower() == "triple_tf" or bool(t.get("ttf_metrics"))
                     if bailout_armed and not trade_is_ttf:
                         abort_needed, abort_reason = bot.risk_engine.should_abort_trade(
                             entry_conf,
@@ -400,7 +422,9 @@ def run_guardian_loop(bot):
                             abort_price = float(price_map[binance_symbol])
                         if abort_price <= 0:
                             try:
-                                abort_price = float(bot.execution.fetch_ticker(s)["last"])
+                                abort_price = float(
+                                    bot.execution.fetch_ticker(s)["last"]
+                                )
                             except Exception:
                                 abort_price = float(t.get("entry") or 0.0)
                         elapsed_mins = max(0.0, (utc_now() - ot).total_seconds() / 60.0)
@@ -419,20 +443,33 @@ def run_guardian_loop(bot):
                             if str(t.get("side") or "BUY").upper() == "SELL":
                                 gross_usd *= -1
                             notional = entry_price * amount
-                            gross_pct = (gross_usd / notional) * 100.0 if notional > 0 else 0.0
-                            fee_floor_usd = (entry_price * amount * Config.VIRTUAL_FEE) + (
-                                abort_price * amount * Config.VIRTUAL_FEE
+                            gross_pct = (
+                                (gross_usd / notional) * 100.0 if notional > 0 else 0.0
                             )
+                            fee_floor_usd = (
+                                entry_price * amount * Config.VIRTUAL_FEE
+                            ) + (abort_price * amount * Config.VIRTUAL_FEE)
                             fee_floor_pct = (
-                                (fee_floor_usd / notional) * 100.0 if notional > 0 else 0.0
+                                (fee_floor_usd / notional) * 100.0
+                                if notional > 0
+                                else 0.0
                             )
-                            votes = dict((t.get("last_confidence_trace") or {}).get("votes") or {})
+                            votes = dict(
+                                (t.get("last_confidence_trace") or {}).get("votes")
+                                or {}
+                            )
                             side_key = str(t.get("side") or "BUY").upper()
                             dominant_killer = (
-                                max(votes.items(), key=lambda item: float(item[1] or 0.0))[0]
+                                max(
+                                    votes.items(),
+                                    key=lambda item: float(item[1] or 0.0),
+                                )[0]
                                 if votes and side_key == "SELL"
                                 else (
-                                    min(votes.items(), key=lambda item: float(item[1] or 0.0))[0]
+                                    min(
+                                        votes.items(),
+                                        key=lambda item: float(item[1] or 0.0),
+                                    )[0]
                                     if votes
                                     else "UNKNOWN"
                                 )
@@ -441,25 +478,34 @@ def run_guardian_loop(bot):
                             with db_lock or nullcontext():
                                 audit_id = bot.brain.upsert_confidence_exit_audit(
                                     {
-                                        "entry_client_order_id": t.get("entry_client_order_id"),
+                                        "entry_client_order_id": t.get(
+                                            "entry_client_order_id"
+                                        ),
                                         "symbol": s,
                                         "side": side_key,
                                         "is_shadow": bool(t.get("is_shadow", False)),
                                         "entry_price": entry_price,
                                         "amount": amount,
                                         "entry_time": t.get("open_time"),
-                                        "entry_confidence": float(t.get("entry_confidence") or 0.0),
+                                        "entry_confidence": float(
+                                            t.get("entry_confidence") or 0.0
+                                        ),
                                         "floor_confidence": float(current_conf or 0.0),
                                         "confidence_drop_pct": (
                                             (
                                                 (
-                                                    float(t.get("entry_confidence") or 0.0)
+                                                    float(
+                                                        t.get("entry_confidence") or 0.0
+                                                    )
                                                     - float(current_conf or 0.0)
                                                 )
-                                                / float(t.get("entry_confidence") or 1.0)
+                                                / float(
+                                                    t.get("entry_confidence") or 1.0
+                                                )
                                                 * 100.0
                                             )
-                                            if float(t.get("entry_confidence") or 0.0) > 0
+                                            if float(t.get("entry_confidence") or 0.0)
+                                            > 0
                                             else 0.0
                                         ),
                                         "floor_price": abort_price,
@@ -468,7 +514,9 @@ def run_guardian_loop(bot):
                                         "fee_floor_usd": fee_floor_usd,
                                         "fee_floor_pct": fee_floor_pct,
                                         "fee_noise_zone": defer_exit,
-                                        "guard_reason": defer_reason if defer_exit else "NO_DEFER",
+                                        "guard_reason": defer_reason
+                                        if defer_exit
+                                        else "NO_DEFER",
                                         "trigger_reason": abort_reason,
                                         "votes": votes,
                                         "dominant_killer": dominant_killer,
@@ -478,9 +526,13 @@ def run_guardian_loop(bot):
                             if audit_id:
                                 t["confidence_exit_audit_id"] = audit_id
                         if defer_exit:
-                            bot.log(f"🪙 FEE_NOISE_GUARD {s}: bailout diferido | {defer_reason}")
+                            bot.log(
+                                f"🪙 FEE_NOISE_GUARD {s}: bailout diferido | {defer_reason}"
+                            )
                             continue
-                        bot.log(f"🚨 [v118-BAILOUT] {s}: Abortando por degradación de señal.")
+                        bot.log(
+                            f"🚨 [v118-BAILOUT] {s}: Abortando por degradación de señal."
+                        )
                         bot._guardian_stats["bailout_count"] += 1
                         bot.close_trade(
                             s,
@@ -504,21 +556,24 @@ def run_guardian_loop(bot):
                         try:
                             curr = float(bot.execution.fetch_ticker(s)["last"])
                         except Exception as fetch_e:
-                            bot.log(f"Guardian: No se pudo obtener precio para {s}: {fetch_e}")
+                            bot.log(
+                                f"Guardian: No se pudo obtener precio para {s}: {fetch_e}"
+                            )
                             continue  # Saltar al siguiente símbolo si no se puede obtener el precio
                     t["last_price"] = curr
 
                     # MAE/MFE Tracking (Maximum Adverse/Favorable Excursion)
                     side = t.get("side", "BUY")
+                    entry_px = float(t.get("entry") or curr)
                     if side == "BUY":
-                        if curr < t.get("mae_price", float("inf")):
+                        if curr < t.get("mae_price", entry_px):
                             t["mae_price"] = curr
-                        if curr > t.get("mfe_price", 0):
+                        if curr > t.get("mfe_price", entry_px):
                             t["mfe_price"] = curr
                     else:
-                        if curr > t.get("mae_price", 0):
+                        if curr > t.get("mae_price", entry_px):
                             t["mae_price"] = curr
-                        if curr < t.get("mfe_price", float("inf")):
+                        if curr < t.get("mfe_price", entry_px):
                             t["mfe_price"] = curr
 
                     # PnL Dinámico
@@ -554,9 +609,13 @@ def run_guardian_loop(bot):
 
                     # --- INTEGRACIÓN KANBAN ---
                     if t.get("kanban_item_id"):
-                        if t.get("status") == "OPEN" and not t.get("kanban_moved_to_open"):
+                        if t.get("status") == "OPEN" and not t.get(
+                            "kanban_moved_to_open"
+                        ):
                             t["kanban_moved_to_open"] = True
-                            async_mover_tarjeta(t["kanban_item_id"], "Posiciones Abiertas")
+                            async_mover_tarjeta(
+                                t["kanban_item_id"], "Posiciones Abiertas"
+                            )
                         async_actualizar_pnl(t["kanban_item_id"], t["pnl"], curr)
 
                     # Exit Engine v118 (dinámico y persistente)
@@ -647,7 +706,9 @@ def run_guardian_loop(bot):
                                 * range_mult
                             )
                         else:
-                            trailing_pnl_pct = Config.TRAILING_ACTIVATION_PNL * range_mult
+                            trailing_pnl_pct = (
+                                Config.TRAILING_ACTIVATION_PNL * range_mult
+                            )
                     else:
                         trailing_pnl_pct = Config.TRAILING_ACTIVATION_PNL * range_mult
 
@@ -664,7 +725,10 @@ def run_guardian_loop(bot):
                     # [SMART TIME LIMIT v118] No cerrar si va ganando (PnL > 0)
                     duration_mins = (utc_now() - ot).total_seconds() / 60
                     if duration_mins >= Config.MAX_TRADE_DURATION_MINUTES:
-                        if t["pnl"] <= 0 or duration_mins >= Config.MAX_TRADE_DURATION_MINUTES * 2:
+                        if (
+                            t["pnl"] <= 0
+                            or duration_mins >= Config.MAX_TRADE_DURATION_MINUTES * 2
+                        ):
                             bot.close_trade(
                                 s,
                                 f"Time Limit {Config.MAX_TRADE_DURATION_MINUTES}m{' (Force)' if t['pnl'] > 0 else ''}",
@@ -711,7 +775,9 @@ def run_guardian_loop(bot):
                                     t["sl"] = t["entry"] * (
                                         1.001 if t["side"] == "BUY" else 0.999
                                     )  # Asegurar fees
-                                    _sync_tightened_hard_sl(bot, s, t, previous_ghost_sl)
+                                    _sync_tightened_hard_sl(
+                                        bot, s, t, previous_ghost_sl
+                                    )
                                     t["ghost_checked"] = (
                                         True  # Solo chequear una vez para no saturar
                                     )
@@ -729,14 +795,22 @@ def run_guardian_loop(bot):
                         t["sl_triggered"] = True
                         t["sl_trigger_price"] = curr
                         t["sl_fill_price"] = curr
-                        reason = "HARD_SL_SHADOW" if t.get("is_shadow", False) else "Dynamic SL"
+                        reason = (
+                            "HARD_SL_SHADOW"
+                            if t.get("is_shadow", False)
+                            else "Dynamic SL"
+                        )
                         bot.close_trade(s, reason, curr)
                         continue
 
                     # PRE-HARD SL WARNING: evaluar trailing antes de llegar al Hard SL
                     # max_loss ya fue calculado arriba (antes del exit engine).
-                    pre_sl_warning = max_loss * 0.5  # -1.5% para REAL, -2.5% para SHADOW
-                    if t["pnl"] <= pre_sl_warning and not t.get("pre_sl_warning_logged", False):
+                    pre_sl_warning = (
+                        max_loss * 0.5
+                    )  # -1.5% para REAL, -2.5% para SHADOW
+                    if t["pnl"] <= pre_sl_warning and not t.get(
+                        "pre_sl_warning_logged", False
+                    ):
                         t["pre_sl_warning_logged"] = True
                         bot.log(
                             f"⚠️ PRE-SL WARNING {s}: PnL {t['pnl']:.2f}%\u63a5\u8fd1 Hard SL ({max_loss}%) | "
@@ -757,7 +831,9 @@ def run_guardian_loop(bot):
                                 current_atr=current_atr,
                             )
                             if bool(exit_eval.get("should_exit", False)):
-                                exit_reason = str(exit_eval.get("reason", "PRE_SL_EXIT"))
+                                exit_reason = str(
+                                    exit_eval.get("reason", "PRE_SL_EXIT")
+                                )
                                 bot.log(
                                     f"\U0001f6a8 PRE-SL EXIT {s}: {exit_reason} | PnL {t['pnl']:.2f}%"
                                 )
@@ -777,7 +853,9 @@ def run_guardian_loop(bot):
                         and not t.get("tp2_triggered", False)
                     ):
                         if t["pnl"] >= Config.TP2_LEVEL:
-                            bot.log(f"🎯 TP2 HIT: {s} - Cerrando resto @ +{Config.TP2_LEVEL}%")
+                            bot.log(
+                                f"🎯 TP2 HIT: {s} - Cerrando resto @ +{Config.TP2_LEVEL}%"
+                            )
                             bot.close_trade(s, f"TP2 ({Config.TP2_LEVEL}%)", curr)
                             continue
 
@@ -792,7 +870,10 @@ def run_guardian_loop(bot):
             now_mono = monotonic_now()
             has_partial_pending = any(
                 str((t or {}).get("status") or "")
-                in {TradeStatus.PARTIAL_FILL.value, TradeStatus.PARTIAL_FILL_PENDING.value}
+                in {
+                    TradeStatus.PARTIAL_FILL.value,
+                    TradeStatus.PARTIAL_FILL_PENDING.value,
+                }
                 for t in snapshot.values()
             )
             wallet_sync_interval = 1.0 if has_partial_pending else 15.0

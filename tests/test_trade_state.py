@@ -30,8 +30,12 @@ class TradeStateTest(unittest.TestCase):
 
     def test_valid_transitions_allow_expected_order_lifecycle(self):
         self.assertTrue(validate_transition("PENDING_SEND", "ENTRY_SENT"))
-        self.assertTrue(validate_transition("ENTRY_SENT", "ENTRY_FILLED_AWAITING_POSITION_SYNC"))
-        self.assertTrue(validate_transition("ENTRY_FILLED_AWAITING_POSITION_SYNC", "OPEN"))
+        self.assertTrue(
+            validate_transition("ENTRY_SENT", "ENTRY_FILLED_AWAITING_POSITION_SYNC")
+        )
+        self.assertTrue(
+            validate_transition("ENTRY_FILLED_AWAITING_POSITION_SYNC", "OPEN")
+        )
         self.assertTrue(validate_transition("OPEN", "CLOSING_INITIATED"))
         self.assertTrue(validate_transition("CLOSING_INITIATED", "CLOSED"))
 

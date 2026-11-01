@@ -21,7 +21,9 @@ class ExitEngineV1Test(unittest.TestCase):
     def test_time_decay_no_exit_when_fast_enough(self):
         engine = ExitEngineV1(time_decay_bars=4, escape_velocity_pct=0.2)
         with patch.object(engine, "_bars_elapsed", return_value=4):
-            self.assertIsNone(engine.check_time_decay_exit({"pnl": 0.3, "open_time": "x"}))
+            self.assertIsNone(
+                engine.check_time_decay_exit({"pnl": 0.3, "open_time": "x"})
+            )
 
     def test_structural_invalidation_ignores_non_breakout(self):
         engine = ExitEngineV1()
@@ -39,7 +41,9 @@ class ExitEngineV1Test(unittest.TestCase):
         self.assertIsNone(engine.check_structural_invalidation_exit(trade, 98.0, 1.0))
 
     def test_structural_invalidation_buy_breaks_below_level(self):
-        engine = ExitEngineV1(structural_min_hold_seconds=0, structural_min_buffer_pct=0.05)
+        engine = ExitEngineV1(
+            structural_min_hold_seconds=0, structural_min_buffer_pct=0.05
+        )
         trade = {
             "breakout_origin": True,
             "open_time": (utc_now() - timedelta(minutes=5)).isoformat(),
@@ -51,7 +55,9 @@ class ExitEngineV1Test(unittest.TestCase):
         self.assertEqual(result["reason"], "STRUCTURAL_INVALIDATION")
 
     def test_structural_invalidation_sell_breaks_above_level(self):
-        engine = ExitEngineV1(structural_min_hold_seconds=0, structural_min_buffer_pct=0.05)
+        engine = ExitEngineV1(
+            structural_min_hold_seconds=0, structural_min_buffer_pct=0.05
+        )
         trade = {
             "breakout_origin": True,
             "open_time": (utc_now() - timedelta(minutes=5)).isoformat(),
@@ -63,7 +69,9 @@ class ExitEngineV1Test(unittest.TestCase):
         self.assertEqual(result["reason"], "STRUCTURAL_INVALIDATION")
 
     def test_atr_trailing_exit_hits(self):
-        engine = ExitEngineV1(trailing_activation_pct=0.9, trailing_min_distance_pct=0.3)
+        engine = ExitEngineV1(
+            trailing_activation_pct=0.9, trailing_min_distance_pct=0.3
+        )
         trade = {"pnl": 1.0, "peak_pnl": 2.0, "entry": 100.0, "leverage": 1.0}
         result = engine.check_atr_trailing_exit(trade, current_atr=0.1)
         self.assertEqual(result["reason"], "ATR_TRAILING_HIT")
@@ -103,7 +111,9 @@ class ExitEngineV1Test(unittest.TestCase):
 
     def test_flat_volatility_no_exit_when_atr_invalid(self):
         engine = ExitEngineV1()
-        self.assertIsNone(engine.check_flat_volatility_exit({"entry": 100.0}, 100.0, 0.0))
+        self.assertIsNone(
+            engine.check_flat_volatility_exit({"entry": 100.0}, 100.0, 0.0)
+        )
 
     def test_evaluate_exit_prioritizes_structural_invalidation(self):
         engine = ExitEngineV1(structural_min_hold_seconds=0)

@@ -81,13 +81,17 @@ class HyperoptConfigLoader:
         params = dict(cfg.get("params", {}) or {})
         normalized = cls._normalize_symbol(symbol)
         symbols = cfg.get("symbols", {}) or {}
-        symbol_params = symbols.get(normalized) or symbols.get(normalized.replace("/", "_"))
+        symbol_params = symbols.get(normalized) or symbols.get(
+            normalized.replace("/", "_")
+        )
         if isinstance(symbol_params, dict):
             params.update(symbol_params)
         return params
 
     @classmethod
-    def get_param_for_symbol(cls, symbol: str | None, key: str, default: Any = None) -> Any:
+    def get_param_for_symbol(
+        cls, symbol: str | None, key: str, default: Any = None
+    ) -> Any:
         return cls.get_params_for_symbol(symbol).get(key, default)
 
     @classmethod

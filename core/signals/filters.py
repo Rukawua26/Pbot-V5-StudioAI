@@ -461,6 +461,85 @@ def _apply_entry_filters_and_adjust_prob(
         ctx["regime_weight"] = 1.0
         ctx["regime_reason"] = "TTF_PURE"
         if audit_signal in {"BUY", "SELL"}:
+            # Gate REAL: TTF exige habilitacion explicita fuera de PAPER
+            paper_mode = bool(getattr(Config, "PAPER_MODE", True))
+            ttf_real_enabled = bool(getattr(Config, "TTF_REAL_ENABLED", False))
+            if not paper_mode and not ttf_real_enabled:
+                bot.log(
+                    f"⛔ {symbol}: TTF_REAL_BLOCKED — entrada TTF en REAL "
+                    "deshabilitada (TTF_REAL_ENABLED=false)"
+                )
+                append_execution_event(
+                    bot,
+                    "TTF_REAL_BLOCKED",
+                    {
+                        "symbol": symbol,
+                        "side": audit_signal,
+                        "paper_mode": paper_mode,
+                        "ttf_real_enabled": ttf_real_enabled,
+                        "signal_close_time": ctx.get("signal_close_time"),
+                    },
+                )
+                return prob_final, False, "TTF_REAL_BLOCKED", ctx
+
+            # Identidad de senal: una sola senal por vela 1M cerrada
+            close_time = ctx.get("signal_close_time")
+            try:
+                close_key = int(float(close_time))
+            except (TypeError, ValueError):
+                close_key = None
+            if close_key is None:
+                bot.log(
+                    f"⛔ {symbol}: TTF_SIGNAL_IDENTITY_MISSING — sin signal_close_time"
+                )
+                return prob_final, False, "TTF_SIGNAL_IDENTITY_MISSING", ctx
+
+            ttf_signal_key = (str(symbol), str(audit_signal))
+            ttf_dedup = getattr(bot, "_ttf_last_signal_keys", None)
+            if ttf_dedup is None:
+                ttf_dedup = {}
+                bot._ttf_last_signal_keys = ttf_dedup
+            if ttf_dedup.get(ttf_signal_key) == close_key:
+                bot.log(
+                    f"⛔ {symbol}: TTF_DUPLICATE_SIGNAL — misma vela 1M cerrada "
+                    f"close_time={close_key}"
+                )
+                return prob_final, False, "TTF_DUPLICATE_SIGNAL", ctx
+            ttf_dedup[ttf_signal_key] = close_key
+            # Acotar tamano del mapa para no crecer sin limite
+            if len(ttf_dedup) > 200:
+                oldest = next(iter(ttf_dedup))
+                del ttf_dedup[oldest]
+
+            # Filtro C1: Sesiones London/NY con liquidez institucional (07:00–22:00 UTC)
+            if bool(getattr(Config, "TTF_REQUIRE_SESSION_FILTER", True)):
+                try:
+                    if close_key and close_key > 1_000_000_000_000:
+                        hour_utc = int((close_key // 3_600_000) % 24)
+                    else:
+                        hour_utc = utc_now().hour
+                except Exception:
+                    hour_utc = utc_now().hour
+
+                if not (7 <= hour_utc < 22):
+                    bot.log(
+                        f"⛔ {symbol}: TTF_SESSION_OUTSIDE_HOURS — hora {hour_utc}:00 UTC "
+                        "fuera de sesión London/NY (07:00-22:00 UTC)"
+                    )
+                    return prob_final, False, "TTF_SESSION_OUTSIDE_HOURS", ctx
+
+            # Filtro A: Régimen macro BTC para compras
+            if (
+                bool(getattr(Config, "TTF_REQUIRE_MACRO_REGIME_FILTER", True))
+                and audit_signal == "BUY"
+            ):
+                if btc_regime in {"BEAR_TREND", "BEAR", "DOWN", "STRONG_BEAR"}:
+                    bot.log(
+                        f"⛔ {symbol}: TTF_MACRO_REGIME_BEAR — compra TTF bloqueada "
+                        f"por régimen bajista macro ({btc_regime})"
+                    )
+                    return prob_final, False, "TTF_MACRO_REGIME_BEAR", ctx
+
             return prob_final, True, "TTF_PASSED", ctx
         return prob_final, False, "WAIT_NO_TRIGGER", ctx
 

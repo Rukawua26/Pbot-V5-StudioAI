@@ -3,7 +3,11 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from core.execution_order_helpers import _execute_chase_limit_steps
-from core.execution_service import OrderLookupError, _parse_order_float, _with_exit_state
+from core.execution_service import (
+    OrderLookupError,
+    _parse_order_float,
+    _with_exit_state,
+)
 
 
 class TestWithExitState(unittest.TestCase):
@@ -120,8 +124,12 @@ class TestExecuteChaseLimitSteps(unittest.TestCase):
             _wait_order_filled=MagicMock(return_value=False),
             _no_price_exit_state={},
         )
-        service._call_exchange = MagicMock(side_effect=lambda _name, fn, **_kwargs: fn())
-        service._call_exchange_account = MagicMock(side_effect=lambda _name, fn, **_kwargs: fn())
+        service._call_exchange = MagicMock(
+            side_effect=lambda _name, fn, **_kwargs: fn()
+        )
+        service._call_exchange_account = MagicMock(
+            side_effect=lambda _name, fn, **_kwargs: fn()
+        )
 
         result = _execute_chase_limit_steps(
             service,
@@ -148,7 +156,9 @@ class TestExecuteChaseLimitSteps(unittest.TestCase):
             _wait_order_filled=MagicMock(return_value=False),
             _no_price_exit_state={},
         )
-        service._call_exchange = MagicMock(side_effect=lambda _name, fn, **_kwargs: fn())
+        service._call_exchange = MagicMock(
+            side_effect=lambda _name, fn, **_kwargs: fn()
+        )
 
         result = _execute_chase_limit_steps(
             service,

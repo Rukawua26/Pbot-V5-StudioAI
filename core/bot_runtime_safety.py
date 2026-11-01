@@ -35,11 +35,15 @@ def _notify_drawdown_warning(bot, current_pnl: float, threshold_pct: float) -> N
         if callable(send_telegram_msg):
             send_telegram_msg(msg)
     except Exception as error:
-        logging.getLogger("SniperAI").debug("drawdown warning telegram failed: %s", error)
+        logging.getLogger("SniperAI").debug(
+            "drawdown warning telegram failed: %s", error
+        )
 
 
 def check_safety_and_goals(bot, current_pnl=None):
-    base_bal = bot.daily_initial_balance if bot.daily_initial_balance > 0 else bot.balance
+    base_bal = (
+        bot.daily_initial_balance if bot.daily_initial_balance > 0 else bot.balance
+    )
     _ = base_bal
 
     if current_pnl is None:
@@ -71,7 +75,9 @@ def check_safety_and_goals(bot, current_pnl=None):
 
     # 2. Zona de amortiguacion: alerta proactiva al 80% del limite diario
     drawdown_warning_threshold = -float(Config.DAILY_LOSS_LIMIT) * 0.80
-    if current_pnl <= drawdown_warning_threshold and current_pnl > -float(Config.DAILY_LOSS_LIMIT):
+    if current_pnl <= drawdown_warning_threshold and current_pnl > -float(
+        Config.DAILY_LOSS_LIMIT
+    ):
         _notify_drawdown_warning(bot, current_pnl, drawdown_warning_threshold)
 
     # 3. Limite de Perdida Diaria: -3% desde el inicio

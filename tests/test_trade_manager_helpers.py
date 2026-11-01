@@ -68,7 +68,9 @@ class TestFailSafeCloseWhenSlMissing(unittest.TestCase):
         if market_effect:
             bot.execution.create_reduce_only_market_order.side_effect = market_effect
         else:
-            bot.execution.create_reduce_only_market_order.return_value = {"status": "closed"}
+            bot.execution.create_reduce_only_market_order.return_value = {
+                "status": "closed"
+            }
         bot.execution.fetch_positions.return_value = []
         bot.log = MagicMock()
         return bot
@@ -89,7 +91,9 @@ class TestFailSafeCloseWhenSlMissing(unittest.TestCase):
         bot = MagicMock()
         bot.is_hedge_mode = False
         bot.execution.close_position.side_effect = Exception("chase limit fail")
-        bot.execution.create_reduce_only_market_order.return_value = {"status": "closed"}
+        bot.execution.create_reduce_only_market_order.return_value = {
+            "status": "closed"
+        }
         bot.execution.fetch_positions.return_value = []
         bot.log = MagicMock()
         result = _fail_safe_close_when_sl_missing(bot, "BTC/USDT", "BUY", 0.1)
@@ -105,7 +109,9 @@ class TestFailSafeCloseWhenSlMissing(unittest.TestCase):
         bot = MagicMock()
         bot.is_hedge_mode = False
         bot.execution.close_position.side_effect = Exception("chase limit fail")
-        bot.execution.create_reduce_only_market_order.return_value = {"status": "closed"}
+        bot.execution.create_reduce_only_market_order.return_value = {
+            "status": "closed"
+        }
         bot.execution.fetch_positions.return_value = []
         bot.log = MagicMock()
 
@@ -121,7 +127,10 @@ class TestFailSafeCloseWhenSlMissing(unittest.TestCase):
         from core.trade_manager import _fail_safe_close_when_sl_missing
 
         bot = MagicMock()
-        bot.execution.close_position.return_value = {"exit_state": "STUCK", "status": "open"}
+        bot.execution.close_position.return_value = {
+            "exit_state": "STUCK",
+            "status": "open",
+        }
         bot.execution.create_reduce_only_market_order.return_value = {"status": "open"}
         bot.execution.fetch_positions.return_value = [
             {"symbol": "BTC/USDT:USDT", "contracts": 0.1, "side": "long"}
@@ -142,7 +151,9 @@ class TestFailSafeCloseWhenSlMissing(unittest.TestCase):
             Exception("fail2"),
             {"status": "closed"},
         ]
-        bot.execution.create_reduce_only_market_order.return_value = {"status": "closed"}
+        bot.execution.create_reduce_only_market_order.return_value = {
+            "status": "closed"
+        }
         bot.execution.fetch_positions.return_value = []
         bot.log = MagicMock()
 
@@ -363,14 +374,21 @@ class TestTp1FailureNoStateReduction(unittest.TestCase):
                 ),
             ),
             sync_wallet=MagicMock(),
-            _guardian_stats={"bailout_count": 0, "loops": 0, "work_s": 0.0, "sleep_s": 0.0},
+            _guardian_stats={
+                "bailout_count": 0,
+                "loops": 0,
+                "work_s": 0.0,
+                "sleep_s": 0.0,
+            },
             _exit_eval_last_log={},
             exit_engine=SimpleNamespace(
                 evaluate_exit=MagicMock(return_value={"should_exit": False})
             ),
             risk_engine=SimpleNamespace(
                 should_abort_trade=MagicMock(return_value=(False, "OK")),
-                should_defer_confidence_exit_for_fee_noise=MagicMock(return_value=(False, "OK")),
+                should_defer_confidence_exit_for_fee_noise=MagicMock(
+                    return_value=(False, "OK")
+                ),
             ),
             monitor_open_trades=MagicMock(),
             brain=SimpleNamespace(
@@ -446,7 +464,12 @@ class TestHardSlVerificationFailure(unittest.TestCase):
         from core.bot_wallet_sync import _find_verified_hard_sl_order
 
         bot = self._make_bot(fetch_fails=True)
-        trade = {"symbol": "TEST/USDT", "side": "BUY", "amount": 1.0, "is_shadow": False}
+        trade = {
+            "symbol": "TEST/USDT",
+            "side": "BUY",
+            "amount": 1.0,
+            "is_shadow": False,
+        }
 
         result = _find_verified_hard_sl_order(bot, "TEST/USDT", trade, {})
 
@@ -470,7 +493,9 @@ class TestPlaceHardSlRequiresClientIdInReal(unittest.TestCase):
         )
         service.set_weight_tracker(None)
 
-        result = service.place_hard_sl("TEST/USDT", "BUY", 1.0, 99.0, client_order_id=None)
+        result = service.place_hard_sl(
+            "TEST/USDT", "BUY", 1.0, 99.0, client_order_id=None
+        )
 
         self.assertIsNone(result)
         self.assertIn("client_order_id", str(service.last_hard_sl_error).lower())

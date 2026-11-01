@@ -80,7 +80,9 @@ class MTAgent(BaseAgent):
         if df is None or len(df) < 21:
             return 50.0
         closes = df["close"]
-        alma_offset = float(alma_offset if alma_offset is not None else self.alma_offset)
+        alma_offset = float(
+            alma_offset if alma_offset is not None else self.alma_offset
+        )
         alma_sigma = float(alma_sigma if alma_sigma is not None else self.alma_sigma)
 
         # [AUDIT V118] Derivada ALMA: momento en t y en t-1
@@ -98,8 +100,14 @@ class MTAgent(BaseAgent):
             closes.iloc[:-1], window=20, offset=alma_offset, sigma=alma_sigma
         )
 
-        mom_now = (alma_short_now - alma_long_now) / alma_long_now if alma_long_now > 0 else 0
-        mom_prev = (alma_short_prev - alma_long_prev) / alma_long_prev if alma_long_prev > 0 else 0
+        mom_now = (
+            (alma_short_now - alma_long_now) / alma_long_now if alma_long_now > 0 else 0
+        )
+        mom_prev = (
+            (alma_short_prev - alma_long_prev) / alma_long_prev
+            if alma_long_prev > 0
+            else 0
+        )
 
         # Escala gradual para evitar "todo o nada"
         if side == "BUY":

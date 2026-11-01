@@ -30,7 +30,11 @@ class BotRuntimeMonitorTest(unittest.TestCase):
             try:
                 os.chdir(tmp)
                 append_runtime_metric(bot, {"event": "test"})
-                rows = Path("logs/runtime_metrics.jsonl").read_text(encoding="utf-8").splitlines()
+                rows = (
+                    Path("logs/runtime_metrics.jsonl")
+                    .read_text(encoding="utf-8")
+                    .splitlines()
+                )
             finally:
                 os.chdir(cwd)
 

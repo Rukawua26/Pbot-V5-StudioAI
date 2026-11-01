@@ -134,7 +134,9 @@ class HurstOrchestratorIntegrationTests(unittest.TestCase):
         self.orchestrator = StrategyOrchestrator()
 
     def test_persistent_boosts_mt_in_bull(self):
-        weights = self.orchestrator.get_adaptive_weights(regime="BULL_TREND", hurst=0.65)
+        weights = self.orchestrator.get_adaptive_weights(
+            regime="BULL_TREND", hurst=0.65
+        )
         base_mt = self.orchestrator._base_weights["BULL_TREND"]["MT"]
         self.assertGreater(weights["MT"], base_mt)
 
@@ -145,16 +147,22 @@ class HurstOrchestratorIntegrationTests(unittest.TestCase):
 
     def test_random_hurst_does_not_change_weights(self):
         weights_base = self.orchestrator.get_adaptive_weights(regime="RANGE")
-        weights_hurst = self.orchestrator.get_adaptive_weights(regime="RANGE", hurst=0.50)
+        weights_hurst = self.orchestrator.get_adaptive_weights(
+            regime="RANGE", hurst=0.50
+        )
         for agent in ["MT", "SR", "G"]:
             self.assertAlmostEqual(weights_base[agent], weights_hurst[agent], places=4)
 
     def test_none_hurst_does_not_change_weights(self):
         weights_base = self.orchestrator.get_adaptive_weights(regime="BULL_TREND")
-        weights_none = self.orchestrator.get_adaptive_weights(regime="BULL_TREND", hurst=None)
+        weights_none = self.orchestrator.get_adaptive_weights(
+            regime="BULL_TREND", hurst=None
+        )
         self.assertEqual(weights_base, weights_none)
 
     def test_weights_normalize_after_hurst_adjustment(self):
-        weights = self.orchestrator.get_adaptive_weights(regime="BEAR_TREND", hurst=0.65)
+        weights = self.orchestrator.get_adaptive_weights(
+            regime="BEAR_TREND", hurst=0.65
+        )
         total = sum(weights.values())
         self.assertAlmostEqual(total, 1.0, places=4)

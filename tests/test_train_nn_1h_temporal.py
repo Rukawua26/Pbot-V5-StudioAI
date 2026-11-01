@@ -8,7 +8,9 @@ from tools.train_nn_1h import build_labels, chronological_split_indices
 
 class TrainNN1HTemporalTest(unittest.TestCase):
     def test_chronological_split_keeps_embargo_gap(self):
-        train_idx, val_idx = chronological_split_indices(200, val_fraction=0.2, embargo_bars=24)
+        train_idx, val_idx = chronological_split_indices(
+            200, val_fraction=0.2, embargo_bars=24
+        )
 
         self.assertLess(train_idx.max(), val_idx.min())
         self.assertGreaterEqual(val_idx.min() - train_idx.max(), 24)

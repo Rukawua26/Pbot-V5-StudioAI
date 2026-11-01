@@ -100,7 +100,9 @@ def _resolve_triage_worker_count(top_triage_count: int) -> int:
 
     cpu_count = os.cpu_count() or 2
     dynamic_default = max(4, min(16, cpu_count * 2))
-    configured_cap = int(getattr(Config, "TRIAGE_MAX_WORKERS", dynamic_default) or dynamic_default)
+    configured_cap = int(
+        getattr(Config, "TRIAGE_MAX_WORKERS", dynamic_default) or dynamic_default
+    )
     safe_cap = max(1, min(32, configured_cap))
     return max(1, min(top_triage_count, safe_cap))
 
@@ -122,7 +124,9 @@ def run_market_refresh_cycle(bot):
 
 
 def run_triage_cycle(bot):
-    raw_snapshot = bot._get_active_market_snapshot(pool_limit=get_candidate_pool_limit(bot))
+    raw_snapshot = bot._get_active_market_snapshot(
+        pool_limit=get_candidate_pool_limit(bot)
+    )
     tickers = {item["symbol"]: item["ticker"] for item in raw_snapshot}
     tickers.update(getattr(bot, "_snapshot_tickers", {}))
 
@@ -137,7 +141,9 @@ def run_triage_cycle(bot):
 
 
 def run_market_context_cycle(bot, tickers):
-    base_bal = bot.daily_initial_balance if bot.daily_initial_balance > 0 else bot.balance
+    base_bal = (
+        bot.daily_initial_balance if bot.daily_initial_balance > 0 else bot.balance
+    )
     pnl_real_hoy, _ = bot.brain.get_daily_real_pnl(base_bal)
     if pnl_real_hoy is None:
         pnl_real_hoy = 0.0
@@ -146,14 +152,18 @@ def run_market_context_cycle(bot, tickers):
     ws_btc_age = float("inf")
     with bot.price_lock:
         try:
-            ws_btc_price = float(getattr(bot, "live_prices", {}).get("BTCUSDT", 0.0) or 0.0)
+            ws_btc_price = float(
+                getattr(bot, "live_prices", {}).get("BTCUSDT", 0.0) or 0.0
+            )
         except (TypeError, ValueError):
             ws_btc_price = 0.0
         ws_btc_ts = float(getattr(bot, "live_prices_ts", {}).get("BTCUSDT", 0.0) or 0.0)
         if ws_btc_ts > 0:
             ws_btc_age = monotonic_now() - ws_btc_ts
 
-    if ws_btc_price > 0 and ws_btc_age <= float(getattr(Config, "WS_TICKER_MAX_AGE_SECONDS", 15.0)):
+    if ws_btc_price > 0 and ws_btc_age <= float(
+        getattr(Config, "WS_TICKER_MAX_AGE_SECONDS", 15.0)
+    ):
         bot.market_btc_price = ws_btc_price
         bot.market_btc_price_source = "WS_TICKER"
         bot.market_btc_price_ts = ws_btc_ts
@@ -187,7 +197,10 @@ def run_market_context_cycle(bot, tickers):
 
             ema_200, adx_14 = _resolve_btc_market_indicators(bot, btc_1h)
 
-            if not isinstance(bot.market_btc_price, (int, float)) or bot.market_btc_price <= 0:
+            if (
+                not isinstance(bot.market_btc_price, (int, float))
+                or bot.market_btc_price <= 0
+            ):
                 raise ValueError(f"market_btc_price inválido: {bot.market_btc_price}")
             if not isinstance(ema_200, (int, float)) or pd.isna(ema_200):
                 raise ValueError(f"ema_200 inválido: {ema_200}")
@@ -220,7 +233,10 @@ def run_market_context_cycle(bot, tickers):
 
     # --- Global market metrics (satellite, fail-silent) ---
     try:
-        if hasattr(bot, "global_market_provider") and bot.global_market_provider.enabled:
+        if (
+            hasattr(bot, "global_market_provider")
+            and bot.global_market_provider.enabled
+        ):
             bot.global_market_cache = bot.global_market_provider.fetch_global_metrics()
     except Exception:
         bot.log("⚠️ GlobalMarketProvider fetch falló (fail-silent)")
@@ -255,7 +271,9 @@ def prepare_top_triage(bot, triage_snapshot):
             {"tier": "IRON"},
         )
 
-    bot.log(f"⚡ TRIAJE PARALELO: Disparando {len(top_triage)} hilos para datos frescos...")
+    bot.log(
+        f"⚡ TRIAJE PARALELO: Disparando {len(top_triage)} hilos para datos frescos..."
+    )
     return top_triage
 
 
@@ -374,7 +392,9 @@ def fetch_triage_data_parallel(bot, top_triage):
             return future.result(timeout=(timeout_s * worker_waves) + 2.0)
         except concurrent.futures.TimeoutError:
             future.cancel()
-            bot.log("⏱️ TRIAJE OUTER TIMEOUT: ciclo async cancelado; fetches tardíos acotados.")
+            bot.log(
+                "⏱️ TRIAJE OUTER TIMEOUT: ciclo async cancelado; fetches tardíos acotados."
+            )
             return {
                 item["symbol"]: {"data": None, "elapsed": -1, "error": "OUTER_TIMEOUT"}
                 for item in top_triage
@@ -408,7 +428,9 @@ def finalize_scan_cycle(bot, signal_stats):
 
     suffix = bot.self_adjust_exigency()
     valid_signals = [
-        item for item in bot.scanner_history if "OK" in item["result"] or "SHADOW" in item["result"]
+        item
+        for item in bot.scanner_history
+        if "OK" in item["result"] or "SHADOW" in item["result"]
     ]
     if not valid_signals:
         if bot.current_sentiment[0] == "🔴 TENDENCIA BAJISTA":

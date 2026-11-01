@@ -70,7 +70,9 @@ class RiskSizingPropertiesTest(unittest.TestCase):
         self.assertGreaterEqual(amount, 0.0)
         self.assertGreaterEqual(notional, 0.0)
         self.assertLessEqual(notional, max_notional + 1e-9)
-        self.assertAlmostEqual(amount * price, notional, delta=max(1e-9, notional * 1e-9))
+        self.assertAlmostEqual(
+            amount * price, notional, delta=max(1e-9, notional * 1e-9)
+        )
 
     @settings(
         max_examples=100,

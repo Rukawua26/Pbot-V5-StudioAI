@@ -81,16 +81,24 @@ def handle_basic_command(bot, text: str) -> bool:
                 for symbol, trade in getattr(bot, "active_trades", {}).items():
                     if not (trade or {}).get("is_shadow", False):
                         status = str((trade or {}).get("status") or "")
-                        unsafe_reasons.append(f"LOCAL_REAL_TRADE:{symbol}:{status or 'UNKNOWN'}")
-            fetch_positions = getattr(getattr(bot, "execution", None), "fetch_positions", None)
+                        unsafe_reasons.append(
+                            f"LOCAL_REAL_TRADE:{symbol}:{status or 'UNKNOWN'}"
+                        )
+            fetch_positions = getattr(
+                getattr(bot, "execution", None), "fetch_positions", None
+            )
             if callable(fetch_positions):
                 positions = fetch_positions() or []
                 open_positions = [
-                    p for p in positions if abs(float((p or {}).get("contracts") or 0.0)) > 0.0
+                    p
+                    for p in positions
+                    if abs(float((p or {}).get("contracts") or 0.0)) > 0.0
                 ]
                 if open_positions:
                     unsafe_reasons.append("EXCHANGE_POSITIONS_OPEN")
-            fetch_open_orders = getattr(getattr(bot, "execution", None), "fetch_open_orders", None)
+            fetch_open_orders = getattr(
+                getattr(bot, "execution", None), "fetch_open_orders", None
+            )
             if callable(fetch_open_orders):
                 open_orders = fetch_open_orders() or []
                 if open_orders:
@@ -156,7 +164,9 @@ def handle_basic_command(bot, text: str) -> bool:
         sync_fn = getattr(bot, "sync_wallet", None)
         if callable(sync_fn):
             sync_fn()
-            send_telegram_msg("🔄 *WALLET SYNC*: Sincronización con Binance completada.")
+            send_telegram_msg(
+                "🔄 *WALLET SYNC*: Sincronización con Binance completada."
+            )
         else:
             send_telegram_msg("⚠️ sync_wallet no disponible.")
         return True
@@ -215,9 +225,13 @@ def _handle_manual_close(bot, symbol: str) -> None:
             if ticker_data and ticker_data.get("last"):
                 current_price = float(ticker_data["last"])
         except Exception as err:
-            bot.log(f"[WARN] Error al obtener ticker para cierre manual de {symbol}: {err}")
+            bot.log(
+                f"[WARN] Error al obtener ticker para cierre manual de {symbol}: {err}"
+            )
 
-    bot.log(f"🛑 Cierre manual solicitado desde dashboard para {symbol} @ {current_price}")
+    bot.log(
+        f"🛑 Cierre manual solicitado desde dashboard para {symbol} @ {current_price}"
+    )
     close_fn = getattr(bot, "close_trade", None)
     if callable(close_fn):
         close_fn(
@@ -249,7 +263,9 @@ def _handle_manual_breakeven(bot, symbol: str) -> None:
         send_telegram_msg(f"⚠️ No hay posición activa para {symbol}.")
         return
 
-    entry_price = float(matched_trade.get("entry_price") or matched_trade.get("entry") or 0.0)
+    entry_price = float(
+        matched_trade.get("entry_price") or matched_trade.get("entry") or 0.0
+    )
     if entry_price <= 0:
         send_telegram_msg(f"⚠️ Precio de entrada inválido para {symbol}.")
         return
@@ -262,4 +278,3 @@ def _handle_manual_breakeven(bot, symbol: str) -> None:
 
     bot.log(f"🛡️ SL movido a Break-Even para {symbol} @ {entry_price}")
     send_telegram_msg(f"🛡️ *BREAK-EVEN*: {symbol} SL ajustado a ${entry_price:.4f}.")
-

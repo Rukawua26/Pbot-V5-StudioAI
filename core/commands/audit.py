@@ -133,7 +133,9 @@ def _handle_audit_commands(bot, text: str) -> bool:
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM trades WHERE is_shadow = 1")
             total_shadow = cursor.fetchone()[0]
-            cursor.execute("SELECT COUNT(*) FROM trades WHERE is_shadow = 1 AND pnl_percent > 0")
+            cursor.execute(
+                "SELECT COUNT(*) FROM trades WHERE is_shadow = 1 AND pnl_percent > 0"
+            )
             wins = cursor.fetchone()[0]
             cursor.execute(
                 "SELECT AVG(pnl_percent) FROM trades WHERE is_shadow = 1 AND pnl_percent != -99.0"
@@ -163,7 +165,9 @@ def _handle_audit_commands(bot, text: str) -> bool:
             from tools.data_utility_audit import analysis_summary
 
             db_path = getattr(
-                bot.brain, "_db_path", "/home/miguel/Pbot-V5ARCH-DEV-main/sniper_brain.db"
+                bot.brain,
+                "_db_path",
+                "/home/miguel/Pbot-V5ARCH-DEV-main/sniper_brain.db",
             )
             conn = sqlite3.connect(str(db_path))
             report = analysis_summary(conn, Path(db_path))
@@ -178,7 +182,9 @@ def _handle_audit_commands(bot, text: str) -> bool:
 
             samples = features.get("samples", 0)
             redundant = len(features.get("redundant_groups", []))
-            dead_fields = sum(1 for f in features.get("fields", []) if f["utility"] == "DEAD")
+            dead_fields = sum(
+                1 for f in features.get("fields", []) if f["utility"] == "DEAD"
+            )
 
             msg = (
                 f"📊 *AUDITORÍA DE DB*\n"

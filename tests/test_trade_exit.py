@@ -58,7 +58,9 @@ class TestRecordMtfTradeOutcome(unittest.TestCase):
     def test_appends_loss_entry(self):
         from core.trade_exit import _MTF_TRADE_RESULTS, _record_mtf_trade_outcome
 
-        _record_mtf_trade_outcome({"market_snapshot": {"mtf_reason": "CONFLICT_15M"}}, -3.0)
+        _record_mtf_trade_outcome(
+            {"market_snapshot": {"mtf_reason": "CONFLICT_15M"}}, -3.0
+        )
         entry = _MTF_TRADE_RESULTS[0]
         self.assertFalse(entry["is_win"])
         self.assertAlmostEqual(entry["pnl_percent"], -3.0)
@@ -67,7 +69,9 @@ class TestRecordMtfTradeOutcome(unittest.TestCase):
         from core.trade_exit import _MTF_TRADE_RESULTS, _record_mtf_trade_outcome
 
         for i in range(5):
-            _record_mtf_trade_outcome({"market_snapshot": {"mtf_reason": "ALIGNED"}}, float(i))
+            _record_mtf_trade_outcome(
+                {"market_snapshot": {"mtf_reason": "ALIGNED"}}, float(i)
+            )
         self.assertEqual(len(_MTF_TRADE_RESULTS), 5)
 
     def test_triggers_report_at_window_boundary(self):
@@ -76,7 +80,9 @@ class TestRecordMtfTradeOutcome(unittest.TestCase):
         with patch.object(Config, "MTF_METRICS_WINDOW", 3):
             with patch("core.trade_exit.append_execution_event"):
                 for i in range(3):
-                    te._record_mtf_trade_outcome({"market_snapshot": {"mtf_reason": f"R{i}"}}, 1.0)
+                    te._record_mtf_trade_outcome(
+                        {"market_snapshot": {"mtf_reason": f"R{i}"}}, 1.0
+                    )
         self.assertEqual(len(te._MTF_TRADE_RESULTS), 0)
 
     def test_does_not_trigger_before_window(self):
@@ -85,7 +91,9 @@ class TestRecordMtfTradeOutcome(unittest.TestCase):
         with patch.object(Config, "MTF_METRICS_WINDOW", 10):
             with patch("core.trade_exit.append_execution_event") as mock_append:
                 for i in range(5):
-                    te._record_mtf_trade_outcome({"market_snapshot": {"mtf_reason": "A"}}, 1.0)
+                    te._record_mtf_trade_outcome(
+                        {"market_snapshot": {"mtf_reason": "A"}}, 1.0
+                    )
         mock_append.assert_not_called()
 
     def test_zero_pnl_is_considered_loss(self):
@@ -113,7 +121,9 @@ class TestLogMtfWinrateReport(unittest.TestCase):
     def test_resets_accumulator_after_report(self):
         import core.trade_exit as te
 
-        te._MTF_TRADE_RESULTS.append({"mtf_reason": "A", "pnl_percent": 1.0, "is_win": True})
+        te._MTF_TRADE_RESULTS.append(
+            {"mtf_reason": "A", "pnl_percent": 1.0, "is_win": True}
+        )
         with patch("core.trade_exit.append_execution_event"):
             te._log_mtf_winrate_report()
         self.assertEqual(len(te._MTF_TRADE_RESULTS), 0)
@@ -140,8 +150,12 @@ class TestLogMtfWinrateReport(unittest.TestCase):
     def test_aggregates_multiple_reasons(self):
         from core.trade_exit import _MTF_TRADE_RESULTS, _log_mtf_winrate_report
 
-        _MTF_TRADE_RESULTS.append({"mtf_reason": "ALIGNED", "pnl_percent": 2.0, "is_win": True})
-        _MTF_TRADE_RESULTS.append({"mtf_reason": "ALIGNED", "pnl_percent": 1.0, "is_win": True})
+        _MTF_TRADE_RESULTS.append(
+            {"mtf_reason": "ALIGNED", "pnl_percent": 2.0, "is_win": True}
+        )
+        _MTF_TRADE_RESULTS.append(
+            {"mtf_reason": "ALIGNED", "pnl_percent": 1.0, "is_win": True}
+        )
         _MTF_TRADE_RESULTS.append(
             {"mtf_reason": "CONFLICT_15M", "pnl_percent": -3.0, "is_win": False}
         )
@@ -165,7 +179,9 @@ class TestLogMtfWinrateReport(unittest.TestCase):
         from core.trade_exit import _MTF_TRADE_RESULTS, _log_mtf_winrate_report
 
         bot = MagicMock()
-        _MTF_TRADE_RESULTS.append({"mtf_reason": "A", "pnl_percent": 1.0, "is_win": True})
+        _MTF_TRADE_RESULTS.append(
+            {"mtf_reason": "A", "pnl_percent": 1.0, "is_win": True}
+        )
         with patch("core.trade_exit.append_execution_event") as mock_append:
             _log_mtf_winrate_report(bot=bot)
         mock_append.assert_called_once_with(bot, "MTF_WINRATE_REPORT", ANY)
@@ -410,7 +426,9 @@ class TestCloseTradeRealFailurePath(unittest.TestCase):
         self.assertTrue(bot.is_paused)
         self.assertTrue(bot.integrity_lock_active)
         self.assertTrue(bot.halt_system_active)
-        self.assertEqual(bot.active_trades["BTC/USDT"]["status"], TradeStatus.EXIT_STUCK.value)
+        self.assertEqual(
+            bot.active_trades["BTC/USDT"]["status"], TradeStatus.EXIT_STUCK.value
+        )
         self.assertFalse(bot.active_trades["BTC/USDT"]["closing_in_progress"])
         bot.brain.save_active_trade_state.assert_called_with(
             "BTC/USDT", bot.active_trades["BTC/USDT"]
@@ -444,7 +462,9 @@ class TestCloseTradeRealFailurePath(unittest.TestCase):
         self.assertTrue(bot.is_paused)
         self.assertTrue(bot.integrity_lock_active)
         self.assertTrue(bot.halt_system_active)
-        self.assertEqual(bot.active_trades["BTC/USDT"]["status"], TradeStatus.EXIT_STUCK.value)
+        self.assertEqual(
+            bot.active_trades["BTC/USDT"]["status"], TradeStatus.EXIT_STUCK.value
+        )
         append_event.assert_any_call(bot, "REAL_CLOSE_FAILED_HALT", ANY)
 
     @patch("core.trade_exit.time.sleep", return_value=None)
@@ -463,7 +483,9 @@ class TestCloseTradeRealFailurePath(unittest.TestCase):
             return_value={"id": "close-1", "status": "closed", "filled": 0.001}
         )
         # Excepción genérica posterior al close (ej. falla un télem)
-        bot.execution.fetch_my_trades = MagicMock(side_effect=RuntimeError("telemetry error"))
+        bot.execution.fetch_my_trades = MagicMock(
+            side_effect=RuntimeError("telemetry error")
+        )
         # Aserciones de cierre: debe completar la rama de éxito y NO activar HALT.
         with patch.object(Config, "PAPER_MODE", False):
             # No debe lanzar excepción no controlada y debe borrar el trade activo
@@ -471,7 +493,9 @@ class TestCloseTradeRealFailurePath(unittest.TestCase):
                 close_trade(bot, "BTC/USDT", "MANUAL_CLOSE", 51000.0)
             except Exception:
                 pass  # fetch_my_trades falla internamente con log, no propaga
-        self.assertFalse(bot.is_paused or bot.integrity_lock_active or bot.halt_system_active)
+        self.assertFalse(
+            bot.is_paused or bot.integrity_lock_active or bot.halt_system_active
+        )
         # No se emitió REAL_CLOSE_FAILED_HALT
         for call in append_event.call_args_list:
             self.assertNotEqual(call.args[1], "REAL_CLOSE_FAILED_HALT")
@@ -490,13 +514,17 @@ class TestCloseTradeRealFailurePath(unittest.TestCase):
 
         bot = self._bot()
         # Close lanza excepción genérica; la orden reporta filled pero la posición sigue viva
-        bot.execution.close_position = MagicMock(side_effect=RuntimeError("partial timeout"))
+        bot.execution.close_position = MagicMock(
+            side_effect=RuntimeError("partial timeout")
+        )
         with patch.object(Config, "PAPER_MODE", False):
             close_trade(bot, "BTC/USDT", "MANUAL_CLOSE", 50100.0)
 
         self.assertTrue(bot.is_paused)
         self.assertTrue(bot.halt_system_active)
-        self.assertEqual(bot.active_trades["BTC/USDT"]["status"], TradeStatus.EXIT_STUCK.value)
+        self.assertEqual(
+            bot.active_trades["BTC/USDT"]["status"], TradeStatus.EXIT_STUCK.value
+        )
 
 
 class TestCloseTradeRealSuccessPath(unittest.TestCase):
@@ -535,7 +563,9 @@ class TestCloseTradeRealSuccessPath(unittest.TestCase):
                 update_agent_reputation=MagicMock(),
                 evolve_genetics=MagicMock(return_value=False),
                 check_eureka_status=MagicMock(return_value=("UNKNOWN", {})),
-                get_recent_exit_confidence_stagnation=MagicMock(return_value=stagnation),
+                get_recent_exit_confidence_stagnation=MagicMock(
+                    return_value=stagnation
+                ),
                 update_dynamic_settings=MagicMock(),
             ),
             risk_engine=SimpleNamespace(record_trade_result=MagicMock()),
@@ -571,7 +601,10 @@ class TestCloseTradeRealSuccessPath(unittest.TestCase):
             patch("core.trade_exit.shadow_logger.log"),
             patch("core.trade_exit.append_execution_event"),
             patch("core.trade_exit.append_runtime_metric"),
-            patch("core.trade_exit.label_exit_reason", return_value={"exit_reason": "MANUAL"}),
+            patch(
+                "core.trade_exit.label_exit_reason",
+                return_value={"exit_reason": "MANUAL"},
+            ),
             patch(
                 "core.trade_exit._calculate_pnl_and_metrics",
                 return_value={
@@ -596,7 +629,9 @@ class TestCloseTradeRealSuccessPath(unittest.TestCase):
             with ExitStack() as stack:
                 for cm in self._patch_success_deps():
                     stack.enter_context(cm)
-                close_trade(bot, "BTC/USDT", "MANUAL_CLOSE", 51000.0, exit_confidence=70.0)
+                close_trade(
+                    bot, "BTC/USDT", "MANUAL_CLOSE", 51000.0, exit_confidence=70.0
+                )
 
         bot.execution.close_position.assert_called_once_with(
             "BTC/USDT", "BUY", 0.001, position_side=None
@@ -631,7 +666,9 @@ class TestCloseTradeRealSuccessPath(unittest.TestCase):
     def test_large_real_loss_sets_stagnation_and_circuit_breaker(self):
         from core.trade_exit import close_trade
 
-        bot = self._bot(stagnation={"stddev": 0.2, "mean": 55, "min": 54, "max": 56, "count": 10})
+        bot = self._bot(
+            stagnation={"stddev": 0.2, "mean": 55, "min": 54, "max": 56, "count": 10}
+        )
         with (
             patch.object(Config, "PAPER_MODE", False),
             patch.object(Config, "REGIME_TUNING_ENABLED", False),
@@ -671,14 +708,17 @@ class TestGeneticBatch(unittest.TestCase):
         bot.brain.evolve_genetics.assert_called_once_with("BTC/USDT")
         self.assertTrue(
             any(
-                call.args[1] == "GENETIC_BATCH_SWAP_APPLIED" for call in append_event.call_args_list
+                call.args[1] == "GENETIC_BATCH_SWAP_APPLIED"
+                for call in append_event.call_args_list
             )
         )
 
     @patch("core.bot_maintenance.Config.GENETIC_BATCH_ENABLED", True)
     @patch("core.bot_maintenance.Config.GENETIC_BATCH_MIN_TRADES", 50)
     @patch("core.bot_maintenance.append_execution_event")
-    def test_genetic_batch_keeps_pending_when_samples_are_insufficient(self, _append_event):
+    def test_genetic_batch_keeps_pending_when_samples_are_insufficient(
+        self, _append_event
+    ):
         from core.bot_maintenance import run_genetic_batch
 
         bot = SimpleNamespace(

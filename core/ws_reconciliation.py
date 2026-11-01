@@ -17,7 +17,9 @@ except Exception:
 
 logger = logging.getLogger("SniperAI")
 
-WS_RECONCILE_TIMEOUT_SECONDS = float(os.getenv("WS_RECONCILE_TIMEOUT_SECONDS", "30.0") or "30.0")
+WS_RECONCILE_TIMEOUT_SECONDS = float(
+    os.getenv("WS_RECONCILE_TIMEOUT_SECONDS", "30.0") or "30.0"
+)
 
 
 def _check_ws_reconcile_timeout(bot) -> None:
@@ -54,7 +56,9 @@ def _check_ws_reconcile_timeout(bot) -> None:
             break
 
 
-def handle_ws_reconnected(bot, *, source: str, reconnect_count: int | None = None) -> None:
+def handle_ws_reconnected(
+    bot, *, source: str, reconnect_count: int | None = None
+) -> None:
     """Reconcile exchange state after a market-data WebSocket reconnect.
 
     The market stream reconnect itself is not authoritative for live exposure.
@@ -82,7 +86,9 @@ def handle_ws_reconnected(bot, *, source: str, reconnect_count: int | None = Non
         return
 
     now = time.monotonic()
-    min_interval = float(getattr(Config, "WS_RECONCILE_MIN_INTERVAL_SECONDS", 30.0) or 30.0)
+    min_interval = float(
+        getattr(Config, "WS_RECONCILE_MIN_INTERVAL_SECONDS", 30.0) or 30.0
+    )
     last = float(getattr(bot, "_last_ws_reconcile_mono", 0.0) or 0.0)
     if last > 0.0 and now - last < min_interval:
         append_execution_event(
@@ -111,7 +117,9 @@ def handle_ws_reconnected(bot, *, source: str, reconnect_count: int | None = Non
     append_execution_event(
         bot, "WS_RECONCILE_STARTED", {**payload, "event": "WS_RECONCILE_STARTED"}
     )
-    threading.Thread(target=_check_ws_reconcile_timeout, args=(bot,), daemon=True).start()
+    threading.Thread(
+        target=_check_ws_reconcile_timeout, args=(bot,), daemon=True
+    ).start()
 
     try:
         reconcile_bootstrap_state(bot)
@@ -136,4 +144,6 @@ def handle_ws_reconnected(bot, *, source: str, reconnect_count: int | None = Non
     finally:
         bot.ws_reconciliation_in_progress = False
 
-    append_execution_event(bot, "WS_RECONCILE_OK", {**payload, "event": "WS_RECONCILE_OK"})
+    append_execution_event(
+        bot, "WS_RECONCILE_OK", {**payload, "event": "WS_RECONCILE_OK"}
+    )

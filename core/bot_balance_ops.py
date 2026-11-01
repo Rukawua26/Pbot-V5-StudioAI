@@ -1,7 +1,10 @@
 import time
 
 from config import Config
-from core.trade_helpers import persist_simulated_wallet_state, restore_simulated_available_balance
+from core.trade_helpers import (
+    persist_simulated_wallet_state,
+    restore_simulated_available_balance,
+)
 
 
 def start_silent_sync(bot):
@@ -36,7 +39,9 @@ def start_silent_sync(bot):
                         bot.balance = actual_balance
                 else:
                     bot.balance = actual_balance
-                bot.log(f"🔄 SYNC: Balance sincronizado silenciosamente: ${actual_balance:.2f}")
+                bot.log(
+                    f"🔄 SYNC: Balance sincronizado silenciosamente: ${actual_balance:.2f}"
+                )
                 bot.brain.log_equity(actual_balance)  # Registrar punto en la curva
 
             time.sleep(3600)  # Espera 1 hora

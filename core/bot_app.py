@@ -137,7 +137,9 @@ from core.signals.filters import (
     _plan_execution_mode,
     _resolve_audit_verdict_and_stats,
 )
-from core.state_snapshot import start_state_snapshot_loop as run_start_state_snapshot_loop
+from core.state_snapshot import (
+    start_state_snapshot_loop as run_start_state_snapshot_loop,
+)
 from core.strategy.shocks import next_shock_distance_pct
 from core.trade_manager import abort_partial_trade as tm_abort_partial_trade
 from core.trade_manager import close_trade as tm_close_trade
@@ -177,7 +179,9 @@ if not logger.handlers:
         backupCount=5,
         encoding="utf-8",
     )
-    log_formatter = logging.Formatter("%(asctime)s | %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+    log_formatter = logging.Formatter(
+        "%(asctime)s | %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+    )
     log_handler.setFormatter(log_formatter)
     logger.addHandler(log_handler)
 
@@ -247,7 +251,9 @@ class Bot:
                 self._main_loop_ready.set()
                 loop.run_forever()
             except Exception as error:
-                logger.critical(f"🚨 FATAL BOOT ERROR: Event Loop thread falló: {error}")
+                logger.critical(
+                    f"🚨 FATAL BOOT ERROR: Event Loop thread falló: {error}"
+                )
             finally:
                 try:
                     loop.close()
@@ -308,7 +314,9 @@ class Bot:
         )
 
     def render_consensus_telemetry(self, symbol, p_final, modo, votos, regime=None):
-        return self._delegate(show_consensus_telemetry, symbol, p_final, modo, votos, regime)
+        return self._delegate(
+            show_consensus_telemetry, symbol, p_final, modo, votos, regime
+        )
 
     def _load_ai_restrictions(self):
         return self._delegate(load_ai_restrictions)
@@ -436,7 +444,9 @@ class Bot:
     def _load_local_candles(self, symbol, timeframe="1h"):
         return load_local_candles(symbol, timeframe)
 
-    def _calc_post_exit_drift(self, symbol, side, exit_ts_iso, exit_price, lookahead_bars=4):
+    def _calc_post_exit_drift(
+        self, symbol, side, exit_ts_iso, exit_price, lookahead_bars=4
+    ):
         return calc_post_exit_drift(
             symbol=symbol,
             side=side,
@@ -510,10 +520,16 @@ class Bot:
         return fetch_triage_data_parallel(self, top_triage)
 
     def _analyze_symbol_candidate(self, symbol_raw, symbol, df_main, df_4h, elapsed):
-        return _analyze_symbol_candidate(self, symbol_raw, symbol, df_main, df_4h, elapsed)
+        return _analyze_symbol_candidate(
+            self, symbol_raw, symbol, df_main, df_4h, elapsed
+        )
 
-    def _build_symbol_context(self, symbol_raw, symbol, df_main, price, ind, audit_signal):
-        return _build_symbol_context(self, symbol_raw, symbol, df_main, price, ind, audit_signal)
+    def _build_symbol_context(
+        self, symbol_raw, symbol, df_main, price, ind, audit_signal
+    ):
+        return _build_symbol_context(
+            self, symbol_raw, symbol, df_main, price, ind, audit_signal
+        )
 
     def _execute_and_update_symbol(
         self,
@@ -556,10 +572,26 @@ class Bot:
         )
 
     def _apply_entry_filters_and_adjust_prob(
-        self, symbol, symbol_raw, df_main, audit_signal, prob_final, ctx, vol_rel, votos=None
+        self,
+        symbol,
+        symbol_raw,
+        df_main,
+        audit_signal,
+        prob_final,
+        ctx,
+        vol_rel,
+        votos=None,
     ):
         return _apply_entry_filters_and_adjust_prob(
-            self, symbol, symbol_raw, df_main, audit_signal, prob_final, ctx, vol_rel, votos=votos
+            self,
+            symbol,
+            symbol_raw,
+            df_main,
+            audit_signal,
+            prob_final,
+            ctx,
+            vol_rel,
+            votos=votos,
         )
 
     def _plan_execution_mode(
@@ -613,7 +645,9 @@ class Bot:
         )
 
     def _run_signal_scan_cycle(self, top_triage, results, signal_stats, pnl_real_hoy):
-        return run_signal_scan_cycle(self, top_triage, results, signal_stats, pnl_real_hoy)
+        return run_signal_scan_cycle(
+            self, top_triage, results, signal_stats, pnl_real_hoy
+        )
 
     def _finalize_scan_cycle(self, signal_stats):
         return finalize_scan_cycle(self, signal_stats)
@@ -825,8 +859,12 @@ def run_entrypoint():
             sys.exit(1)
 
         def _graceful_shutdown(signum, _frame):
-            signal_name = "SIGINT" if signum == getattr(signal, "SIGINT", -1) else "SIGTERM"
-            logger.warning(f"⚠️ Señal {signal_name} recibida. Iniciando apagado ordenado...")
+            signal_name = (
+                "SIGINT" if signum == getattr(signal, "SIGINT", -1) else "SIGTERM"
+            )
+            logger.warning(
+                f"⚠️ Señal {signal_name} recibida. Iniciando apagado ordenado..."
+            )
             request_graceful_shutdown(bot, reason=signal_name, logger=logger)
 
         signal.signal(signal.SIGINT, _graceful_shutdown)
@@ -837,7 +875,8 @@ def run_entrypoint():
 
         if getattr(bot, "shutdown_in_progress", False):
             shutdown_done = bool(
-                getattr(bot, "shutdown_complete", None) and bot.shutdown_complete.wait(timeout=85)
+                getattr(bot, "shutdown_complete", None)
+                and bot.shutdown_complete.wait(timeout=85)
             )
             if not shutdown_done:
                 logger.warning(

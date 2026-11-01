@@ -27,10 +27,18 @@ class StrategyAgentsCoverageTest(unittest.TestCase):
         from core.strategy.agents.mt_agent import MTAgent
 
         agent = MTAgent()
-        self.assertGreater(agent._get_technical_score({"side": "BUY", "rsi": 30, "adx": 30}), 70)
-        self.assertGreater(agent._get_technical_score({"side": "SELL", "rsi": 70, "adx": 30}), 70)
-        self.assertLess(agent._get_technical_score({"side": "BUY", "rsi": 75, "adx": 10}), 50)
-        self.assertEqual(agent._get_momentum_score(pd.DataFrame({"close": [1, 2]}), "BUY"), 50.0)
+        self.assertGreater(
+            agent._get_technical_score({"side": "BUY", "rsi": 30, "adx": 30}), 70
+        )
+        self.assertGreater(
+            agent._get_technical_score({"side": "SELL", "rsi": 70, "adx": 30}), 70
+        )
+        self.assertLess(
+            agent._get_technical_score({"side": "BUY", "rsi": 75, "adx": 10}), 50
+        )
+        self.assertEqual(
+            agent._get_momentum_score(pd.DataFrame({"close": [1, 2]}), "BUY"), 50.0
+        )
 
         up = _ohlc(step=1.0)
         down = _ohlc(start=140.0, step=-1.0)
@@ -43,7 +51,9 @@ class StrategyAgentsCoverageTest(unittest.TestCase):
         bullish_div.loc[bullish_div.index[-5], "rsi"] = 35
         bullish_div.loc[bullish_div.index[-1], "rsi"] = 45
         self.assertEqual(agent._get_divergence_score(bullish_div, "BUY"), 80.0)
-        self.assertGreaterEqual(agent.vote({"df": up, "side": "BUY", "rsi": 30, "adx": 30}), 20.0)
+        self.assertGreaterEqual(
+            agent.vote({"df": up, "side": "BUY", "rsi": 30, "adx": 30}), 20.0
+        )
 
     def test_sr_agent_entropy_kinetic_and_vote(self):
         from core.strategy.agents.sr_agent import SRAgent
@@ -70,21 +80,30 @@ class StrategyAgentsCoverageTest(unittest.TestCase):
         from core.strategy.agents.breakout_agent import BreakoutAgent
 
         agent = BreakoutAgent(
-            min_ia_prob=60, volume_multiplier=1.2, breakout_buffer_pct=0.5, timeout_minutes=1
+            min_ia_prob=60,
+            volume_multiplier=1.2,
+            breakout_buffer_pct=0.5,
+            timeout_minutes=1,
         )
         self.assertFalse(agent.add_to_watchlist("", "BUY", 70, 100, "UP"))
         self.assertFalse(agent.add_to_watchlist("BTC", "BUY", 50, 100, "UP"))
-        self.assertTrue(agent.add_to_watchlist("BTC", "BUY", 70, 100, "UP", {"source": "TEST"}))
+        self.assertTrue(
+            agent.add_to_watchlist("BTC", "BUY", 70, 100, "UP", {"source": "TEST"})
+        )
         self.assertEqual(agent.size(), 1)
         self.assertEqual(agent.summary_by_source(), {"TEST": 1})
 
-        df = pd.DataFrame({"close": [100.0] * 24 + [101.0], "volume": [100.0] * 24 + [200.0]})
+        df = pd.DataFrame(
+            {"close": [100.0] * 24 + [101.0], "volume": [100.0] * 24 + [200.0]}
+        )
         ok, payload = agent.evaluate_breakout("BTC", df)
         self.assertTrue(ok)
         self.assertEqual(payload["symbol"], "BTC")
         self.assertEqual(agent.evaluate_breakout("ETH", df), (False, None))
 
-        with patch("core.strategy.agents.breakout_agent.time.time", return_value=10_000.0):
+        with patch(
+            "core.strategy.agents.breakout_agent.time.time", return_value=10_000.0
+        ):
             agent.watchlist["BTC"]["updated_at"] = 0.0
             self.assertEqual(agent.clean_stale_watchlist(), 1)
 
@@ -99,7 +118,9 @@ class StrategyAgentsCoverageTest(unittest.TestCase):
             }
         )
 
-        buy_dist, buy_level = next_shock_distance_pct(df, "BUY", pivot_window=1, lookback_bars=20)
+        buy_dist, buy_level = next_shock_distance_pct(
+            df, "BUY", pivot_window=1, lookback_bars=20
+        )
         sell_dist, sell_level = next_shock_distance_pct(
             df, "SELL", pivot_window=1, lookback_bars=20
         )
@@ -110,7 +131,9 @@ class StrategyAgentsCoverageTest(unittest.TestCase):
         self.assertAlmostEqual(sell_dist, 8.0)
         self.assertEqual(next_shock_distance_pct(pd.DataFrame(), "BUY"), (None, None))
         self.assertEqual(
-            next_shock_distance_pct(pd.DataFrame({"high": [1], "low": [1], "close": [0]}), "BUY"),
+            next_shock_distance_pct(
+                pd.DataFrame({"high": [1], "low": [1], "close": [0]}), "BUY"
+            ),
             (None, None),
         )
 
@@ -171,10 +194,18 @@ class GhostAgentCoverageTest(unittest.TestCase):
 
         agent = GhostAgent()
         agent.load_trained_model = MagicMock(
-            return_value={"rf": self._ProbaModel(0.95), "feature_cols": ["rsi", "adx", "vol_rel"]}
+            return_value={
+                "rf": self._ProbaModel(0.95),
+                "feature_cols": ["rsi", "adx", "vol_rel"],
+            }
         )
         boost = agent.get_ai_boost(
-            rsi=60, adx=30, vol_rel=1.5, btc_delta=0.7, atr_pct=0.02, funding_rate=-0.0003
+            rsi=60,
+            adx=30,
+            vol_rel=1.5,
+            btc_delta=0.7,
+            atr_pct=0.02,
+            funding_rate=-0.0003,
         )
         self.assertEqual(boost, 20.0)
 
@@ -200,7 +231,9 @@ class GhostAgentCoverageTest(unittest.TestCase):
         self.assertEqual(agent.vote({"model": {"version": "v111_ultimate"}}), 54.0)
 
         lstm = SimpleNamespace(input_shape=(None, 10, 1))
-        self.assertEqual(agent.vote({"model": lstm, "df": _ohlc(), "scaler": object()}), 54.0)
+        self.assertEqual(
+            agent.vote({"model": lstm, "df": _ohlc(), "scaler": object()}), 54.0
+        )
 
 
 class ConsensusNNCoverageTest(unittest.TestCase):
@@ -217,8 +250,12 @@ class ConsensusNNCoverageTest(unittest.TestCase):
             nn.save(n_samples=1)
 
             nn.is_trained = True
-            nn.model = SimpleNamespace(predict_proba=MagicMock(return_value=np.array([[0.2, 0.8]])))
-            nn.scaler = SimpleNamespace(transform=MagicMock(return_value=np.zeros((1, 8))))
+            nn.model = SimpleNamespace(
+                predict_proba=MagicMock(return_value=np.array([[0.2, 0.8]]))
+            )
+            nn.scaler = SimpleNamespace(
+                transform=MagicMock(return_value=np.zeros((1, 8)))
+            )
             prob, conf = nn.predict({"MT": 60})
             self.assertEqual(prob, 0.8)
             self.assertAlmostEqual(conf, 0.6)
@@ -242,12 +279,18 @@ class ConsensusNNCoverageTest(unittest.TestCase):
             nn = AgentConsensusNN(model_path="missing.pkl")
 
         nn.is_trained = True
-        nn.scaler = SimpleNamespace(transform=MagicMock(return_value=np.array([[4.0] * 8])))
-        nn.model = SimpleNamespace(predict_proba=MagicMock(return_value=np.array([[0.2, 0.8]])))
+        nn.scaler = SimpleNamespace(
+            transform=MagicMock(return_value=np.array([[4.0] * 8]))
+        )
+        nn.model = SimpleNamespace(
+            predict_proba=MagicMock(return_value=np.array([[0.2, 0.8]]))
+        )
         self.assertEqual(nn.predict({"MT": 60}), (0.5, 0.0))
 
         nn._integrity_log_count = 5
-        nn.scaler = SimpleNamespace(transform=MagicMock(side_effect=RuntimeError("bad scale")))
+        nn.scaler = SimpleNamespace(
+            transform=MagicMock(side_effect=RuntimeError("bad scale"))
+        )
         self.assertEqual(nn.predict({"MT": 60}), (0.5, 0.0))
 
 
@@ -257,19 +300,27 @@ class StrategyOrchestratorCoverageTest(unittest.TestCase):
 
         orch = StrategyOrchestrator()
         weights = orch.get_adaptive_weights(
-            "UNKNOWN", agent_performances={"MT": 130, "SR": 40, "G": 100}, adx=30, rsi=70
+            "UNKNOWN",
+            agent_performances={"MT": 130, "SR": 40, "G": 100},
+            adx=30,
+            rsi=70,
         )
         self.assertAlmostEqual(sum(weights.values()), 1.0)
         self.assertGreater(weights["MT"], weights["SR"])
 
     def test_correlation_veto_zeroes_lower_performer_after_window(self):
-        from core.strategy.orchestrator import CORRELATION_VETO_WINDOW, StrategyOrchestrator
+        from core.strategy.orchestrator import (
+            CORRELATION_VETO_WINDOW,
+            StrategyOrchestrator,
+        )
 
         orch = StrategyOrchestrator()
         weights = {"MT": 0.4, "SR": 0.3, "G": 0.3}
         for i in range(CORRELATION_VETO_WINDOW - 1):
             vote = 55.0 + float(i % 2) * 10.0
-            orch._apply_correlation_veto(weights, {"MT": vote, "SR": vote, "G": 45.0 + i})
+            orch._apply_correlation_veto(
+                weights, {"MT": vote, "SR": vote, "G": 45.0 + i}
+            )
 
         vote = 65.0
         adjusted = orch._apply_correlation_veto(
@@ -286,12 +337,20 @@ class StrategyOrchestratorCoverageTest(unittest.TestCase):
             "SR": SimpleNamespace(vote=MagicMock(side_effect=RuntimeError("boom"))),
             "G": SimpleNamespace(vote=MagicMock(return_value=70.0)),
         }
-        orch.vote_history = {name: orch.vote_history[name] for name in ["MT", "SR", "G"]}
+        orch.vote_history = {
+            name: orch.vote_history[name] for name in ["MT", "SR", "G"]
+        }
         orch.consensus_nn = SimpleNamespace(predict=MagicMock(return_value=(0.9, 0.8)))
 
         with patch("core.strategy.orchestrator.shadow_logger.log") as mock_log:
             score, votes, agent_weights = orch.calculate_consensus(
-                {"symbol": "BTC", "regime": "RANGE", "adx": 25, "rsi": 50, "breakout_ready": False}
+                {
+                    "symbol": "BTC",
+                    "regime": "RANGE",
+                    "adx": 25,
+                    "rsi": 50,
+                    "breakout_ready": False,
+                }
             )
 
         self.assertEqual(votes["SR"], 50.0)

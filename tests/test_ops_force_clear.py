@@ -62,7 +62,9 @@ class OpsForceClearTest(unittest.TestCase):
                 {"ts": now, "event": "ENTRY_ORDER_ACK", "payload": {}},
                 {"ts": now, "event": "INTENT_EXPIRED", "payload": {}},
             ]
-            log_path.write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
+            log_path.write_text(
+                "\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8"
+            )
 
             bot = SimpleNamespace(
                 weight_tracker=SimpleNamespace(
@@ -104,7 +106,9 @@ class OpsForceClearTest(unittest.TestCase):
             brain=SimpleNamespace(delete_active_trade_state=MagicMock()),
         )
 
-        handled = _handle_training_and_maintenance_commands(bot, "/force_clear BTC/USDT")
+        handled = _handle_training_and_maintenance_commands(
+            bot, "/force_clear BTC/USDT"
+        )
 
         self.assertTrue(handled)
         self.assertNotIn("BTC/USDT", bot.active_trades)
@@ -112,7 +116,9 @@ class OpsForceClearTest(unittest.TestCase):
         mocked_tg.assert_called()
 
     @patch("core.commands.ops.send_telegram_msg")
-    def test_force_clear_does_not_remove_state_when_exchange_has_position(self, mocked_tg):
+    def test_force_clear_does_not_remove_state_when_exchange_has_position(
+        self, mocked_tg
+    ):
         bot = SimpleNamespace(
             lock=RLock(),
             db_lock=RLock(),
@@ -131,7 +137,9 @@ class OpsForceClearTest(unittest.TestCase):
             brain=SimpleNamespace(delete_active_trade_state=MagicMock()),
         )
 
-        handled = _handle_training_and_maintenance_commands(bot, "/force_clear BTC/USDT")
+        handled = _handle_training_and_maintenance_commands(
+            bot, "/force_clear BTC/USDT"
+        )
 
         self.assertTrue(handled)
         self.assertIn("BTC/USDT", bot.active_trades)
@@ -158,7 +166,9 @@ class OpsForceClearTest(unittest.TestCase):
             halt_system_active=False,
         )
 
-        self.assertTrue(_handle_training_and_maintenance_commands(bot, "/force_clear BTC/USDT"))
+        self.assertTrue(
+            _handle_training_and_maintenance_commands(bot, "/force_clear BTC/USDT")
+        )
 
         self.assertIn("BTC/USDT", bot.active_trades)
         self.assertTrue(bot.halt_system_active)

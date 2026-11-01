@@ -54,7 +54,9 @@ class TestExchangePositionIsFlat(unittest.TestCase):
         from core.trade_manager import _exchange_position_is_flat
 
         bot = MagicMock()
-        bot.execution.fetch_positions.return_value = [{"symbol": "BTC/USDT", "contracts": 1.0}]
+        bot.execution.fetch_positions.return_value = [
+            {"symbol": "BTC/USDT", "contracts": 1.0}
+        ]
         mock_norm.return_value = "BTC/USDT"
         result = _exchange_position_is_flat(bot, "BTC/USDT")
         self.assertFalse(result)

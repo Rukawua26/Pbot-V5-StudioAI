@@ -40,7 +40,9 @@ class BreakoutAgent:
     ) -> bool:
         if not symbol or side not in {"BUY", "SELL"}:
             return False
-        min_prob = float(min_ia_prob) if min_ia_prob is not None else float(self.min_ia_prob)
+        min_prob = (
+            float(min_ia_prob) if min_ia_prob is not None else float(self.min_ia_prob)
+        )
         if ia_prob < min_prob or shock_level is None:
             return False
 

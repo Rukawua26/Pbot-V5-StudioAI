@@ -43,7 +43,9 @@ class RegressionFlowsTest(unittest.TestCase):
 
     @patch("tools.notifier.send_telegram_msg")
     @patch("core.reconciliation.recover_halt_if_exchange_consistent")
-    def test_recover_halt_command_delegates_to_safe_recovery(self, mocked_recover, mocked_tg):
+    def test_recover_halt_command_delegates_to_safe_recovery(
+        self, mocked_recover, mocked_tg
+    ):
         from core.command_router import handle_basic_command
 
         mocked_recover.return_value = (True, "RECOVERY_OK")
@@ -77,7 +79,12 @@ class RegressionFlowsTest(unittest.TestCase):
         bot = SimpleNamespace(
             is_running=False,
             log=MagicMock(),
-            _guardian_stats={"loops": 0, "work_s": 0.0, "sleep_s": 0.0, "bailout_count": 0},
+            _guardian_stats={
+                "loops": 0,
+                "work_s": 0.0,
+                "sleep_s": 0.0,
+                "bailout_count": 0,
+            },
             active_trades={},
         )
 

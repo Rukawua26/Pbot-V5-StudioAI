@@ -57,6 +57,8 @@ def check_recent_mfe_health(bot):
         avg_mfe = sum(values) / max(1, len(values))
         if avg_mfe < 0.1:
             bot._mfe_alert_last_ts = now_ts
-            bot.log(f"⚠️ EXIT_MFE_ALERT: MFE medio últimos 5 trades={avg_mfe:.3f}% (<0.1%).")
+            bot.log(
+                f"⚠️ EXIT_MFE_ALERT: MFE medio últimos 5 trades={avg_mfe:.3f}% (<0.1%)."
+            )
     except Exception as error:
         bot.log(f"⚠️ Error chequeando scorecard diario: {error}")

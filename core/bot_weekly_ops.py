@@ -17,9 +17,13 @@ def check_weekly_schedule(bot, module_available_fn):
                     from evolution_logger import get_evolution_report
 
                     report = get_evolution_report()
-                    send_telegram_msg(f"📊 *RESUMEN DE CRECIMIENTO SEMANAL*\n\n{report}")
+                    send_telegram_msg(
+                        f"📊 *RESUMEN DE CRECIMIENTO SEMANAL*\n\n{report}"
+                    )
                 else:
-                    bot.log("ℹ️ Resumen semanal omitido: evolution_logger no disponible.")
+                    bot.log(
+                        "ℹ️ Resumen semanal omitido: evolution_logger no disponible."
+                    )
             except Exception as error:
                 bot.log(f"⚠️ Error en reporte semanal: {error}")
             bot._weekly_sent = True
@@ -37,8 +41,12 @@ def check_weekly_maintenance_utc(bot):
     if not _weekly_maintenance_due(now_utc):
         return
 
-    bot.log("🧹 Mantenimiento semanal DB (viernes 10:00 UTC): iniciando purge+VACUUM...")
-    result = bot.brain.weekly_maintenance(shadow_days_to_keep=30, signal_days_to_keep=30)
+    bot.log(
+        "🧹 Mantenimiento semanal DB (viernes 10:00 UTC): iniciando purge+VACUUM..."
+    )
+    result = bot.brain.weekly_maintenance(
+        shadow_days_to_keep=30, signal_days_to_keep=30
+    )
     if result.get("error"):
         bot.log(f"⚠️ Mantenimiento DB falló: {result['error']}")
     else:

@@ -48,7 +48,14 @@ class TestMinAtrFilter(unittest.TestCase):
         """ATR below MIN_ATR_PCT should be vetoed."""
         mock_strategy.return_value = (True, "OK", "BULL_TREND", {})
         mock_regime.return_value = (1.0, "BULL_ALIGNED", False)
-        mock_markov.return_value = (1.0, "BULL_ALIGNED", False, True, "OK", "BULL_TREND")
+        mock_markov.return_value = (
+            1.0,
+            "BULL_ALIGNED",
+            False,
+            True,
+            "OK",
+            "BULL_TREND",
+        )
 
         bot = self._make_bot()
         ctx = self._make_ctx(atr_pct=0.002)
@@ -72,7 +79,14 @@ class TestMinAtrFilter(unittest.TestCase):
         """ATR above MIN_ATR_PCT should pass."""
         mock_strategy.return_value = (True, "OK", "BULL_TREND", {})
         mock_regime.return_value = (1.0, "BULL_ALIGNED", False)
-        mock_markov.return_value = (1.0, "BULL_ALIGNED", False, True, "OK", "BULL_TREND")
+        mock_markov.return_value = (
+            1.0,
+            "BULL_ALIGNED",
+            False,
+            True,
+            "OK",
+            "BULL_TREND",
+        )
 
         bot = self._make_bot()
         ctx = self._make_ctx(atr_pct=0.01)
@@ -95,7 +109,14 @@ class TestMinAtrFilter(unittest.TestCase):
         """When filter is disabled, low ATR should not be vetoed."""
         mock_strategy.return_value = (True, "OK", "BULL_TREND", {})
         mock_regime.return_value = (1.0, "BULL_ALIGNED", False)
-        mock_markov.return_value = (1.0, "BULL_ALIGNED", False, True, "OK", "BULL_TREND")
+        mock_markov.return_value = (
+            1.0,
+            "BULL_ALIGNED",
+            False,
+            True,
+            "OK",
+            "BULL_TREND",
+        )
 
         bot = self._make_bot()
         ctx = self._make_ctx(atr_pct=0.001)
@@ -119,7 +140,14 @@ class TestMinAtrFilter(unittest.TestCase):
     ):
         mock_strategy.return_value = (True, "OK", "BULL_TREND", {})
         mock_regime.return_value = (1.0, "BULL_ALIGNED", False)
-        mock_markov.return_value = (1.0, "BULL_ALIGNED", False, True, "OK", "BULL_TREND")
+        mock_markov.return_value = (
+            1.0,
+            "BULL_ALIGNED",
+            False,
+            True,
+            "OK",
+            "BULL_TREND",
+        )
 
         with (
             patch.object(Config, "MIN_ATR_PCT_FILTER_ENABLED", False),
@@ -127,7 +155,14 @@ class TestMinAtrFilter(unittest.TestCase):
             patch.object(Config, "PAPER_MODE", True),
         ):
             result = _apply_entry_filters_and_adjust_prob(
-                self._make_bot(), "BTC/USDT", "BTC/USDT", None, "SELL", 70.0, self._make_ctx(), 1.5
+                self._make_bot(),
+                "BTC/USDT",
+                "BTC/USDT",
+                None,
+                "SELL",
+                70.0,
+                self._make_ctx(),
+                1.5,
             )
 
         self.assertFalse(result[1])
@@ -141,14 +176,28 @@ class TestMinAtrFilter(unittest.TestCase):
     ):
         mock_strategy.return_value = (True, "OK", "BULL_TREND", {})
         mock_regime.return_value = (1.0, "BULL_ALIGNED", False)
-        mock_markov.return_value = (1.0, "BULL_ALIGNED", False, True, "OK", "BULL_TREND")
+        mock_markov.return_value = (
+            1.0,
+            "BULL_ALIGNED",
+            False,
+            True,
+            "OK",
+            "BULL_TREND",
+        )
 
         with (
             patch.object(Config, "MIN_ATR_PCT_FILTER_ENABLED", False),
             patch.object(Config, "BULL_TREND_ENTRY_VETO_ENABLED", True),
         ):
             result = _apply_entry_filters_and_adjust_prob(
-                self._make_bot(), "BTC/USDT", "BTC/USDT", None, "BUY", 70.0, self._make_ctx(), 1.5
+                self._make_bot(),
+                "BTC/USDT",
+                "BTC/USDT",
+                None,
+                "BUY",
+                70.0,
+                self._make_ctx(),
+                1.5,
             )
 
         self.assertTrue(result[1])
@@ -162,7 +211,14 @@ class TestMinAtrFilter(unittest.TestCase):
     ):
         mock_strategy.return_value = (True, "OK", "BULL_TREND", {})
         mock_regime.return_value = (1.0, "BULL_ALIGNED", False)
-        mock_markov.return_value = (1.0, "BULL_ALIGNED", False, True, "OK", "BULL_TREND")
+        mock_markov.return_value = (
+            1.0,
+            "BULL_ALIGNED",
+            False,
+            True,
+            "OK",
+            "BULL_TREND",
+        )
 
         with (
             patch.object(Config, "MIN_ATR_PCT_FILTER_ENABLED", False),
@@ -171,7 +227,14 @@ class TestMinAtrFilter(unittest.TestCase):
             patch.object(Config, "PAPER_MODE", False),
         ):
             result = _apply_entry_filters_and_adjust_prob(
-                self._make_bot(), "BTC/USDT", "BTC/USDT", None, "BUY", 70.0, self._make_ctx(), 1.5
+                self._make_bot(),
+                "BTC/USDT",
+                "BTC/USDT",
+                None,
+                "BUY",
+                70.0,
+                self._make_ctx(),
+                1.5,
             )
 
         self.assertFalse(result[1])
@@ -185,14 +248,28 @@ class TestMinAtrFilter(unittest.TestCase):
     ):
         mock_strategy.return_value = (True, "OK", "BULL_TREND", {})
         mock_regime.return_value = (1.0, "BULL_ALIGNED", False)
-        mock_markov.return_value = (1.0, "BULL_ALIGNED", False, True, "OK", "BULL_TREND")
+        mock_markov.return_value = (
+            1.0,
+            "BULL_ALIGNED",
+            False,
+            True,
+            "OK",
+            "BULL_TREND",
+        )
 
         with (
             patch.object(Config, "MIN_ATR_PCT_FILTER_ENABLED", False),
             patch.object(Config, "BULL_TREND_ENTRY_VETO_ENABLED", False),
         ):
             result = _apply_entry_filters_and_adjust_prob(
-                self._make_bot(), "BTC/USDT", "BTC/USDT", None, "BUY", 70.0, self._make_ctx(), 1.5
+                self._make_bot(),
+                "BTC/USDT",
+                "BTC/USDT",
+                None,
+                "BUY",
+                70.0,
+                self._make_ctx(),
+                1.5,
             )
 
         self.assertTrue(result[1])

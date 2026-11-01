@@ -30,7 +30,10 @@ class PortablePathsTest(unittest.TestCase):
         self.assertEqual(base, Path(tmpdir) / "SniperBot")
 
     def test_linux_frozen_uses_config_dir(self):
-        with patch.object(sys, "frozen", True, create=True), patch.object(sys, "platform", "linux"):
+        with (
+            patch.object(sys, "frozen", True, create=True),
+            patch.object(sys, "platform", "linux"),
+        ):
             base = portable_paths.portable_base_dir()
 
         self.assertEqual(base, Path.home() / ".config" / "SniperBot")

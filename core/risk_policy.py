@@ -69,7 +69,9 @@ def _notify_circuit_breaker_trigger(bot, *, reason: str, source: str) -> None:
     try:
         send_telegram_msg(msg)
     except Exception as error:
-        logging.getLogger("SniperAI").debug("circuit breaker alert telegram failed: %s", error)
+        logging.getLogger("SniperAI").debug(
+            "circuit breaker alert telegram failed: %s", error
+        )
 
 
 def record_risk_decision(
@@ -220,7 +222,9 @@ def evaluate_entry_risk_decision(
     return None
 
 
-def evaluate_runtime_entry_decision(bot, symbol: str, is_shadow: bool) -> EntryRiskDecision | None:
+def evaluate_runtime_entry_decision(
+    bot, symbol: str, is_shadow: bool
+) -> EntryRiskDecision | None:
     if bool(getattr(bot, "halt_system_active", False)) and not is_shadow:
         return EntryRiskDecision(
             action=RISK_ACTION_HALT,

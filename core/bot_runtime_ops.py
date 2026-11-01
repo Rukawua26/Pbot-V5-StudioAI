@@ -11,7 +11,9 @@ def heartbeat_loop(bot):
         init_complete.wait()
 
     while bot.is_running:
-        exchange = bot.execution.exchange  # Copia local para evitar condición de carrera
+        exchange = (
+            bot.execution.exchange
+        )  # Copia local para evitar condición de carrera
         if exchange is not None:
             try:
                 if bool(getattr(Config, "PAPER_MODE", True)) and bool(
@@ -39,7 +41,9 @@ def check_instinctive_safety(bot, symbol, context):
         atr_pct = context.get("atr_pct", 0) * 100
         # Si el ATR_PCT (volatilidad relativa) es muy alto (>5%)
         if atr_pct > 5.0:
-            bot.log(f"⚠️ GAP/VOL detectado en {symbol} ({atr_pct:.2f}%). Forzando MODO SHADOW.")
+            bot.log(
+                f"⚠️ GAP/VOL detectado en {symbol} ({atr_pct:.2f}%). Forzando MODO SHADOW."
+            )
             return "FORCE_SHADOW"
     except Exception as error:
         bot.log(f"⚠️ Error en validación de safety para {symbol}: {error}")

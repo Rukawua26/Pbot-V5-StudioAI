@@ -192,7 +192,11 @@ class RuntimeSafetyRegressionTest(unittest.TestCase):
             recent_closed_trades=[],
             execution=SimpleNamespace(
                 close_position=MagicMock(
-                    return_value={"id": "exit-1", "status": "open", "exit_state": "STUCK"}
+                    return_value={
+                        "id": "exit-1",
+                        "status": "open",
+                        "exit_state": "STUCK",
+                    }
                 ),
                 fetch_positions=MagicMock(
                     return_value=[

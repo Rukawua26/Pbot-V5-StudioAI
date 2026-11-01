@@ -150,7 +150,9 @@ class MTFAnalyzerTests(unittest.TestCase):
         df_15m = _make_df(_DOWNTREND)
         df_5m = _make_df(_UPTREND)
 
-        weight, reason = analyze_mtf_alignment(df_1h, df_15m, df_5m, "BUY", regime="BULL_TREND")
+        weight, reason = analyze_mtf_alignment(
+            df_1h, df_15m, df_5m, "BUY", regime="BULL_TREND"
+        )
 
         self.assertGreater(weight, 0.0)
         self.assertIn("PULLBACK", reason)
@@ -161,7 +163,9 @@ class MTFAnalyzerTests(unittest.TestCase):
         df_15m = _make_df(_UPTREND)
         df_5m = _make_df(_DOWNTREND)
 
-        weight, reason = analyze_mtf_alignment(df_1h, df_15m, df_5m, "SELL", regime="BEAR_TREND")
+        weight, reason = analyze_mtf_alignment(
+            df_1h, df_15m, df_5m, "SELL", regime="BEAR_TREND"
+        )
 
         self.assertGreater(weight, 0.0)
         self.assertIn("PULLBACK", reason)
@@ -172,7 +176,9 @@ class MTFAnalyzerTests(unittest.TestCase):
         df_15m = _make_df(_DOWNTREND)
         df_5m = _make_df(_UPTREND)
 
-        weight, reason = analyze_mtf_alignment(df_1h, df_15m, df_5m, "BUY", regime="RANGE")
+        weight, reason = analyze_mtf_alignment(
+            df_1h, df_15m, df_5m, "BUY", regime="RANGE"
+        )
 
         self.assertEqual(weight, 0.0)
         self.assertIn("VETO", reason)
@@ -269,7 +275,10 @@ class MTFFilterTests(unittest.TestCase):
 
         with (
             patch.object(Config, "MTF_FILTER_ENABLED", True),
-            patch("core.signals.mtf.filter.analyze_mtf_alignment", side_effect=fake_alignment),
+            patch(
+                "core.signals.mtf.filter.analyze_mtf_alignment",
+                side_effect=fake_alignment,
+            ),
             patch("core.signals.mtf.filter.append_execution_event"),
         ):
             apply_mtf_filter(bot, "BTC/USDT", "BUY", 80.0, ctx, _make_df(_UPTREND))
@@ -313,19 +322,26 @@ class MTFFilterTests(unittest.TestCase):
             patch.object(
                 filters.Strategy,
                 "check_entry_filters",
-                return_value=(True, "OK", "CALM", {"DAY_WEIGHT": 1.0, "HOUR_WEIGHT": 1.0}),
+                return_value=(
+                    True,
+                    "OK",
+                    "CALM",
+                    {"DAY_WEIGHT": 1.0, "HOUR_WEIGHT": 1.0},
+                ),
             ),
             patch.object(filters, "append_execution_event"),
         ):
-            prob, passed, reason, updated_ctx = filters._apply_entry_filters_and_adjust_prob(
-                bot,
-                "BTC/USDT",
-                "BTC/USDT",
-                _make_df(_UPTREND),
-                "BUY",
-                80.0,
-                ctx,
-                1.0,
+            prob, passed, reason, updated_ctx = (
+                filters._apply_entry_filters_and_adjust_prob(
+                    bot,
+                    "BTC/USDT",
+                    "BTC/USDT",
+                    _make_df(_UPTREND),
+                    "BUY",
+                    80.0,
+                    ctx,
+                    1.0,
+                )
             )
 
         self.assertEqual(prob, 80.0)

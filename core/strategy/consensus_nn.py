@@ -47,7 +47,9 @@ class AgentConsensusNN:
                 self.model = data["model"]
                 self.scaler = data["scaler"]
                 self.is_trained = True
-                logger.info(f"✅ Neural Consensus 1H cargado: {data.get('n_samples', 0)} muestras")
+                logger.info(
+                    f"✅ Neural Consensus 1H cargado: {data.get('n_samples', 0)} muestras"
+                )
             except Exception as e:
                 logger.warning(f"⚠️ Error cargando Neural Consensus: {e}")
                 self.is_trained = False
@@ -95,7 +97,9 @@ class AgentConsensusNN:
             if self._integrity_log_count < 5:
                 self._integrity_log_count += 1
                 X_scaled = self.scaler.transform(X)
-                logger.debug(f"🧬 [CONSENSUS-INTEGRITY] Ciclo {self._integrity_log_count}")
+                logger.debug(
+                    f"🧬 [CONSENSUS-INTEGRITY] Ciclo {self._integrity_log_count}"
+                )
                 logger.debug(f"   > Raw: {X[0].tolist()}")
                 logger.debug(f"   > Scaled: {X_scaled[0].tolist()}")
 
@@ -144,7 +148,9 @@ class AgentConsensusNN:
             self.is_trained = True
 
             train_score = self.model.score(X_scaled, y_train)
-            logger.info(f"✅ Neural Consensus 1H Entrenada - Accuracy: {train_score:.2%}")
+            logger.info(
+                f"✅ Neural Consensus 1H Entrenada - Accuracy: {train_score:.2%}"
+            )
             return True
         except Exception as e:
             logger.error(f"❌ Error entrenando Neural Consensus v118: {e}")

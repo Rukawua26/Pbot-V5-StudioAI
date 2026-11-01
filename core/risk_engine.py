@@ -9,7 +9,9 @@ from tools.crash_predictor import CrashPredictor
 from tools.strategy import Strategy
 
 
-def get_daily_pnl_pct(db_path, wallet_balance: float) -> tuple[float | None, float | None]:
+def get_daily_pnl_pct(
+    db_path, wallet_balance: float
+) -> tuple[float | None, float | None]:
     """Devuelve PnL real cerrado del día UTC como fracción y USD.
 
     Solo considera trades reales (`is_shadow=0`) y usa `timestamp` con prefijo
@@ -40,7 +42,9 @@ def get_daily_pnl_pct(db_path, wallet_balance: float) -> tuple[float | None, flo
 
         return pnl_usd / balance, pnl_usd
     except Exception as error:
-        logging.getLogger("RiskEngine").warning(f"⚠️ DAILY_DRAWDOWN_PNL_UNAVAILABLE: {error}")
+        logging.getLogger("RiskEngine").warning(
+            f"⚠️ DAILY_DRAWDOWN_PNL_UNAVAILABLE: {error}"
+        )
         return None, None
 
 
@@ -61,8 +65,12 @@ class RiskEngine:
         self.logger = logging.getLogger("RiskEngine")
 
         self.hyperopt_enabled = HyperoptConfigLoader.is_enabled()
-        self.stop_loss_pct = float(HyperoptConfigLoader.get_param("stop_loss_pct", 2.45))
-        self.take_profit_pct = float(HyperoptConfigLoader.get_param("take_profit_pct", 6.47))
+        self.stop_loss_pct = float(
+            HyperoptConfigLoader.get_param("stop_loss_pct", 2.45)
+        )
+        self.take_profit_pct = float(
+            HyperoptConfigLoader.get_param("take_profit_pct", 6.47)
+        )
 
         # [v118] ANTI-REVENGE SYSTEM
         self.symbol_streaks = {}  # {symbol: consecutive_losses}
@@ -302,7 +310,9 @@ class RiskEngine:
             if stop_distance <= 0:
                 return 0.0, -5
 
-            risk_fraction = float(risk_pct if risk_pct is not None else Config.RISK_PER_TRADE_PCT)
+            risk_fraction = float(
+                risk_pct if risk_pct is not None else Config.RISK_PER_TRADE_PCT
+            )
             if risk_fraction <= 0:
                 return 0.0, -2
 
@@ -485,7 +495,9 @@ class RiskEngine:
         side = trade.get("side")
 
         # Cálculo de caída relativa de confianza
-        score_drop_pct = (entry_score - current_ai_score) / entry_score if entry_score > 0 else 0
+        score_drop_pct = (
+            (entry_score - current_ai_score) / entry_score if entry_score > 0 else 0
+        )
 
         # Lógica para LONG
         if side == "BUY":
@@ -571,7 +583,9 @@ class RiskEngine:
         if "CONFIDENCE_FLOOR_VIOLATED" not in reason_text:
             return False, "NOT_FEE_NOISE_REASON"
 
-        max_minutes = float(getattr(Config, "SMART_EXIT_FEE_NOISE_MAX_MINUTES", 45.0) or 45.0)
+        max_minutes = float(
+            getattr(Config, "SMART_EXIT_FEE_NOISE_MAX_MINUTES", 45.0) or 45.0
+        )
         if elapsed_mins > max_minutes:
             return False, "FEE_NOISE_WINDOW_EXPIRED"
 
@@ -585,7 +599,9 @@ class RiskEngine:
             if side == "BUY"
             else ((entry - current_price) / entry) * 100.0
         )
-        fee_floor_pct = float(getattr(Config, "VIRTUAL_FEE", 0.001) or 0.001) * 2.0 * 100.0
+        fee_floor_pct = (
+            float(getattr(Config, "VIRTUAL_FEE", 0.001) or 0.001) * 2.0 * 100.0
+        )
 
         if 0.0 <= gross_move_pct < fee_floor_pct:
             return (

@@ -97,7 +97,9 @@ class TestPlanExecutionMode(unittest.TestCase):
     def test_directional_coherence_bull_sell_blocked(self):
         bot = _make_bot(
             current_sentiment=["🟢 TENDENCIA ALCISTA", 1.0],
-            breakout_agent=SimpleNamespace(add_to_watchlist=MagicMock(return_value=True)),
+            breakout_agent=SimpleNamespace(
+                add_to_watchlist=MagicMock(return_value=True)
+            ),
         )
         with (
             patch.object(Config, "SHADOW_PROB_MIN", 0.50),
@@ -116,7 +118,9 @@ class TestPlanExecutionMode(unittest.TestCase):
     def test_directional_coherence_bear_buy_blocked(self):
         bot = _make_bot(
             current_sentiment=["🔴 TENDENCIA BAJISTA", -1.0],
-            breakout_agent=SimpleNamespace(add_to_watchlist=MagicMock(return_value=True)),
+            breakout_agent=SimpleNamespace(
+                add_to_watchlist=MagicMock(return_value=True)
+            ),
         )
         with (
             patch.object(Config, "SHADOW_PROB_MIN", 0.50),
@@ -294,7 +298,11 @@ class TestPlanExecutionMode(unittest.TestCase):
                 "OK",
                 True,
                 "",
-                _ctx(heuristic_hits=[1], bootstrap_ready_real=False, bootstrap_ready_shadow=False),
+                _ctx(
+                    heuristic_hits=[1],
+                    bootstrap_ready_real=False,
+                    bootstrap_ready_shadow=False,
+                ),
             )
         self.assertFalse(ok)
 
@@ -362,9 +370,22 @@ class TestResolveAuditVerdictAndStats(unittest.TestCase):
     def test_normal_pass(self):
         bot = _make_bot(get_audit_verdict=MagicMock(return_value="OK_BUY"))
         stats = {"VETO": 0, "SHADOW": 0, "REAL": 0}
-        with patch("core.signals.filters.is_symbol_in_cooldown", return_value=(False, 0)):
+        with patch(
+            "core.signals.filters.is_symbol_in_cooldown", return_value=(False, 0)
+        ):
             verdict = _resolve_audit_verdict_and_stats(
-                bot, "BTC/USDT", "BUY", 80.0, "⚪", 0.5, "REAL", _ctx(), True, "", 50.0, stats
+                bot,
+                "BTC/USDT",
+                "BUY",
+                80.0,
+                "⚪",
+                0.5,
+                "REAL",
+                _ctx(),
+                True,
+                "",
+                50.0,
+                stats,
             )
         self.assertEqual(verdict, "OK_BUY")
         self.assertEqual(stats["REAL"], 1)
@@ -372,7 +393,9 @@ class TestResolveAuditVerdictAndStats(unittest.TestCase):
     def test_veto_when_filter_not_passed(self):
         bot = _make_bot()
         stats = {"VETO": 0, "SHADOW": 0, "REAL": 0}
-        with patch("core.signals.filters.is_symbol_in_cooldown", return_value=(False, 0)):
+        with patch(
+            "core.signals.filters.is_symbol_in_cooldown", return_value=(False, 0)
+        ):
             verdict = _resolve_audit_verdict_and_stats(
                 bot,
                 "BTC/USDT",
@@ -394,7 +417,9 @@ class TestResolveAuditVerdictAndStats(unittest.TestCase):
     def test_veto_with_breakout_ready(self):
         bot = _make_bot()
         stats = {"VETO": 0, "SHADOW": 0, "REAL": 0}
-        with patch("core.signals.filters.is_symbol_in_cooldown", return_value=(False, 0)):
+        with patch(
+            "core.signals.filters.is_symbol_in_cooldown", return_value=(False, 0)
+        ):
             verdict = _resolve_audit_verdict_and_stats(
                 bot,
                 "BTC/USDT",
@@ -414,9 +439,22 @@ class TestResolveAuditVerdictAndStats(unittest.TestCase):
     def test_kill_switch_over_95(self):
         bot = _make_bot()
         stats = {"VETO": 0, "SHADOW": 0, "REAL": 0}
-        with patch("core.signals.filters.is_symbol_in_cooldown", return_value=(False, 0)):
+        with patch(
+            "core.signals.filters.is_symbol_in_cooldown", return_value=(False, 0)
+        ):
             verdict = _resolve_audit_verdict_and_stats(
-                bot, "BTC/USDT", "BUY", 96.0, "⚪", 0.5, "REAL", _ctx(), True, "", 50.0, stats
+                bot,
+                "BTC/USDT",
+                "BUY",
+                96.0,
+                "⚪",
+                0.5,
+                "REAL",
+                _ctx(),
+                True,
+                "",
+                50.0,
+                stats,
             )
         self.assertIn("VETO", verdict)
         self.assertIn("ML_CONF", verdict)
@@ -425,29 +463,68 @@ class TestResolveAuditVerdictAndStats(unittest.TestCase):
         bot = _make_bot()
         stats = {"VETO": 0, "SHADOW": 0, "REAL": 0}
         with (
-            patch("core.signals.filters.is_symbol_in_cooldown", return_value=(False, 0)),
+            patch(
+                "core.signals.filters.is_symbol_in_cooldown", return_value=(False, 0)
+            ),
             patch("core.signals.filters.open", return_value=io.StringIO()),
         ):
             verdict = _resolve_audit_verdict_and_stats(
-                bot, "BTC/USDT", "BUY", 80.0, "⚪", 0.5, "REAL", _ctx(), False, "bad", 85.0, stats
+                bot,
+                "BTC/USDT",
+                "BUY",
+                80.0,
+                "⚪",
+                0.5,
+                "REAL",
+                _ctx(),
+                False,
+                "bad",
+                85.0,
+                stats,
             )
             self.assertIn("VETO", verdict)
 
     def test_ab_conflict_low_ml_passes(self):
         bot = _make_bot(get_audit_verdict=MagicMock(return_value="OK_LOW"))
         stats = {"VETO": 0, "SHADOW": 0, "REAL": 0}
-        with patch("core.signals.filters.is_symbol_in_cooldown", return_value=(False, 0)):
+        with patch(
+            "core.signals.filters.is_symbol_in_cooldown", return_value=(False, 0)
+        ):
             verdict = _resolve_audit_verdict_and_stats(
-                bot, "BTC/USDT", "BUY", 80.0, "⚪", 0.5, "REAL", _ctx(), True, "", 40.0, stats
+                bot,
+                "BTC/USDT",
+                "BUY",
+                80.0,
+                "⚪",
+                0.5,
+                "REAL",
+                _ctx(),
+                True,
+                "",
+                40.0,
+                stats,
             )
             self.assertIn("OK", verdict)
 
     def test_cooldown_overrides(self):
         bot = _make_bot()
         stats = {"VETO": 0, "SHADOW": 0, "REAL": 0}
-        with patch("core.signals.filters.is_symbol_in_cooldown", return_value=(True, 15)):
+        with patch(
+            "core.signals.filters.is_symbol_in_cooldown", return_value=(True, 15)
+        ):
             verdict = _resolve_audit_verdict_and_stats(
-                bot, "BTC/USDT", "BUY", 80.0, "⚪", 0.5, "REAL", _ctx(), True, "", 50.0, stats
+                bot,
+                "BTC/USDT",
+                "BUY",
+                80.0,
+                "⚪",
+                0.5,
+                "REAL",
+                _ctx(),
+                True,
+                "",
+                50.0,
+                stats,
             )
         self.assertIn("COOLDOWN", verdict)
         self.assertEqual(stats["VETO"], 1)
@@ -455,9 +532,22 @@ class TestResolveAuditVerdictAndStats(unittest.TestCase):
     def test_shadow_verdict_stats(self):
         bot = _make_bot(get_audit_verdict=MagicMock(return_value="SHADOW_OK"))
         stats = {"VETO": 0, "SHADOW": 0, "REAL": 0}
-        with patch("core.signals.filters.is_symbol_in_cooldown", return_value=(False, 0)):
+        with patch(
+            "core.signals.filters.is_symbol_in_cooldown", return_value=(False, 0)
+        ):
             _resolve_audit_verdict_and_stats(
-                bot, "BTC/USDT", "BUY", 80.0, "⚪", 0.5, "REAL", _ctx(), True, "", 50.0, stats
+                bot,
+                "BTC/USDT",
+                "BUY",
+                80.0,
+                "⚪",
+                0.5,
+                "REAL",
+                _ctx(),
+                True,
+                "",
+                50.0,
+                stats,
             )
         self.assertEqual(stats["SHADOW"], 1)
 

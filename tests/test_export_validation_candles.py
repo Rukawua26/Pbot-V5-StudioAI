@@ -31,7 +31,9 @@ class ExportValidationCandlesEventsTest(unittest.TestCase):
                     "payload": {"symbol": "BTC/USDT"},
                 },
             ]
-            path.write_text("\n".join(json.dumps(row) for row in rows), encoding="utf-8")
+            path.write_text(
+                "\n".join(json.dumps(row) for row in rows), encoding="utf-8"
+            )
 
             start, end = _load_event_time_range(path, "BTC/USDT")
 

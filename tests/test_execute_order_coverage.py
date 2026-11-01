@@ -16,9 +16,13 @@ class ExecuteOrderCoverageTest(unittest.TestCase):
     """Covers execute_order code paths not yet tested by test_advanced_runtime_flows."""
 
     def test_adverse_slippage_is_directional(self):
-        self.assertAlmostEqual(_calculate_adverse_slippage_pct("BUY", 100.0, 100.2), 0.2)
+        self.assertAlmostEqual(
+            _calculate_adverse_slippage_pct("BUY", 100.0, 100.2), 0.2
+        )
         self.assertEqual(_calculate_adverse_slippage_pct("BUY", 100.0, 99.8), 0.0)
-        self.assertAlmostEqual(_calculate_adverse_slippage_pct("SELL", 100.0, 99.8), 0.2)
+        self.assertAlmostEqual(
+            _calculate_adverse_slippage_pct("SELL", 100.0, 99.8), 0.2
+        )
         self.assertEqual(_calculate_adverse_slippage_pct("SELL", 100.0, 100.2), 0.0)
 
     def test_adverse_slippage_handles_invalid_requested_price(self):
@@ -51,8 +55,12 @@ class ExecuteOrderCoverageTest(unittest.TestCase):
     def test_position_snapshot_rejects_malformed_or_contradictory_data(self):
         for positions in ({}, "bad", [None]):
             with self.subTest(positions=positions):
-                bot = SimpleNamespace(execution=SimpleNamespace(fetch_positions=lambda: positions))
-                self.assertIsNone(_fetch_exchange_position_amount(bot, "BTC/USDT", "BUY"))
+                bot = SimpleNamespace(
+                    execution=SimpleNamespace(fetch_positions=lambda: positions)
+                )
+                self.assertIsNone(
+                    _fetch_exchange_position_amount(bot, "BTC/USDT", "BUY")
+                )
 
         bot = SimpleNamespace(
             execution=SimpleNamespace(
@@ -113,7 +121,9 @@ class ExecuteOrderCoverageTest(unittest.TestCase):
 
         self.assertIsNone(_fetch_exchange_position_amount(bot, "BTC/USDT", "BUY"))
 
-    def test_position_snapshot_accepts_unsigned_contracts_with_explicit_short_side(self):
+    def test_position_snapshot_accepts_unsigned_contracts_with_explicit_short_side(
+        self,
+    ):
         bot = SimpleNamespace(
             execution=SimpleNamespace(
                 fetch_positions=lambda: [
@@ -369,7 +379,9 @@ class ExecuteOrderCoverageTest(unittest.TestCase):
     def test_high_volatility_degrades_to_shadow(self, _, _tg):
         bot = self._min_bot()
         ctx = self._ctx(atr_pct=0.02)
-        result = execute_order(bot, "BTC/USDT", "BUY", 100.0, 1.0, is_shadow=False, context=ctx)
+        result = execute_order(
+            bot, "BTC/USDT", "BUY", 100.0, 1.0, is_shadow=False, context=ctx
+        )
         self.assertEqual(result, "OK_DEGRADED: HIGH_VOLATILITY")
 
     @patch("core.trade_entry.send_telegram_msg")
@@ -401,7 +413,9 @@ class ExecuteOrderCoverageTest(unittest.TestCase):
             }
         )
         ctx = self._ctx()
-        result = execute_order(bot, "BTC/USDT", "BUY", 100.0, 1.0, is_shadow=False, context=ctx)
+        result = execute_order(
+            bot, "BTC/USDT", "BUY", 100.0, 1.0, is_shadow=False, context=ctx
+        )
         self.assertEqual(result, "OK_DEGRADED: MAX_DIRECTIONAL_DEGRADED")
 
     @patch("core.trade_entry.Config.MAX_DIRECTIONAL_TRADES", 1)
@@ -430,7 +444,9 @@ class ExecuteOrderCoverageTest(unittest.TestCase):
             }
         )
         ctx = self._ctx()
-        result = execute_order(bot, "BTC/USDT", "BUY", 100.0, 1.0, is_shadow=False, context=ctx)
+        result = execute_order(
+            bot, "BTC/USDT", "BUY", 100.0, 1.0, is_shadow=False, context=ctx
+        )
         self.assertEqual(result, "MAX_DIRECTIONAL")
 
     # --- Execution failure paths ---
@@ -452,7 +468,12 @@ class ExecuteOrderCoverageTest(unittest.TestCase):
         bot = self._min_bot()
         bot.execution.fetch_positions = MagicMock(return_value=[])
         bot.execution.create_precision_order = MagicMock(
-            return_value={"id": "o1", "status": "closed", "filled": 0.0, "average": None}
+            return_value={
+                "id": "o1",
+                "status": "closed",
+                "filled": 0.0,
+                "average": None,
+            }
         )
         result = execute_order(
             bot, "BTC/USDT", "BUY", 100.0, 1.0, is_shadow=False, context=self._ctx()
@@ -467,10 +488,17 @@ class ExecuteOrderCoverageTest(unittest.TestCase):
     def test_zero_fill_with_exchange_exposure_protects_and_halts(self, _, _tg):
         bot = self._min_bot()
         bot.execution.fetch_positions = MagicMock(
-            return_value=[{"symbol": "BTC/USDT:USDT", "side": "long", "contracts": 0.75}]
+            return_value=[
+                {"symbol": "BTC/USDT:USDT", "side": "long", "contracts": 0.75}
+            ]
         )
         bot.execution.create_precision_order = MagicMock(
-            return_value={"id": "o1", "status": "closed", "filled": 0.0, "average": 100.0}
+            return_value={
+                "id": "o1",
+                "status": "closed",
+                "filled": 0.0,
+                "average": 100.0,
+            }
         )
 
         result = execute_order(
@@ -533,7 +561,12 @@ class ExecuteOrderCoverageTest(unittest.TestCase):
     def test_canceled_partial_fill_is_protected_then_halted(self, _, _tg):
         bot = self._min_bot()
         bot.execution.create_precision_order = MagicMock(
-            return_value={"id": "o1", "status": "canceled", "filled": 0.4, "average": 100.0}
+            return_value={
+                "id": "o1",
+                "status": "canceled",
+                "filled": 0.4,
+                "average": 100.0,
+            }
         )
 
         result = execute_order(
@@ -551,7 +584,9 @@ class ExecuteOrderCoverageTest(unittest.TestCase):
     @patch("core.trade_entry.Config.PAPER_MODE", False)
     @patch("core.trade_entry.send_telegram_msg")
     @patch("core.trade_entry.shadow_logger.is_trading_halted", return_value=False)
-    def test_positive_fill_without_exchange_order_id_is_protected_then_halted(self, _, _tg):
+    def test_positive_fill_without_exchange_order_id_is_protected_then_halted(
+        self, _, _tg
+    ):
         bot = self._min_bot()
         bot.execution.create_precision_order = MagicMock(
             return_value={"status": "closed", "filled": 1.0, "average": 100.0}
@@ -632,10 +667,14 @@ class ExecuteOrderCoverageTest(unittest.TestCase):
     @patch("core.trade_entry.Config.PAPER_MODE", False)
     @patch("core.trade_entry.send_telegram_msg")
     @patch("core.trade_entry.shadow_logger.is_trading_halted", return_value=False)
-    def test_missing_filled_uses_exchange_position_then_protects_and_halts(self, _, _tg):
+    def test_missing_filled_uses_exchange_position_then_protects_and_halts(
+        self, _, _tg
+    ):
         bot = self._min_bot()
         bot.execution.fetch_positions = MagicMock(
-            return_value=[{"symbol": "BTC/USDT:USDT", "side": "long", "contracts": 0.75}]
+            return_value=[
+                {"symbol": "BTC/USDT:USDT", "side": "long", "contracts": 0.75}
+            ]
         )
         bot.execution.create_precision_order = MagicMock(
             return_value={"id": "o1", "status": "open", "average": 100.0}
@@ -744,7 +783,12 @@ class ExecuteOrderCoverageTest(unittest.TestCase):
     def test_hard_sl_fail_triggers_failsafe(self, _, _tg):
         bot = self._min_bot()
         bot.execution.create_precision_order = MagicMock(
-            return_value={"id": "o1", "status": "closed", "filled": 1.0, "average": 100.0}
+            return_value={
+                "id": "o1",
+                "status": "closed",
+                "filled": 1.0,
+                "average": 100.0,
+            }
         )
         bot.execution.place_hard_sl = MagicMock(return_value=None)
         bot.execution.last_hard_sl_error = "insufficient balance"
@@ -763,7 +807,12 @@ class ExecuteOrderCoverageTest(unittest.TestCase):
 
         bot = self._min_bot()
         bot.execution.create_precision_order = MagicMock(
-            return_value={"id": "o1", "status": "closed", "filled": 1.0, "average": 100.0}
+            return_value={
+                "id": "o1",
+                "status": "closed",
+                "filled": 1.0,
+                "average": 100.0,
+            }
         )
         # Trade BUY requiere SL 'sell'; el exchange devuelve un ACK con side 'buy'
         # (respuesta de tipo equivocado o takeover silencioso). NO debe aceptarse.
@@ -796,7 +845,12 @@ class ExecuteOrderCoverageTest(unittest.TestCase):
     def test_hard_sl_fail_with_failsafe_failure_halts_system(self, _, _tg):
         bot = self._min_bot()
         bot.execution.create_precision_order = MagicMock(
-            return_value={"id": "o1", "status": "closed", "filled": 1.0, "average": 100.0}
+            return_value={
+                "id": "o1",
+                "status": "closed",
+                "filled": 1.0,
+                "average": 100.0,
+            }
         )
         bot.execution.place_hard_sl = MagicMock(return_value=None)
         bot.execution.last_hard_sl_error = "API error"
@@ -838,7 +892,12 @@ class ExecuteOrderCoverageTest(unittest.TestCase):
             return_value={"bidPrice": "99.0", "askPrice": "101.0"}
         )
         bot.execution.create_precision_order = MagicMock(
-            return_value={"id": "o1", "status": "closed", "filled": 1.0, "average": 100.0}
+            return_value={
+                "id": "o1",
+                "status": "closed",
+                "filled": 1.0,
+                "average": 100.0,
+            }
         )
         result = execute_order(
             bot, "BTC/USDT", "BUY", 100.0, 1.0, is_shadow=False, context=self._ctx()
@@ -879,7 +938,12 @@ class ExecuteOrderCoverageTest(unittest.TestCase):
     def test_real_entry_success(self, _, _tg):
         bot = self._min_bot()
         bot.execution.create_precision_order = MagicMock(
-            return_value={"id": "real-o1", "status": "closed", "filled": 1.0, "average": 100.0}
+            return_value={
+                "id": "real-o1",
+                "status": "closed",
+                "filled": 1.0,
+                "average": 100.0,
+            }
         )
         result = execute_order(
             bot, "SOL/USDT", "BUY", 100.0, 1.0, is_shadow=False, context=self._ctx()
@@ -909,7 +973,12 @@ class ExecuteOrderCoverageTest(unittest.TestCase):
         mocked_event.side_effect = _record_event
         bot.execution.place_hard_sl = MagicMock(side_effect=_record_hard_sl)
         bot.execution.create_precision_order = MagicMock(
-            return_value={"id": "real-o1", "status": "closed", "filled": 1.0, "cost": 100.2}
+            return_value={
+                "id": "real-o1",
+                "status": "closed",
+                "filled": 1.0,
+                "cost": 100.2,
+            }
         )
 
         result = execute_order(
@@ -918,7 +987,9 @@ class ExecuteOrderCoverageTest(unittest.TestCase):
 
         self.assertEqual(result, "OK")
         breach_events = [
-            call for call in mocked_event.call_args_list if call.args[1] == "ENTRY_SLIPPAGE_BREACH"
+            call
+            for call in mocked_event.call_args_list
+            if call.args[1] == "ENTRY_SLIPPAGE_BREACH"
         ]
         self.assertEqual(len(breach_events), 1)
         self.assertAlmostEqual(breach_events[0].args[2]["adverse_slippage_pct"], 0.2)
@@ -934,7 +1005,9 @@ class ExecuteOrderCoverageTest(unittest.TestCase):
     @patch("core.trade_entry.append_execution_event")
     @patch("core.trade_entry.send_telegram_msg")
     @patch("core.trade_entry.shadow_logger.is_trading_halted", return_value=False)
-    def test_real_fill_without_verified_price_protects_then_halts(self, _, _tg, mocked_event):
+    def test_real_fill_without_verified_price_protects_then_halts(
+        self, _, _tg, mocked_event
+    ):
         bot = self._min_bot()
         bot.execution.create_precision_order = MagicMock(
             return_value={
@@ -969,10 +1042,17 @@ class ExecuteOrderCoverageTest(unittest.TestCase):
     @patch("core.trade_entry.append_execution_event")
     @patch("core.trade_entry.send_telegram_msg")
     @patch("core.trade_entry.shadow_logger.is_trading_halted", return_value=False)
-    def test_unverified_fill_state_persistence_failure_remains_halted(self, _, _tg, mocked_event):
+    def test_unverified_fill_state_persistence_failure_remains_halted(
+        self, _, _tg, mocked_event
+    ):
         bot = self._min_bot()
         bot.execution.create_precision_order = MagicMock(
-            return_value={"id": "real-o1", "status": "closed", "filled": 1.0, "price": 100.1}
+            return_value={
+                "id": "real-o1",
+                "status": "closed",
+                "filled": 1.0,
+                "price": 100.1,
+            }
         )
         save_calls = [True, False]
         bot.brain.save_active_trade_state = MagicMock(side_effect=save_calls)
@@ -1058,7 +1138,12 @@ class ExecuteOrderCoverageTest(unittest.TestCase):
     def test_real_final_persistence_failure_halts(self, _, _tg):
         bot = self._min_bot()
         bot.execution.create_precision_order = MagicMock(
-            return_value={"id": "real-o1", "status": "closed", "filled": 1.0, "average": 100.0}
+            return_value={
+                "id": "real-o1",
+                "status": "closed",
+                "filled": 1.0,
+                "average": 100.0,
+            }
         )
         bot.brain.save_active_trade_state = MagicMock(side_effect=[True, False])
 

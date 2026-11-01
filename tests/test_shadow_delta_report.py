@@ -17,10 +17,18 @@ from tools.shadow_delta_report import (
 
 class ShadowDeltaReportTests(unittest.TestCase):
     def test_classify_veto_reason(self):
-        self.assertEqual(_classify_veto_reason("❌ VETO: BAJA PROB IA (44.0%)"), "low_prob")
-        self.assertEqual(_classify_veto_reason("⛔ VETO: VETO_KAVA: RIESGO EXCESIVO"), "kava")
-        self.assertEqual(_classify_veto_reason("⛔ VETO: SHOCK DEMASIADO CERCA"), "shock")
-        self.assertEqual(_classify_veto_reason("⛔ VETO: MTF_VETO: MTF_VETO_15M"), "mtf")
+        self.assertEqual(
+            _classify_veto_reason("❌ VETO: BAJA PROB IA (44.0%)"), "low_prob"
+        )
+        self.assertEqual(
+            _classify_veto_reason("⛔ VETO: VETO_KAVA: RIESGO EXCESIVO"), "kava"
+        )
+        self.assertEqual(
+            _classify_veto_reason("⛔ VETO: SHOCK DEMASIADO CERCA"), "shock"
+        )
+        self.assertEqual(
+            _classify_veto_reason("⛔ VETO: MTF_VETO: MTF_VETO_15M"), "mtf"
+        )
         self.assertEqual(_classify_veto_reason("⛔ VETO: OTRA COSA"), "other")
 
     def test_compute_drawdown_from_returns(self):

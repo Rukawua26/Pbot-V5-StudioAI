@@ -25,7 +25,9 @@ class SRAgent(BaseAgent):
     def _get_hyperopt_params(self, symbol: str) -> tuple[float, int]:
         params = HyperoptConfigLoader.get_params_for_symbol(symbol)
         z_loaded = float(params.get("z_score_threshold", self.z_score_threshold))
-        return min(2.0, max(1.4, z_loaded)), int(params.get("entropy_bins", self.entropy_bins))
+        return min(2.0, max(1.4, z_loaded)), int(
+            params.get("entropy_bins", self.entropy_bins)
+        )
 
     def _calculate_entropy(self, series: Any, window: int = 20) -> float:
         """Calcula la Entropía de Shannon de los retornos."""
