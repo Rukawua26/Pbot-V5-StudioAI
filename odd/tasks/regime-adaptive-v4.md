@@ -29,12 +29,20 @@ Universo, perfiles, periodos, gate: identicos a mean-reversion-v3.md.
 
 | ID | Specs | Ruta | Estado | Commit |
 |---|---|---|---|---|
-| T1 | S1, S2 | inline: evaluador + backtest + tests con mutacion | pending | |
-| T2 | S1 | ejecucion desarrollo (+ holdout si pasa descarte) | pending | |
-| T3 | S4 | known-bugs + cierre | pending | |
+| T1 | S1, S2 | inline: evaluador + backtest + tests con mutacion | done | b476b80, 5d4fc7c |
+| T2 | S1 | ejecucion desarrollo (+ holdout si pasa descarte) | done (STOP, holdout no usado) | |
+| T3 | S4 | known-bugs + cierre | done | |
 
 ## Log
 
+- L4: DESARROLLO RA v4 (2025-09→2026-08, 8 simbolos): 3226 trades, WR 38.0%, E BRUTA -0.108R, E neta -0.246R,
+  PF 0.65, coste 0.138R. Negativo antes de costes en los 8 simbolos. $20 → $9.98 (-50%); $100 → $16.80 (-83%).
+  Por motor (aprox., inferido por distancia del TP): tendencia en regimen tendencia 1759 trades, bruta -0.061R;
+  rango en regimen rango 1467 trades, bruta -0.164R. Filtrar por regimen no rescata a ninguno de los dos.
+  Control de descarte → STOP. Holdout sep-oct 2026 sigue limpio.
+- L5: Conclusion acumulada (5 hipotesis: TTF, TTF x4, pullback, reversion, adaptativa): reglas de indicadores de
+  velas 1M-1H sobre estos 8 pares no muestran ventaja antes de costes. Seguir combinando las mismas piezas es
+  buscar ruido.
 - L3: Error propio detectado al correr: RAFeatures no exponia `close_time_ns` que el loop compartido usa; los tests unitarios del evaluador pasaban pero nadie probaba la CLI con `--strategy ra`. RED en test de integracion de CLI, corregido con propiedad delegada. Regla: toda estrategia nueva lleva un test que corre la CLI completa antes del backtest real.
 - L2: Pre-registro corregido ANTES de ejecutar: la regla 1 citaba un rango 0.3-0.5% que no se usa; queda un solo umbral 0.3%. Advertencia: ambos componentes (MTF v2, MR v3) ya se vieron negativos en el periodo de desarrollo; solo el holdout sep-oct 2026 es evidencia limpia.
 - L1 (usuario): "quiero que el bot se adapte al mercado es decir que cuando este lateral se adapte a lateral cuando este bajista que se adapte a bajista y cuando este alcista que se adapte claro siguiendo la estrategia correcta o con mayor probavilidad me entiendes la idea"
