@@ -1174,6 +1174,53 @@ class HaltRecoveryTest(unittest.TestCase):
         self.assertIn("MAX_ATTEMPTS", msg3)
         self.assertTrue(bot.halt_system_active)
 
+    def test_recover_halt_resets_count_on_intervening_exposure(self):
+        bot = self._bot()
+
+        ok1, msg1 = recover_halt_if_exchange_consistent(bot, required_snapshots=2)
+        self.assertFalse(ok1)
+        self.assertIn("1/2", msg1)
+
+        # Intervening exposure: must reset the streak.
+        bot2 = self._bot(
+            positions=[{"symbol": "ETH/USDT:USDT", "contracts": 0.5, "side": "long"}]
+        )
+        bot2._halt_recovery_state = bot._halt_recovery_state
+        bot2.active_trades = bot.active_trades
+        bot2.balance = bot.balance
+        bot2.daily_initial_balance = bot.daily_initial_balance
+        bot2.is_paused = bot.is_paused
+        bot2.integrity_lock_active = bot.integrity_lock_active
+        bot2.halt_system_active = bot.halt_system_active
+        bot2.lock = bot.lock
+        bot2.db_lock = bot.db_lock
+        bot2.brain = bot.brain
+        bot2.log = bot.log
+        bot2.get_current_balance = bot.get_current_balance
+        ok_blocked, msg_blocked = recover_halt_if_exchange_consistent(
+            bot2, required_snapshots=2
+        )
+        self.assertFalse(ok_blocked)
+        self.assertIn("EXCHANGE_EXPOSURE", msg_blocked)
+
+        # Back to flat: count must restart at 1, not continue to 2.
+        bot3 = self._bot()  # flat positions by default
+        bot3._halt_recovery_state = bot2._halt_recovery_state
+        bot3.active_trades = {}
+        bot3.balance = 100.0
+        bot3.daily_initial_balance = 100.0
+        bot3.is_paused = True
+        bot3.integrity_lock_active = True
+        bot3.halt_system_active = True
+        bot3.lock = bot.lock
+        bot3.db_lock = bot.db_lock
+        bot3.brain = bot.brain
+        bot3.log = bot.log
+        bot3.get_current_balance = lambda: 100.0
+        ok3, msg3 = recover_halt_if_exchange_consistent(bot3, required_snapshots=2)
+        self.assertFalse(ok3)
+        self.assertIn("1/2", msg3)
+
     def test_recover_halt_blocks_when_local_real_trade_exists(self):
         bot = self._bot(
             active_trades={"BTC/USDT": {"symbol": "BTC/USDT", "is_shadow": False}}
