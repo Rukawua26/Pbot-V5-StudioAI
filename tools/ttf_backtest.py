@@ -670,6 +670,7 @@ def simulate_account(trades: Iterable[TTFTrade], params: TTFBacktestParams) -> d
     active = []
     rejected = Counter()
     taken = skipped = 0
+    taken_trades: list[TTFTrade] = []
 
     def update(change):
         nonlocal equity, peak, drawdown
@@ -706,6 +707,7 @@ def simulate_account(trades: Iterable[TTFTrade], params: TTFBacktestParams) -> d
         update(-params.fee_rate * amount * trade.entry_price)
         active.append((pd.Timestamp(trade.exit_time), trade, amount))
         taken += 1
+        taken_trades.append(trade)
     settle(None)
     margin = (
         params.max_margin_percent / 100
@@ -727,6 +729,7 @@ def simulate_account(trades: Iterable[TTFTrade], params: TTFBacktestParams) -> d
         "untradeable_count": sum(rejected.values()),
         "untradeable_by_reason": dict(rejected),
         "skipped_by_concurrency": skipped,
+        "taken_trades": taken_trades,
         "ruined": capacity < min(v[0] for v in SYMBOL_FILTERS.values()),
     }
 
@@ -753,6 +756,7 @@ def build_report(all_trades: list[TTFTrade], params: TTFBacktestParams) -> dict:
             [t for t in all_trades if t.symbol == sym], params.risk_per_trade_pct
         )
     account = simulate_account(all_trades, params)
+    account.pop("taken_trades", None)  # report stays JSON-plain
     overall = summarize(all_trades, params.risk_per_trade_pct)
     gate_summary = dict(overall)
     if all_trades:
