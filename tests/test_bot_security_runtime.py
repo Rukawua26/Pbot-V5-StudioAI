@@ -152,12 +152,15 @@ class BotSecurityRuntimeTest(unittest.TestCase):
     def test_connect_to_binance_aborts_when_balance_check_fails(self, mocked_binance):
         exchange = MagicMock()
         exchange.load_markets.return_value = None
-        exchange.fetch_balance.side_effect = RuntimeError("invalid key")
         mocked_binance.return_value = exchange
 
         bot = SimpleNamespace(
             log=MagicMock(),
-            execution=SimpleNamespace(exchange=None, load_markets=MagicMock()),
+            execution=SimpleNamespace(
+                exchange=None,
+                load_markets=MagicMock(),
+                fetch_balance=MagicMock(side_effect=RuntimeError("invalid key")),
+            ),
             data_service=SimpleNamespace(exchange=None),
             sync_wallet=MagicMock(),
         )
