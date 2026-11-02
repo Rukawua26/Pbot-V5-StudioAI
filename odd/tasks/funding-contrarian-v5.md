@@ -30,12 +30,20 @@ Gate: E neta > 0 R, >= 200 trades operables, PF >= 1.1, retorno USD > 0.
 
 | ID | Specs | Ruta | Estado | Commit |
 |---|---|---|---|---|
-| T1 | S1, S2 | inline: fetcher de funding + evaluador + backtest + tests | done | (commit pendiente) |
+| T1 | S1, S2 | inline: fetcher de funding + evaluador + backtest + tests | done | 14795ee |
 | T2 | S1 | ejecucion desarrollo (+ holdout si pasa descarte) | done (STOP) | |
 | T3 | S4 | known-bugs + cierre | done | |
 
 ## Log
 
+- L2: DESARROLLO FC v5 (2025-09→2026-08, 8 simbolos): 636 trades, WR 46.1%, E BRUTA -0.124R, E neta -0.194R,
+  PF 0.669, coste 0.07R. Negativo antes de costes en 7 de 8 simbolos (solo DOGE +0.11R con 52 trades).
+  $20 → $11.46 (-42.7%); $100 → $42.86 (-57.1%). Control de descarte → STOP. Holdout sep-oct 2026 sigue limpio.
+- L3: Problema estructural: funding rates son pequeños (0.01% tipico). Threshold de 0.01% produce solo 636 trades
+  en 12 meses (53/mes). Insuficiente para significancia estadistica. Funding rate como señal standalone no
+  produce suficientes trades.
+- L4: Conclusion acumulada (6 hipotesis): velas 1M-1H, funding rate, y combinaciones de indicadores clasicos
+  sobre estos 8 pares no muestran ventaja antes de costes. 6 estrategias, 6 fallos.
 - L2: DESARROLLO FC v5 (2025-09→2026-08, 8 simbolos): 636 trades, WR 46.1%, E BRUTA -0.124R, E neta -0.194R,
   PF 0.669, coste 0.07R. Negativo antes de costes en 7 de 8 simbolos (solo DOGE +0.11R con 52 trades).
   $20 → $11.46 (-42.7%); $100 → $42.86 (-57.1%). Control de descarte → STOP. Holdout sep-oct 2026 sigue limpio.
