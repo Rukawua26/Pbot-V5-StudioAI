@@ -44,7 +44,9 @@ class FCFeatures:
     close_1h: np.ndarray
     atr_1h: np.ndarray
     funding: np.ndarray  # funding rate aligned to each 1H bar
-    funding_extreme: np.ndarray  # +1 short bias (high positive), -1 long bias (high negative), 0 none
+    funding_extreme: (
+        np.ndarray
+    )  # +1 short bias (high positive), -1 long bias (high negative), 0 none
     warm: np.ndarray
 
 
@@ -53,7 +55,9 @@ def _atr(df: pd.DataFrame, period: int) -> np.ndarray:
     low = df["low"].astype(float)
     close = df["close"].astype(float)
     prev = close.shift(1)
-    tr = pd.concat([high - low, (high - prev).abs(), (low - prev).abs()], axis=1).max(axis=1)
+    tr = pd.concat([high - low, (high - prev).abs(), (low - prev).abs()], axis=1).max(
+        axis=1
+    )
     return tr.rolling(period).mean().to_numpy(float)
 
 
@@ -67,7 +71,9 @@ def build_features(
     p = params or FCParams()
     close = df_1h["close"].astype(float).to_numpy()
     close_time = pd.to_datetime(df_1h["time"], utc=True)
-    close_ns = close_time.dt.tz_localize(None).to_numpy("datetime64[ns]").astype(np.int64)
+    close_ns = (
+        close_time.dt.tz_localize(None).to_numpy("datetime64[ns]").astype(np.int64)
+    )
 
     # ATR on 1H
     atr = _atr(df_1h, p.atr_period_1h)
@@ -78,7 +84,9 @@ def build_features(
         fdf = funding_df.copy()
         fdf["time"] = pd.to_datetime(fdf["fundingTime"], unit="ms", utc=True)
         fdf = fdf.sort_values("time").reset_index(drop=True)
-        f_times = fdf["time"].dt.tz_localize(None).to_numpy("datetime64[ns]").astype(np.int64)
+        f_times = (
+            fdf["time"].dt.tz_localize(None).to_numpy("datetime64[ns]").astype(np.int64)
+        )
         f_rates = fdf["fundingRate"].astype(float).to_numpy()
         # For each 1H bar, find the latest funding with time <= bar close
         idx = np.searchsorted(f_times, close_ns, side="right") - 1
@@ -91,7 +99,11 @@ def build_features(
     extreme[valid_mask & (funding > p.funding_threshold)] = 1  # short bias
     extreme[valid_mask & (funding < -p.funding_threshold)] = -1  # long bias
 
-    warm = np.isfinite(atr) & np.isfinite(funding) & (np.arange(len(df_1h)) >= p.atr_period_1h)
+    warm = (
+        np.isfinite(atr)
+        & np.isfinite(funding)
+        & (np.arange(len(df_1h)) >= p.atr_period_1h)
+    )
 
     return FCFeatures(
         close_time_ns=close_ns,
@@ -103,7 +115,9 @@ def build_features(
     )
 
 
-def signal_at(feat: FCFeatures, i: int, params: FCParams | None = None, symbol: str = "Asset") -> FCSignal:
+def signal_at(
+    feat: FCFeatures, i: int, params: FCParams | None = None, symbol: str = "Asset"
+) -> FCSignal:
     p = params or FCParams()
     if not feat.warm[i]:
         return FCSignal("WAIT", "WARMUP")
@@ -118,7 +132,9 @@ def signal_at(feat: FCFeatures, i: int, params: FCParams | None = None, symbol: 
     if not (np.isfinite(ref) and ref > 0 and np.isfinite(atr) and atr > 0):
         return FCSignal("WAIT", "INVALID_ATR")
     direction = -1 if extreme == 1 else 1  # contrarian: high positive funding -> short
-    stop = ref - direction * p.stop_atr_mult * atr  # for long: ref - mult*atr; for short: ref + mult*atr
+    stop = (
+        ref - direction * p.stop_atr_mult * atr
+    )  # for long: ref - mult*atr; for short: ref + mult*atr
     # Actually: long stop = ref - mult*atr, short stop = ref + mult*atr
     if direction == 1:
         stop = ref - p.stop_atr_mult * atr
@@ -131,4 +147,6 @@ def signal_at(feat: FCFeatures, i: int, params: FCParams | None = None, symbol: 
     target = ref + direction * p.take_profit_r * risk
     setup_id = (symbol, "BUY" if direction == 1 else "SELL", int(feat.close_time_ns[i]))
     side = "BUY" if direction == 1 else "SELL"
-    return FCSignal(side, "FC_FUNDING_EXTREME", ref, stop, target, setup_id, p.max_hold_hours * 60)
+    return FCSignal(
+        side, "FC_FUNDING_EXTREME", ref, stop, target, setup_id, p.max_hold_hours * 60
+    )

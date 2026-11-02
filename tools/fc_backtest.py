@@ -19,10 +19,6 @@ from tools.mtf_backtest import (
     load_candles as _load,
     TTFBacktestParams,
     TTFTrade,
-    _month_range,
-    _simulate_exit,
-    build_report,
-    download_month,
     normalize_candles,
     preregistered_gate,
     replace,
@@ -36,7 +32,9 @@ from tools.mtf_backtest import (
 FUNDING_CACHE = Path("data/funding_cache")
 
 
-def fetch_funding(symbol: str, start: str, end: str, cache_dir: Path = FUNDING_CACHE) -> pd.DataFrame:
+def fetch_funding(
+    symbol: str, start: str, end: str, cache_dir: Path = FUNDING_CACHE
+) -> pd.DataFrame:
     cache_dir.mkdir(parents=True, exist_ok=True)
     cache_file = cache_dir / f"{symbol}-funding-{start}-{end}.csv"
     if cache_file.exists():
@@ -63,15 +61,21 @@ def fetch_funding(symbol: str, start: str, end: str, cache_dir: Path = FUNDING_C
 
 def load_candles(symbol, start, end, cache_dir):
     from tools.ttf_backtest import load_symbol_candles
+
     return load_symbol_candles(symbol, start, end, cache_dir)
 
 
-def backtest_symbol(symbol, df_1m, fc_params=None, base=None, trade_start=None, trade_end=None):
+def backtest_symbol(
+    symbol, df_1m, fc_params=None, base=None, trade_start=None, trade_end=None
+):
     fc_params = fc_params or FCParams()
     base = base or TTFBacktestParams()
     df_1h = resample_closed(normalize_candles(df_1m), "1h")
-    funding_df = fetch_funding(symbol, trade_start.strftime("%Y-%m") if trade_start else "2025-08",
-                               trade_end.strftime("%Y-%m") if trade_end else "2026-09")
+    funding_df = fetch_funding(
+        symbol,
+        trade_start.strftime("%Y-%m") if trade_start else "2025-08",
+        trade_end.strftime("%Y-%m") if trade_end else "2026-09",
+    )
     feat = build_features(df_1h, funding_df, fc_params)
     close = df_1h["close"].astype(float).to_numpy()
     # 1H bars
@@ -120,7 +124,11 @@ def backtest_symbol(symbol, df_1m, fc_params=None, base=None, trade_start=None, 
             hit_sl = (lo_ <= sig.stop) if direction > 0 else (hi_ >= sig.stop)
             hit_tp = (hi_ >= tp) if direction > 0 else (lo_ <= tp)
             if hit_sl:
-                gap = o[j] if (o[j] < sig.stop if direction > 0 else o[j] > sig.stop) else sig.stop
+                gap = (
+                    o[j]
+                    if (o[j] < sig.stop if direction > 0 else o[j] > sig.stop)
+                    else sig.stop
+                )
                 exit_price = gap * (1.0 - direction * base.slippage_pct)
                 exit_idx = j
                 reason = "SL"
@@ -136,18 +144,32 @@ def backtest_symbol(symbol, df_1m, fc_params=None, base=None, trade_start=None, 
             reason = "TIME" if last < n - 1 else "END_OF_DATA"
         gross = (exit_price - entry) * direction / risk
         cost = base.fee_rate * (entry + exit_price) / risk
-        trades.append(TTFTrade(
-            symbol=symbol, side=sig.side,
-            signal_time=str(pd.Timestamp(int(feat.close_time_ns[i]), tz="UTC")),
-            entry_time=str(pd.Timestamp(int(feat.close_time_ns[entry_idx]), tz="UTC")),
-            exit_time=str(pd.Timestamp(int(feat.close_time_ns[exit_idx]), tz="UTC")),
-            signal_price=sig.entry_ref, entry_price=entry,
-            stop_loss=float(sig.stop), take_profit=float(tp),
-            exit_price=float(exit_price), exit_reason=reason,
-            risk_pct=float(risk / entry * 100.0),
-            gross_r=float(gross), cost_r=float(cost), net_r=float(gross - cost),
-            bars_held=int(exit_idx - entry_idx + 1), mfe_r=float(mfe), mae_r=float(mae),
-        ))
+        trades.append(
+            TTFTrade(
+                symbol=symbol,
+                side=sig.side,
+                signal_time=str(pd.Timestamp(int(feat.close_time_ns[i]), tz="UTC")),
+                entry_time=str(
+                    pd.Timestamp(int(feat.close_time_ns[entry_idx]), tz="UTC")
+                ),
+                exit_time=str(
+                    pd.Timestamp(int(feat.close_time_ns[exit_idx]), tz="UTC")
+                ),
+                signal_price=sig.entry_ref,
+                entry_price=entry,
+                stop_loss=float(sig.stop),
+                take_profit=float(tp),
+                exit_price=float(exit_price),
+                exit_reason=reason,
+                risk_pct=float(risk / entry * 100.0),
+                gross_r=float(gross),
+                cost_r=float(cost),
+                net_r=float(gross - cost),
+                bars_held=int(exit_idx - entry_idx + 1),
+                mfe_r=float(mfe),
+                mae_r=float(mae),
+            )
+        )
         next_free = exit_idx + 1
     return trades
 
@@ -160,11 +182,15 @@ def build_report(trades, base):
         params = replace(base, account_balance=balance)
         account = simulate_account(trades, params)
         taken = account.pop("taken_trades", None)
-        tradeable = summarize(taken if taken is not None else trades, base.risk_per_trade_pct)
+        tradeable = summarize(
+            taken if taken is not None else trades, base.risk_per_trade_pct
+        )
         profiles[name] = {
             "account": account,
             "tradeable_summary": tradeable,
-            "preregistered_gate": preregistered_gate(tradeable, account) if tradeable.get("trades") else "MUESTRA_INSUFICIENTE",
+            "preregistered_gate": preregistered_gate(tradeable, account)
+            if tradeable.get("trades")
+            else "MUESTRA_INSUFICIENTE",
         }
     return {
         "strategy": "FUNDING_CONTRARIAN_V5",
@@ -172,7 +198,10 @@ def build_report(trades, base):
         "overall": overall,
         "first_70pct": summarize(first, base.risk_per_trade_pct),
         "last_30pct": summarize(second, base.risk_per_trade_pct),
-        "per_symbol": {s: summarize([t for t in trades if t.symbol == s], base.risk_per_trade_pct) for s in sorted({t.symbol for t in trades})},
+        "per_symbol": {
+            s: summarize([t for t in trades if t.symbol == s], base.risk_per_trade_pct)
+            for s in sorted({t.symbol for t in trades})
+        },
         "monthly": monthly_table(trades),
         "profiles": profiles,
     }
@@ -194,16 +223,47 @@ def main(argv=None):
     for sym in args.symbols:
         df = _load(sym, args.warmup_start, args.end, args.cache_dir)
         print(f"Simulando {sym} ({len(df):,} velas)", file=__import__("sys").stderr)
-        trades.extend(backtest_symbol(sym, df, FCParams(), base, trade_start, trade_end))
+        trades.extend(
+            backtest_symbol(sym, df, FCParams(), base, trade_start, trade_end)
+        )
     report = build_report(trades, base)
     args.out.mkdir(parents=True, exist_ok=True)
     (args.out / "summary.json").write_text(json.dumps(report, indent=2, default=str))
-    pd.DataFrame([asdict(t) for t in trades]).to_csv(args.out / "trades.csv", index=False)
+    pd.DataFrame([asdict(t) for t in trades]).to_csv(
+        args.out / "trades.csv", index=False
+    )
     o = report["overall"]
-    print(json.dumps({k: o.get(k) for k in ("trades", "win_rate_pct", "expectancy_r", "gross_expectancy_r", "profit_factor", "avg_cost_r", "exit_reasons")}))
+    print(
+        json.dumps(
+            {
+                k: o.get(k)
+                for k in (
+                    "trades",
+                    "win_rate_pct",
+                    "expectancy_r",
+                    "gross_expectancy_r",
+                    "profit_factor",
+                    "avg_cost_r",
+                    "exit_reasons",
+                )
+            }
+        )
+    )
     for name, prof in report["profiles"].items():
-        a = prof["account"]; t = prof["tradeable_summary"]
-        print(name, prof["preregistered_gate"], json.dumps({"trades": t.get("trades"), "E": t.get("expectancy_r"), "final": round(a["final_equity"], 2), "ret%": round(a["return_pct"], 2)}))
+        a = prof["account"]
+        t = prof["tradeable_summary"]
+        print(
+            name,
+            prof["preregistered_gate"],
+            json.dumps(
+                {
+                    "trades": t.get("trades"),
+                    "E": t.get("expectancy_r"),
+                    "final": round(a["final_equity"], 2),
+                    "ret%": round(a["return_pct"], 2),
+                }
+            ),
+        )
     return 0
 
 

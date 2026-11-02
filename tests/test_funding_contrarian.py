@@ -5,18 +5,33 @@ from unittest.mock import patch
 import numpy as np
 import pandas as pd
 
-from core.strategy.funding_contrarian import FCFeatures, FCParams, FCSignal, build_features, signal_at
+from core.strategy.funding_contrarian import (
+    FCFeatures,
+    FCParams,
+    build_features,
+    signal_at,
+)
 
 
 def make_funding(rates, start="2026-01-01"):
     times = pd.date_range(start, periods=len(rates), freq="8h", tz="UTC")
-    return pd.DataFrame({"fundingTime": times.astype("int64") // 1_000_000, "fundingRate": rates})
+    return pd.DataFrame(
+        {"fundingTime": times.astype("int64") // 1_000_000, "fundingRate": rates}
+    )
 
 
 def make_candles(n=200, price=100.0):
     t = pd.date_range("2026-01-01", periods=n, freq="h", tz="UTC")
-    return pd.DataFrame({"time": t, "open": price, "high": price + 1, "low": price - 1,
-                         "close": price, "volume": 1.0})
+    return pd.DataFrame(
+        {
+            "time": t,
+            "open": price,
+            "high": price + 1,
+            "low": price - 1,
+            "close": price,
+            "volume": 1.0,
+        }
+    )
 
 
 class FundingContrarianTests(unittest.TestCase):
@@ -26,8 +41,8 @@ class FundingContrarianTests(unittest.TestCase):
         fr = make_funding([0.001] * 30)  # 0.1% positive
         feat = build_features(df, fr)
         # find a bar with extreme funding
-        extremes = np.where(feat.funding_extreme == 1)[0]
-        extremes = [i for i in extremes if feat.warm[i]]
+        _ext = np.where(feat.funding_extreme == 1)[0]
+        extremes = [i for i in _ext if feat.warm[i]]
         self.assertTrue(len(extremes) > 0)
         sig = signal_at(feat, extremes[0])
         self.assertEqual(sig.side, "SELL")
@@ -37,8 +52,8 @@ class FundingContrarianTests(unittest.TestCase):
         df = make_candles(200)
         fr = make_funding([-0.001] * 30)
         feat = build_features(df, fr)
-        extremes = np.where(feat.funding_extreme == -1)[0]
-        extremes = [i for i in extremes if feat.warm[i]]
+        _ext = np.where(feat.funding_extreme == -1)[0]
+        extremes = [i for i in _ext if feat.warm[i]]
         self.assertTrue(len(extremes) > 0)
         sig = signal_at(feat, extremes[0])
         self.assertEqual(sig.side, "BUY")
@@ -55,7 +70,7 @@ class FundingContrarianTests(unittest.TestCase):
         df = make_candles(200)
         fr = make_funding([0.001] * 30)
         feat = build_features(df, fr)
-        extremes = [i for i in np.where(feat.funding_extreme == 1)[0] if feat.warm[i]]
+        _ = [i for i in np.where(feat.funding_extreme == 1)[0] if feat.warm[i]]
         # Force extreme ATR to make stop out of range
         feat2 = FCFeatures(
             close_time_ns=feat.close_time_ns,
@@ -72,7 +87,7 @@ class FundingContrarianTests(unittest.TestCase):
         df = make_candles(200)
         fr = make_funding([0.001] * 30)
         feat = build_features(df, fr)
-        extremes = np.where(feat.funding_extreme == 1)[0]
+        _ = np.where(feat.funding_extreme == 1)[0]
         # Force a bar at 23:00 UTC
         feat2 = FCFeatures(
             close_time_ns=np.array([pd.Timestamp("2026-01-01T23:00Z").value]),
@@ -108,21 +123,45 @@ class FundingContrarianTests(unittest.TestCase):
         cut = len(df) - 50
         past = build_features(df.iloc[:cut].reset_index(drop=True), fr)
         safe = cut - 5
-        np.testing.assert_array_equal(full.funding_extreme[:safe], past.funding_extreme[:safe])
+        np.testing.assert_array_equal(
+            full.funding_extreme[:safe], past.funding_extreme[:safe]
+        )
 
     def test_cli_runs(self):
-        import contextlib, io, json, tempfile
+        import contextlib
+        import io
+        import json
+        import tempfile
         from pathlib import Path
-        from unittest.mock import patch
+
         df = make_candles(60 * 24 * 3)
-        with tempfile.TemporaryDirectory() as tmp, patch(
-            "tools.fc_backtest.load_candles", return_value=df
-        ), patch("tools.fc_backtest.fetch_funding", return_value=make_funding([0.001] * 100)), \
-                contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            patch("tools.fc_backtest.load_candles", return_value=df),
+            patch(
+                "tools.fc_backtest.fetch_funding",
+                return_value=make_funding([0.001] * 100),
+            ),
+            contextlib.redirect_stdout(io.StringIO()),
+            contextlib.redirect_stderr(io.StringIO()),
+        ):
             out = Path(tmp) / "r"
             import tools.fc_backtest as fc
-            code = fc.main(["--symbols", "SOLUSDT", "--start", "2026-01", "--end", "2026-01",
-                            "--warmup-start", "2026-01", "--out", str(out)])
+
+            code = fc.main(
+                [
+                    "--symbols",
+                    "SOLUSDT",
+                    "--start",
+                    "2026-01",
+                    "--end",
+                    "2026-01",
+                    "--warmup-start",
+                    "2026-01",
+                    "--out",
+                    str(out),
+                ]
+            )
             self.assertEqual(code, 0)
             report = json.loads((out / "summary.json").read_text())
             self.assertEqual(report["strategy"], "FUNDING_CONTRARIAN_V5")
