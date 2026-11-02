@@ -1,5 +1,6 @@
 import logging
 import math
+from decimal import ROUND_CEILING, Decimal
 import sqlite3
 from datetime import UTC, datetime, timedelta
 
@@ -455,25 +456,33 @@ class RiskEngine:
 
     @staticmethod
     def _amount_to_step(exchange, symbol, market, raw_amount, round_up) -> float:
-        """Exchange precision. When the order was bumped to the minimum, round UP
-        one step so truncation cannot leave it below the exchange minimum."""
+        """Exchange precision for the order quantity.
+
+        Plain sizing truncates (``amount_to_precision``). When the order was bumped
+        to the minimum notional, the quantity is rounded UP to the next step so the
+        rounded order still meets the minimum; this also covers minimums smaller than
+        one step, where ``amount_to_precision`` raises. Callers revalidate risk/margin.
+        """
+        step = RiskEngine._market_amount_step(market)
+        if round_up and step is not None:
+            steps = (Decimal(str(raw_amount)) / step).to_integral_value(
+                rounding=ROUND_CEILING
+            )
+            amount = float(max(steps, Decimal(1)) * step)
+            return float(exchange.amount_to_precision(symbol, amount))
         amount_str = exchange.amount_to_precision(symbol, raw_amount)
-        if not amount_str:
-            return 0.0
-        amount = float(amount_str)
-        if round_up and amount < raw_amount:
-            raw_step = ((market or {}).get("precision") or {}).get("amount")
-            if raw_step is None:
-                return amount
-            try:
-                step = float(raw_step)
-            except (TypeError, ValueError):
-                return amount
-            if step > 0 and math.isfinite(step):
-                amount = float(
-                    exchange.amount_to_precision(symbol, amount + step * 1.000001)
-                )
-        return amount
+        return float(amount_str) if amount_str else 0.0
+
+    @staticmethod
+    def _market_amount_step(market) -> Decimal | None:
+        raw = ((market or {}).get("precision") or {}).get("amount")
+        if raw is None:
+            return None
+        try:
+            step = Decimal(str(raw))
+        except (ArithmeticError, ValueError):
+            return None
+        return step if step.is_finite() and step > 0 else None
 
     def check_market_safety(self, df, symbol, funding, side, order_book, btc_delta):
         """

@@ -116,6 +116,36 @@ class ShadowMirrorSizingTests(unittest.TestCase):
         amount, notional = self.size("XYZ/USDT:USDT", 20.0, 1.0, 0.8)
         self.assertGreaterEqual(notional, 5.0)
 
+    def test_substep_minimum_bump_rounds_up_with_real_ccxt(self):
+        # Independent verifier repro: min $50 / 70000 = 0.000714 BTC < one step (0.001).
+        # ccxt amount_to_precision raises below one step; the bump must still yield 0.001.
+        import ccxt
+
+        ex = ccxt.binance()
+        symbol = "BTC/USDT:USDT"
+        ex.markets = {
+            symbol: {
+                "symbol": symbol,
+                "precision": {"amount": 0.001},
+                "limits": {"cost": {"min": 50}},
+            }
+        }
+        self.cfg.RISK_PER_TRADE_PCT = 0.001
+        self.cfg.SHADOW_MIRROR_REAL_LIMITS = True
+        for shadow in (False, True):
+            with self.subTest(shadow=shadow):
+                result = self.engine.calculate_position_size_by_stop(
+                    200, symbol, 70000, 69000, 10, is_shadow=shadow, exchange=ex
+                )
+                self.assertEqual(result, (0.001, 70.0))
+
+    def test_substep_amount_without_bump_is_rejected_not_errored(self):
+        # Not bumped (raw >= minimum) but below one step can't happen; a raw amount
+        # below one step with no minimum bump must fail closed with -2, never raise.
+        self.exchange.markets["TINY/USDT:USDT"] = market(None, 1.0)
+        self.cfg.MIN_NOTIONAL_VALUE = 0.0
+        self.assertEqual(self.size("TINY/USDT:USDT", 20.0, 100.0, 99.0), (0.0, -2))
+
     # Rule 3 -----------------------------------------------------------------
     def test_shadow_mirror_applies_real_limits(self):
         self.cfg.SHADOW_MIRROR_REAL_LIMITS = True
