@@ -132,8 +132,11 @@ class SRAgent(BaseAgent):
         elif z_score_dinamico < -z_score_threshold:
             score = 80.0 - (entropy * 5)  # Voto fuerte a BUY
 
-        # [KINETIC v118.7] Modulador por desaceleración/aceleración en el nivel
+        # [KINETIC v118.7] Modulador por desaceleración/aceleración en el nivel.
+        # Scale the deviation from neutral (50), not the absolute score, so a
+        # BUY vote cannot flip to SELL just because the modifier is < 1.
         modifier = self._calculate_kinetic_modifier(df, z_score_dinamico)
-        score = min(100.0, max(0.0, score * modifier))
+        score = 50.0 + (score - 50.0) * modifier
+        score = min(100.0, max(0.0, score))
 
         return score

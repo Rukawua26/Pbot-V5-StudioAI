@@ -143,8 +143,9 @@ class DynamicHMMRegime:
             if len(x_recent) == 0:
                 return "UNKNOWN", 0.0
 
-            last_obs = x_recent[-1].reshape(1, -1)
-            probas = self.model.predict_proba(last_obs)[0]
+            # Filter through the whole recent sequence instead of only the last
+            # observation, so the state distribution reflects recent history.
+            probas = self.model.predict_proba(x_recent)[-1]
             state_id = int(np.argmax(probas))
             confidence = float(probas[state_id])
             return self.state_map.get(state_id, "UNKNOWN"), confidence
@@ -177,8 +178,7 @@ class DynamicHMMRegime:
             if len(x_recent) == 0:
                 return empty_snapshot
 
-            last_obs = x_recent[-1].reshape(1, -1)
-            current_probs = self.model.predict_proba(last_obs)[0]
+            current_probs = self.model.predict_proba(x_recent)[-1]
             transition_matrix = getattr(self.model, "transmat_", None)
             if transition_matrix is None:
                 return empty_snapshot

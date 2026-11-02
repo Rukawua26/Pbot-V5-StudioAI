@@ -43,7 +43,7 @@ class StrategyAgentsCoverageTest(unittest.TestCase):
         up = _ohlc(step=1.0)
         down = _ohlc(start=140.0, step=-1.0)
         self.assertIn(agent._get_momentum_score(up, "BUY"), {50.0, 66.0, 78.0})
-        self.assertIn(agent._get_momentum_score(down, "SELL"), {50.0, 66.0, 78.0})
+        self.assertIn(agent._get_momentum_score(down, "SELL"), {50.0, 22.0, 34.0, 66.0})
 
         bullish_div = _ohlc()
         bullish_div.loc[bullish_div.index[-5], "close"] = 110

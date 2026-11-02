@@ -279,8 +279,15 @@ class StrategyOrchestrator:
         # APLICAR VETO DE CORRELACIÓN (v118.1)
         final_weights = self._apply_correlation_veto(weights, votes, agent_performances)
 
-        # Media pesada con pesos de veto
-        p_final = sum(votes[a] * final_weights[a] for a in votes)
+        # Media pesada con pesos de veto. Renormalizar para que los votos
+        # sobrevivientes conserven su peso relativo (si no, un veto parcial
+        # fabrica consenso bajista a partir de votos alcistas).
+        surviving = {a: final_weights.get(a, 0.0) for a in votes}
+        total_weight = sum(surviving.values())
+        if total_weight > 0:
+            p_final = sum(votes[a] * surviving[a] for a in votes) / total_weight
+        else:
+            p_final = 50.0
         p_final = max(0.0, min(100.0, p_final))
 
         # Consenso Neuronal

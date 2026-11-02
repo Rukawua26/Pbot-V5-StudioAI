@@ -172,11 +172,21 @@ class RateLimitedCloseExchange:
         self.cancel_attempts = 0
         self.created = []
 
+    def fetch_open_orders(self, _symbol):
+        # One stale exit order so the new cancel path exercises cancel_order.
+        return [{"id": "stale-1", "type": "limit", "side": "sell", "reduceOnly": True}]
+
     def cancel_all_orders(self, _symbol):
         self.cancel_attempts += 1
         if self.cancel_attempts == 1:
             raise ccxt.RateLimitExceeded("rate limited")
         return []
+
+    def cancel_order(self, order_id, _symbol):
+        self.cancel_attempts += 1
+        if self.cancel_attempts == 1:
+            raise ccxt.RateLimitExceeded("rate limited")
+        return {"id": order_id, "status": "canceled"}
 
     def fetch_ticker(self, _symbol):
         return {"last": 100.0}
