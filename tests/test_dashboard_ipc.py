@@ -199,11 +199,19 @@ class DashboardIpcTest(unittest.TestCase):
                 result = api_server.send_command(
                     api_server.Command(action=" /recover_halt "), _=None
                 )
-                path = os.path.join(tmpdir, "command.json")
+                path = os.path.join(tmpdir, result["id"] + ".json")
                 with open(path, encoding="utf-8") as handle:
                     data = json.load(handle)
 
-        self.assertEqual(result, {"ok": True, "action": "/recover_halt"})
+        self.assertEqual(
+            result,
+            {
+                "ok": True,
+                "status": "queued",
+                "action": "/recover_halt",
+                "id": result["id"],
+            },
+        )
         self.assertEqual(data["commands"][0]["action"], "/recover_halt")
 
     def test_api_command_writer_accepts_parameterized_close_and_breakeven(self):
@@ -215,8 +223,25 @@ class DashboardIpcTest(unittest.TestCase):
                 res2 = api_server.send_command(
                     api_server.Command(action="/breakeven ETHUSDT"), _=None
                 )
-        self.assertEqual(res1, {"ok": True, "action": "/close BTCUSDT"})
-        self.assertEqual(res2, {"ok": True, "action": "/breakeven ETHUSDT"})
+        self.assertEqual(
+            res1,
+            {
+                "ok": True,
+                "status": "queued",
+                "action": "/close BTCUSDT",
+                "id": res1["id"],
+            },
+        )
+        self.assertEqual(
+            res2,
+            {
+                "ok": True,
+                "status": "queued",
+                "action": "/breakeven ETHUSDT",
+                "id": res2["id"],
+            },
+        )
+        self.assertNotEqual(res1["id"], res2["id"])
 
     def test_api_trade_endpoints_dispatch_ipc_commands(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -224,7 +249,15 @@ class DashboardIpcTest(unittest.TestCase):
                 res = api_server.close_trade_endpoint(
                     api_server.TradeAction(symbol="BTCUSDT"), _=None
                 )
-        self.assertEqual(res, {"ok": True, "action": "/close BTCUSDT"})
+        self.assertEqual(
+            res,
+            {
+                "ok": True,
+                "status": "queued",
+                "action": "/close BTCUSDT",
+                "id": res["id"],
+            },
+        )
 
     def test_dashboard_control_key_is_separate_from_read_key(self):
         req = type("Req", (), {"headers": {"X-API-Key": api_server.API_KEY}})()
@@ -258,6 +291,9 @@ class DashboardIpcTest(unittest.TestCase):
 
         self.assertTrue(
             any(api_server.READ_SESSION_COOKIE in header for header in headers)
+        )
+        self.assertFalse(
+            any(api_server.CONTROL_SESSION_COOKIE in header for header in headers)
         )
         self.assertTrue(any("HttpOnly" in header for header in headers))
         self.assertTrue(any("SameSite=strict" in header for header in headers))
