@@ -69,5 +69,8 @@ Reportes en `reports/edge20/` (ignorado por git); combinacion con `/tmp/edge20/c
   exacto y `amount_to_precision` trunca → post-round < minimo → rechazo (-1); 263 trades perdidos en H0 dev.
   Fix propuesto: minimo por simbolo desde `exchange.markets[...]['limits']` y redondeo HACIA ARRIBA al step al
   forzar el minimo, revalidando MAX_RISK_USD y margen.
+- L6: H0 HOLDOUT (2026-06→2026-08, mayo solo calentamiento): 620 trades, WR 28.6%, E neta -0.645R,
+  E bruta -0.361R, PF 0.314, coste 0.284R; cuenta $20 → $10.95 (-45.3%), maxDD 45.3%. Gate: SIN_EDGE.
+  Los 5 simbolos negativos tambien antes de costes. Segun pre-registro se evalua H1.
 - L3: Minimos notional consultados en `fapi/v1/exchangeInfo` 2026-11-01: BTC 50, ETH 20, LINK 20,
   SOL/XRP/DOGE/ADA/BNB 5.
