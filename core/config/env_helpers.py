@@ -1,6 +1,15 @@
+import math
 import os
 
 _CONFIG_ENV_WARNINGS: list[str] = []
+
+
+def _finite_float(raw) -> float:
+    """float(raw) that rejects nan/inf: they bypass ``<``/``>`` limit checks."""
+    value = float(raw)
+    if not math.isfinite(value):
+        raise ValueError(f"non-finite value: {raw!r}")
+    return value
 
 
 def env_float(name: str, default: float) -> float:
@@ -8,7 +17,7 @@ def env_float(name: str, default: float) -> float:
     if raw is None or str(raw).strip() == "":
         return default
     try:
-        return float(raw)
+        return _finite_float(raw)
     except (TypeError, ValueError):
         _CONFIG_ENV_WARNINGS.append(f"{name} inválido; usando default {default!r}")
         return default
@@ -19,7 +28,7 @@ def env_int(name: str, default: int) -> int:
     if raw is None or str(raw).strip() == "":
         return default
     try:
-        return int(float(raw))
+        return int(_finite_float(raw))
     except (TypeError, ValueError):
         _CONFIG_ENV_WARNINGS.append(f"{name} inválido; usando default {default!r}")
         return default
