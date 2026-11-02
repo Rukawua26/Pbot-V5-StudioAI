@@ -613,17 +613,18 @@ def sync_wallet(bot):
         else:
             bot.balance = current_balance
 
-        with bot.lock:
-            emergency_closed_symbols = set()
+        emergency_closed_symbols = set()
 
-            # A. ACTUALIZACIÓN DE PRECIOS REALES (Corrige el PnL)
+        # A. ACTUALIZACIÓN DE PRECIOS REALES (Corrige el PnL) + HARD SL repair.
+        # Network-heavy work (_ensure_hard_sl_attached, _manage_partial_fill_trade)
+        # runs OUTSIDE bot.lock so the guardian keeps serving other symbols.
+        trades_to_process = []
+        with bot.lock:
             for trade_key, info in real_active_on_binance.items():
                 symbol = info["symbol"]
                 if trade_key in bot.active_trades and not bot.active_trades[
                     trade_key
                 ].get("is_shadow"):
-                    # Sincronizamos el precio de entrada del bot con el de Binance
-                    # Validamos que el precio sea > 0 para evitar errores de API
                     if (
                         info["entry"] > 0
                         and bot.active_trades[trade_key]["entry"] != info["entry"]
@@ -636,16 +637,17 @@ def sync_wallet(bot):
                         bot.active_trades[trade_key]["size_usd"] = (
                             info["entry"] * info["amount"]
                         )
-
-                    emergency_closed = _ensure_hard_sl_attached(
-                        bot, symbol, bot.active_trades[trade_key], info
+                    trades_to_process.append(
+                        (trade_key, symbol, bot.active_trades[trade_key], info)
                     )
-                    _manage_partial_fill_trade(
-                        bot, symbol, bot.active_trades[trade_key], info
-                    )
-                    if emergency_closed:
-                        emergency_closed_symbols.add(trade_key)
 
+        for trade_key, symbol, trade, info in trades_to_process:
+            emergency_closed = _ensure_hard_sl_attached(bot, symbol, trade, info)
+            _manage_partial_fill_trade(bot, symbol, trade, info)
+            if emergency_closed:
+                emergency_closed_symbols.add(trade_key)
+
+        with bot.lock:
             # B. PURGAR trades huerfanos (No están en Binance pero sí en el bot)
             for trade_key in list(bot.active_trades.keys()):
                 trade = bot.active_trades[trade_key]
@@ -655,12 +657,10 @@ def sync_wallet(bot):
                     and trade_key not in real_active_on_binance
                     and not Config.PAPER_MODE
                 ):
-                    # PROTECCIÓN DE LATENCIA: No purgar si el trade tiene menos de 120 segundos
                     open_time = parse_datetime_utc(trade.get("open_time") or utc_now())
                     if (utc_now() - open_time).total_seconds() < 120:
                         continue
 
-                    # No purgar si el estado es ambiguo (orden no confirmada, cierre en curso, etc.)
                     ambiguous_statuses = {
                         "PENDING_SEND",
                         "ENTRY_ACK_UNKNOWN",
