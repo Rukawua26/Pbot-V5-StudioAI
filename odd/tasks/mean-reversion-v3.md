@@ -42,8 +42,8 @@ Universo, perfiles ($20, $100), periodos y gate: identicos a `mtf-pullback-v2.md
 | ID | Specs | Ruta | Estado | Commit |
 |---|---|---|---|---|
 | T1 | S3 | inline: push de la rama | blocked: credencial GitHub sin permiso | |
-| T2 | S1 | inline: evaluador + backtest + tests con mutacion | pending | |
-| T3 | S1 | ejecucion desarrollo (+ holdout si pasa el descarte) | pending | |
+| T2 | S1 | inline: evaluador + backtest + tests con mutacion | done | c4a89fc |
+| T3 | S1 | ejecucion desarrollo (+ holdout si pasa el descarte) | done (STOP, holdout no usado) | |
 | T4 | S2 | SHADOW realista: balance inicial, limites y precision iguales a REAL | pending | |
 | T5 | S4 | known-bugs + cierre | pending | |
 
@@ -53,5 +53,14 @@ Universo, perfiles ($20, $100), periodos y gate: identicos a `mtf-pullback-v2.md
   shadow como practica pero con la intencion que sirva como maestro de real / 3 ok si si es para aprender
   puedes hacer la rama / recuerda hacer correcciones si es necesario y guardar los cambios a para que no
   cometamos los mismos errores"
+- L3: Evidencia T2: 14 tests evaluador + 4 backtest MR; 10 mutaciones detectadas (ADX, EMA plana, banda
+  Bollinger, ruptura 5M, ventana, vela 1M, objetivo >= 1R, signo del stop, regimen, expiracion). Refactor
+  `StrategySpec` en `tools/mtf_backtest.py`: trades MTF de SOL identicos antes/despues (462 = 462).
+- L4: DESARROLLO MR v3 (2025-09→2026-08, 8 simbolos): 1718 trades, WR 37.2%, E BRUTA -0.164R, E neta
+  -0.327R, PF 0.55, coste 0.163R, stop medio 0.68%. Negativo antes de costes en los 8 simbolos.
+  $20 → $9.98 (-50%); $100 → $28.20 (-72%). Control de descarte → STOP. Holdout sep-oct 2026 sigue limpio.
+- L5: Conclusion acumulada: 4 hipotesis (TTF, TTF x4, pullback en tendencia, reversion en rango) pierden
+  antes de costes con velas de 1M-1H en estos 8 pares. Reglas de indicadores clasicos sobre precio no dan
+  ventaja aqui; seguir variando reglas es buscar ruido (el error de las 66 variantes).
 - L2: `git push -u origin research/edge-20usd` → 403: "Permission to Rukawua26/Pbot-V5-StudioAI.git denied to
   TecnoDAY". No se tocan credenciales; decision del humano.
