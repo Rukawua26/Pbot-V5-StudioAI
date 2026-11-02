@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Backtest offline de MTF Pullback v2 (1H contexto / 15M setup / 5M confirmacion / 1M entrada).
+"""Backtest offline de estrategias 1H/15M/5M/1M pre-registradas (MTF Pullback v2, Mean Reversion v3).
 
 Solo lectura: no toca el runtime ni envia ordenes. Reglas pre-registradas en
 ``odd/tasks/mtf-pullback-v2.md``. Reutiliza de ``tools.ttf_backtest`` la carga de
@@ -20,12 +20,14 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from dataclasses import asdict, replace
+from collections.abc import Callable
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
+from core.strategy import mean_reversion
 from core.strategy.mtf_pullback import MTFParams, build_features, signal_at
 from tools.ttf_backtest import (
     DEFAULT_CACHE_DIR,
@@ -44,6 +46,54 @@ from tools.ttf_backtest import (
 )
 
 PROFILES = {"usd20": 20.0, "usd100": 100.0}
+
+
+@dataclass(frozen=True)
+class StrategySpec:
+    """How a pure strategy plugs into the shared simulation loop.
+
+    ``target(sig, entry, risk, direction)`` returns the take-profit price.
+    """
+
+    name: str
+    params: object
+    build: Callable
+    candidates: Callable
+    signal: Callable
+    target: Callable
+    max_hold_minutes: int
+
+
+def mtf_spec(params: MTFParams | None = None) -> StrategySpec:
+    p = params or MTFParams()
+    return StrategySpec(
+        name="MTF_PULLBACK_V2",
+        params=p,
+        build=lambda *frames: build_features(*frames, p),
+        candidates=lambda f: (
+            f.warm & (f.ctx != 0) & (f.setup == f.ctx) & (f.trigger == f.ctx)
+        ),
+        signal=lambda f, i, sym: signal_at(f, i, p, sym),
+        target=lambda sig, entry, risk, d: entry + d * p.take_profit_r * risk,
+        max_hold_minutes=p.max_hold_minutes,
+    )
+
+
+def mr_spec(params: mean_reversion.MRParams | None = None) -> StrategySpec:
+    p = params or mean_reversion.MRParams()
+    return StrategySpec(
+        name="MEAN_REVERSION_V3",
+        params=p,
+        build=lambda *frames: mean_reversion.build_features(*frames, p),
+        candidates=lambda f: mean_reversion.candidate_mask(f, p),
+        signal=lambda f, i, sym: mean_reversion.signal_at(f, i, p, sym),
+        # Rule 6: fixed target = middle band of the stretch bar.
+        target=lambda sig, entry, risk, d: sig.target,
+        max_hold_minutes=p.max_hold_minutes,
+    )
+
+
+STRATEGIES = {"mtf": mtf_spec, "mr": mr_spec}
 PARTIAL_SUFFIX = "-partial"
 
 
@@ -64,13 +114,13 @@ def load_candles(symbol: str, start: str, end: str, cache_dir: Path) -> pd.DataF
     return normalize_candles(pd.concat(frames, ignore_index=True))
 
 
-def exit_params(mtf: MTFParams, base: TTFBacktestParams) -> TTFBacktestParams:
+def exit_params(spec, base: TTFBacktestParams) -> TTFBacktestParams:
     # Rule 6/8: fixed SL/TP, time exit, no trailing/breakeven; 1M trigger timeframe.
     return replace(
         base,
         trailing_enabled=False,
         breakeven_at_r=None,
-        max_hold_minutes=mtf.max_hold_minutes,
+        max_hold_minutes=spec.max_hold_minutes,
         tf_trigger="1min",
     )
 
@@ -78,23 +128,22 @@ def exit_params(mtf: MTFParams, base: TTFBacktestParams) -> TTFBacktestParams:
 def backtest_symbol(
     symbol: str,
     df_1m: pd.DataFrame,
-    mtf: MTFParams | None = None,
+    mtf: MTFParams | StrategySpec | None = None,
     base: TTFBacktestParams | None = None,
     trade_start: pd.Timestamp | None = None,
     trade_end: pd.Timestamp | None = None,
 ) -> list[TTFTrade]:
     """Trades whose signal bar closes in [trade_start, trade_end). Earlier bars are warmup."""
-    mtf = mtf or MTFParams()
-    p = exit_params(mtf, base or TTFBacktestParams())
+    spec = mtf if isinstance(mtf, StrategySpec) else mtf_spec(mtf)
+    p = exit_params(spec, base or TTFBacktestParams())
     df_1m = normalize_candles(df_1m)
     if df_1m.empty:
         return []
-    feat = build_features(
+    feat = spec.build(
         resample_closed(df_1m, "1h"),
         resample_closed(df_1m, "15min"),
         resample_closed(df_1m, "5min"),
         df_1m,
-        mtf,
     )
     t1 = feat.close_time_ns - pd.Timedelta("1min").value  # 1M open times
     o = df_1m["open"].to_numpy(float)
@@ -104,12 +153,7 @@ def backtest_symbol(
     lo_ns = trade_start.value if trade_start is not None else np.iinfo(np.int64).min
     hi_ns = trade_end.value if trade_end is not None else np.iinfo(np.int64).max
 
-    candidates = np.where(
-        feat.warm
-        & (feat.ctx != 0)
-        & (feat.setup == feat.ctx)
-        & (feat.trigger == feat.ctx)
-    )[0]
+    candidates = np.where(spec.candidates(feat))[0]
     used_setups: set[tuple] = set()
     trades: list[TTFTrade] = []
     next_free = 0
@@ -119,7 +163,7 @@ def backtest_symbol(
             continue
         if not lo_ns <= feat.close_time_ns[i] < hi_ns:
             continue
-        sig = signal_at(feat, int(i), mtf, symbol)
+        sig = spec.signal(feat, int(i), symbol)
         if sig.side not in {"BUY", "SELL"} or sig.setup_id in used_setups:
             continue
         direction = 1.0 if sig.side == "BUY" else -1.0
@@ -128,7 +172,9 @@ def backtest_symbol(
         risk = (entry - sig.stop) * direction
         if risk <= 0:
             continue  # next open already beyond the stop: invalid entry
-        tp = entry + direction * mtf.take_profit_r * risk
+        tp = float(spec.target(sig, entry, risk, direction))
+        if (tp - entry) * direction <= 0:
+            continue  # next open already beyond the target: nothing to capture
         used_setups.add(sig.setup_id)
         exit_idx, exit_price, reason, mfe, mae = _simulate_exit(
             sig.side, entry_idx, entry, sig.stop, tp, o, h, low, c, p
@@ -167,8 +213,11 @@ def backtest_symbol(
 
 
 def build_report(
-    trades: list[TTFTrade], base: TTFBacktestParams, mtf: MTFParams
+    trades: list[TTFTrade],
+    base: TTFBacktestParams,
+    mtf: MTFParams | StrategySpec | None = None,
 ) -> dict:
+    spec = mtf if isinstance(mtf, StrategySpec) else mtf_spec(mtf)
     first, second = split_chronological(trades)
     overall = summarize(trades, base.risk_per_trade_pct)
     profiles = {}
@@ -188,8 +237,8 @@ def build_report(
             else "MUESTRA_INSUFICIENTE",
         }
     return {
-        "strategy": "MTF_PULLBACK_V2",
-        "mtf_params": asdict(mtf),
+        "strategy": spec.name,
+        "strategy_params": asdict(spec.params),
         "cost_params": {"fee_rate": base.fee_rate, "slippage_pct": base.slippage_pct},
         "overall": overall,
         "first_70pct": summarize(first, base.risk_per_trade_pct),
@@ -217,9 +266,15 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE_DIR)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument(
+        "--strategy",
+        choices=sorted(STRATEGIES),
+        default="mtf",
+        help="mtf = MTF Pullback v2 (default), mr = Mean Reversion v3",
+    )
     args = parser.parse_args(argv)
 
-    base, mtf = TTFBacktestParams(), MTFParams()
+    base, mtf = TTFBacktestParams(), STRATEGIES[args.strategy]()
     trade_start = pd.Timestamp(args.start, tz="UTC")
     trade_end = pd.Timestamp(args.end, tz="UTC") + pd.offsets.MonthBegin(1)
     trades: list[TTFTrade] = []

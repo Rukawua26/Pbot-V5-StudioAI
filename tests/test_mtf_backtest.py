@@ -190,6 +190,7 @@ class MTFBacktestTests(unittest.TestCase):
             self.assertEqual(code, 0)
             report = json.loads((out / "summary.json").read_text())
             self.assertEqual(report["strategy"], "MTF_PULLBACK_V2")
+            self.assertIn("strategy_params", report)
             self.assertTrue((out / "trades.csv").exists())
 
 
@@ -206,3 +207,72 @@ mtf_backtest._orig_build = mtf_backtest.build_features
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MeanReversionBacktestTests(unittest.TestCase):
+    def _run(self, df, sig):
+        spec = mtf_backtest.mr_spec()
+        spec = mtf_backtest.StrategySpec(
+            name=spec.name,
+            params=spec.params,
+            build=spec.build,
+            candidates=lambda f: np.ones(len(f.warm), bool),
+            signal=lambda f, i, sym: sig(f, i),
+            target=spec.target,
+            max_hold_minutes=spec.max_hold_minutes,
+        )
+        return mtf_backtest.backtest_symbol("SOLUSDT", df, spec)
+
+    @staticmethod
+    def mr(side="BUY", stop=99.0, target=101.0, setup=None):
+        from core.strategy.mean_reversion import MRSignal
+
+        return lambda f, i: MRSignal(
+            side, "MR_REVERSION_CONFIRMED", float(f.close_1m[i]), stop, target, setup
+        )
+
+    def test_take_profit_is_the_middle_band_target(self):
+        df = flat()
+        df.loc[df.index[-300:], "high"] = 101.5
+        trades = self._run(df, self.mr(setup=("S", "BUY", 1)))
+        self.assertEqual(len(trades), 1)
+        self.assertEqual(trades[0].take_profit, 101.0)
+
+    def test_time_exit_after_4_hours(self):
+        trades = self._run(flat(), self.mr())
+        self.assertEqual(trades[0].exit_reason, "TIME")
+        self.assertEqual(trades[0].bars_held, 240)
+
+    def test_target_already_passed_at_entry_is_skipped(self):
+        self.assertEqual(self._run(flat(), self.mr(target=100.01)), [])
+
+    def test_cli_selects_strategy(self):
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            patch(
+                "tools.mtf_backtest.load_candles",
+                return_value=candles(minutes=60 * 24 * 3),
+            ),
+            contextlib.redirect_stdout(io.StringIO()),
+            contextlib.redirect_stderr(io.StringIO()),
+        ):
+            out = Path(tmp) / "r"
+            mtf_backtest.main(
+                [
+                    "--symbols",
+                    "SOLUSDT",
+                    "--start",
+                    "2026-01",
+                    "--end",
+                    "2026-01",
+                    "--warmup-start",
+                    "2026-01",
+                    "--out",
+                    str(out),
+                    "--strategy",
+                    "mr",
+                ]
+            )
+            report = json.loads((out / "summary.json").read_text())
+            self.assertEqual(report["strategy"], "MEAN_REVERSION_V3")
+            self.assertEqual(report["strategy_params"]["max_hold_minutes"], 240)
