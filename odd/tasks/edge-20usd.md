@@ -48,8 +48,8 @@ Rama `research/edge-20usd`. Base reversible: `8181beb`. Solo `tools/`, `core/str
 | T1 | S1 | inline | done | 8181beb |
 | T2 | S2, S3 | worker (cancelado) + inline | done | 6fc299f |
 | T3 | S4 | worker (cancelado) + inline | done | 6fc299f |
-| T4 | S5, S6 | inline (ejecucion) | in_progress | |
-| T5 | S7 | inline | in_progress | |
+| T4 | S5, S6 | inline (ejecucion) | done | e1204c1 + este commit |
+| T5 | S7 | inline | done | 8d621a6 |
 
 Evidencia T2/T3: RED observado (doble analyze → WAIT; filtro de sesion ausente → `0 != 6`), GREEN.
 Suite 1380 OK (2 skipped), ruff check/format OK, no-silent-pass OK, contratos OK, smoke modular OK.
@@ -72,5 +72,12 @@ Reportes en `reports/edge20/` (ignorado por git); combinacion con `/tmp/edge20/c
 - L6: H0 HOLDOUT (2026-06→2026-08, mayo solo calentamiento): 620 trades, WR 28.6%, E neta -0.645R,
   E bruta -0.361R, PF 0.314, coste 0.284R; cuenta $20 → $10.95 (-45.3%), maxDD 45.3%. Gate: SIN_EDGE.
   Los 5 simbolos negativos tambien antes de costes. Segun pre-registro se evalua H1.
+- L7: Diferencial `Strategy.analyze` base 8181beb vs refactor sobre 5949 velas SOL 2026-03: 0 diferencias.
+- L8: H1 HOLDOUT (4h/15min/5min, pullback 60 min): 189 trades, E neta -0.274R, E bruta -0.004R, PF 0.68,
+  coste 0.27R; cuenta $20 → $19.34 (-3.3%), maxDD 13.2%. Gate: MUESTRA_INSUFICIENTE (<200) y E neta < 0.
+  H1 dev (diagnostico): 466 trades, E neta -0.395R. ADA +0.03R con 30 trades: no es evidencia.
+- L9: DECISION segun pre-registro: H0 y H1 fallan → STOP. TTF no se promueve a SHADOW/REAL. No se prueban
+  mas variantes; replanteo pendiente con el humano. Pista (no probada): el timeframe mayor lleva la E bruta de
+  -0.36R a ~0R, pero el coste (~0.27R) sigue sin cubrirse.
 - L3: Minimos notional consultados en `fapi/v1/exchangeInfo` 2026-11-01: BTC 50, ETH 20, LINK 20,
   SOL/XRP/DOGE/ADA/BNB 5.
