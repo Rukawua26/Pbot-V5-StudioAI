@@ -1053,17 +1053,37 @@ class ExecutionService:
         if position_side:
             params["positionSide"] = position_side
 
+        # Cancel only NON-protective orders. cancel_all_orders() also removes the
+        # HARD SL, leaving the position unprotected if the chase later fails.
+        # Protective (reduce-only STOP_MARKET on the opposite side) orders stay.
         try:
-            self._call_exchange(
-                "cancel_all_orders",
-                lambda: self.exchange.cancel_all_orders(symbol),
-                retries=3,
-                timeout_s=20.0,
-            )
-            self._track_api_weight("cancel_all_orders", 1, "trading")
+            open_orders = self.fetch_open_orders(symbol) or []
+            from core.execution_safety import hard_sl_protective_order
+
+            trade_ctx = {"side": side}
+            protected_ids = {
+                str(o.get("id"))
+                for o in open_orders
+                if o.get("id") and hard_sl_protective_order(o, trade_ctx)
+            }
+            for order in open_orders:
+                order_id = order.get("id")
+                if not order_id or str(order_id) in protected_ids:
+                    continue
+                try:
+                    self.cancel_order(symbol, str(order_id))
+                except Exception as cancel_error:
+                    self.logger.warning(
+                        f"⚠️ No se pudo cancelar orden {order_id} de {symbol}: {cancel_error}"
+                    )
             self._record_cancel_all_orders_success(symbol)
         except Exception as error:
+            # Fail-safe: if we cannot inspect orders, cancel nothing rather than
+            # risk removing the HARD SL.
             self._record_cancel_all_orders_failure(symbol, error)
+            self.logger.warning(
+                f"⚠️ No se cancelaron ordenes de {symbol} (fail-safe): {error}"
+            )
 
         current_price = float(
             (

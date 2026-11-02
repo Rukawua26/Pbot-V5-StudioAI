@@ -179,6 +179,10 @@ class _ChaseLimitNoFillExchange:
     def cancel_all_orders(self, _symbol):
         return []
 
+    def fetch_open_orders(self, _symbol):
+        # No stale orders: the chase itself creates and cancels exit-1..3.
+        return []
+
     def fetch_ticker(self, _symbol):
         return {"last": 100.0}
 
@@ -474,6 +478,70 @@ class ExecutionServiceResilienceTest(unittest.TestCase):
         self.assertEqual(result.get("exit_state"), "STUCK")
         self.assertEqual(result.get("id"), "exit-4")
         self.assertEqual(service.exchange.canceled, ["exit-1", "exit-2", "exit-3"])
+
+    def test_close_position_preserves_hard_sl_during_chase(self):
+        """The chase must cancel stale exit orders but never the HARD SL."""
+        service = ExecutionService("k", "s")
+
+        class _Ex:
+            def __init__(self):
+                self.timeout = 9000
+                self.created = []
+                self.canceled = []
+                self.fetch_open_orders_calls = 0
+
+            def fetch_open_orders(self, _symbol):
+                self.fetch_open_orders_calls += 1
+                return [
+                    {
+                        "id": "stale-1",
+                        "type": "limit",
+                        "side": "sell",
+                        "reduceOnly": True,
+                    },
+                    {
+                        "id": "sl-1",
+                        "type": "STOP_MARKET",
+                        "side": "sell",
+                        "reduceOnly": True,
+                    },
+                ]
+
+            def fetch_ticker(self, _symbol):
+                return {"last": 100.0}
+
+            def price_to_precision(self, _symbol, price):
+                return str(round(float(price), 2))
+
+            def create_order(self, symbol, order_type, side, amount, price, params):
+                order = {
+                    "id": f"exit-{len(self.created) + 1}",
+                    "symbol": symbol,
+                    "type": order_type,
+                    "side": side,
+                    "amount": amount,
+                    "price": price,
+                    "status": "open",
+                    "params": params,
+                }
+                self.created.append(order)
+                return order
+
+            def fetch_order(self, order_id, symbol):
+                return {"id": order_id, "symbol": symbol, "status": "open"}
+
+            def cancel_order(self, order_id, symbol):
+                self.canceled.append(order_id)
+                return {"id": order_id, "symbol": symbol, "status": "canceled"}
+
+        service.exchange = _Ex()
+        service.set_weight_tracker(None)
+
+        result = service.close_position("BTC/USDT", side="BUY", amount=0.1)
+
+        self.assertEqual(result.get("exit_state"), "STUCK")
+        self.assertIn("stale-1", service.exchange.canceled)
+        self.assertNotIn("sl-1", service.exchange.canceled)
 
     def test_cancel_all_degraded_activates_symbol_quarantine(self):
         service = ExecutionService("k", "s")
