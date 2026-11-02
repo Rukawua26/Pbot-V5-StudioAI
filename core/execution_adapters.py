@@ -402,7 +402,10 @@ def build_execution_gateway(config, execution_service_cls):
             execution.exchange.set_sandbox_mode(True)
         except Exception as error:
             if getattr(execution, "logger", None):
-                execution.logger.warning(f"⚠️ No se pudo activar sandbox mode: {error}")
+                execution.logger.critical(
+                    f"🚨 No se pudo activar sandbox mode: {error}"
+                )
+            raise RuntimeError(f"TESTNET_SANDBOX_ACTIVATION_FAILED: {error}") from error
 
     backend = str(getattr(config, "EXECUTION_BACKEND", "live") or "live").lower()
     if backend not in {"live", "shadow_live"}:
