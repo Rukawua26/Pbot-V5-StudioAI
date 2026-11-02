@@ -276,3 +276,37 @@ class MeanReversionBacktestTests(unittest.TestCase):
             report = json.loads((out / "summary.json").read_text())
             self.assertEqual(report["strategy"], "MEAN_REVERSION_V3")
             self.assertEqual(report["strategy_params"]["max_hold_minutes"], 240)
+
+
+class RegimeAdaptiveBacktestTests(unittest.TestCase):
+    def test_cli_runs_regime_adaptive_strategy(self):
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            patch(
+                "tools.mtf_backtest.load_candles",
+                return_value=candles(minutes=60 * 24 * 12),
+            ),
+            contextlib.redirect_stdout(io.StringIO()),
+            contextlib.redirect_stderr(io.StringIO()),
+        ):
+            out = Path(tmp) / "r"
+            code = mtf_backtest.main(
+                [
+                    "--symbols",
+                    "SOLUSDT",
+                    "--start",
+                    "2026-01",
+                    "--end",
+                    "2026-01",
+                    "--warmup-start",
+                    "2026-01",
+                    "--out",
+                    str(out),
+                    "--strategy",
+                    "ra",
+                ]
+            )
+            self.assertEqual(code, 0)
+            report = json.loads((out / "summary.json").read_text())
+            self.assertEqual(report["strategy"], "REGIME_ADAPTIVE_V4")
+            self.assertIn("profiles", report)

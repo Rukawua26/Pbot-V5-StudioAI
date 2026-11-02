@@ -35,5 +35,6 @@ Universo, perfiles, periodos, gate: identicos a mean-reversion-v3.md.
 
 ## Log
 
+- L3: Error propio detectado al correr: RAFeatures no exponia `close_time_ns` que el loop compartido usa; los tests unitarios del evaluador pasaban pero nadie probaba la CLI con `--strategy ra`. RED en test de integracion de CLI, corregido con propiedad delegada. Regla: toda estrategia nueva lleva un test que corre la CLI completa antes del backtest real.
 - L2: Pre-registro corregido ANTES de ejecutar: la regla 1 citaba un rango 0.3-0.5% que no se usa; queda un solo umbral 0.3%. Advertencia: ambos componentes (MTF v2, MR v3) ya se vieron negativos en el periodo de desarrollo; solo el holdout sep-oct 2026 es evidencia limpia.
 - L1 (usuario): "quiero que el bot se adapte al mercado es decir que cuando este lateral se adapte a lateral cuando este bajista que se adapte a bajista y cuando este alcista que se adapte claro siguiendo la estrategia correcta o con mayor probavilidad me entiendes la idea"

@@ -62,6 +62,11 @@ class RAFeatures:
     mtf: object  # MTFFeatures
     mr: object  # MRFeatures
 
+    @property
+    def close_time_ns(self) -> np.ndarray:
+        """1M close times. Both engines are built from the same 1M frame."""
+        return self.mtf.close_time_ns
+
 
 def _ema(values: pd.Series, span: int) -> np.ndarray:
     return values.ewm(span=span, adjust=False).mean().to_numpy(float)
