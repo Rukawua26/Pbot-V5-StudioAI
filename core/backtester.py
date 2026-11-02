@@ -41,6 +41,7 @@ class VectorBacktester:
             .reset_index(drop=True)
         )
         self.df = work
+        self.open = work["open"].astype(float).to_numpy()
         self.close = work["close"].astype(float).to_numpy()
         self.high = work["high"].astype(float).to_numpy()
         self.low = work["low"].astype(float).to_numpy()
@@ -347,7 +348,8 @@ class VectorBacktester:
                     if hit_sl or hit_tp:
                         # Regla conservadora: si toca ambos en la misma vela, asumimos SL primero.
                         if hit_sl:
-                            exit_price = sl_price
+                            # Gap: si la vela abre mas alla del stop, se llena en la apertura.
+                            exit_price = min(float(self.open[j]), sl_price)
                         else:
                             exit_price = tp_price
                         exit_idx = j
@@ -357,7 +359,7 @@ class VectorBacktester:
                     hit_tp = lo <= tp_price
                     if hit_sl or hit_tp:
                         if hit_sl:
-                            exit_price = sl_price
+                            exit_price = max(float(self.open[j]), sl_price)
                         else:
                             exit_price = tp_price
                         exit_idx = j
