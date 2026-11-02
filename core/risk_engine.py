@@ -1,4 +1,5 @@
 import logging
+import math
 import sqlite3
 from datetime import UTC, datetime, timedelta
 
@@ -299,6 +300,12 @@ class RiskEngine:
         código negativo en final_notional para mantener compatibilidad con el flujo
         actual de `trade_manager`.
         """
+        # SHADOW mirrors REAL limits only when explicitly enabled (default keeps the
+        # previous permissive SHADOW sizing). REAL behaviour never depends on it.
+        mirror = bool(is_shadow) and bool(
+            getattr(Config, "SHADOW_MIRROR_REAL_LIMITS", False)
+        )
+        enforce = not is_shadow or mirror
         try:
             balance = float(balance or 0.0)
             entry = float(entry_price or 0.0)
@@ -336,11 +343,22 @@ class RiskEngine:
                 raw_amount = max_notional_allowed / entry
                 raw_notional = raw_amount * entry
 
+            market = None
+            if enforce and exchange is not None:
+                market = self._resolve_market(exchange, symbol)
+                if market is None:
+                    return 0.0, -3
+            # The exchange per-symbol minimum wins over the global configured floor.
             min_notional = float(getattr(Config, "MIN_NOTIONAL_VALUE", 0.0) or 0.0)
+            exchange_min = self._market_min_notional(market)
+            if exchange_min is not None:
+                min_notional = max(min_notional, exchange_min)
+
+            bumped = False
             if raw_notional < min_notional:
                 affordable_notional = balance * lev
                 if (
-                    not is_shadow
+                    enforce
                     and max_notional_allowed > 0
                     and min_notional > max_notional_allowed
                 ):
@@ -357,7 +375,7 @@ class RiskEngine:
                         f"${min_notional:.2f} y balance×leverage=${affordable_notional:.2f}"
                     )
                     return 0.0, -1
-                if not is_shadow and max_risk_usd > 0 and min_risk_usd > max_risk_usd:
+                if enforce and max_risk_usd > 0 and min_risk_usd > max_risk_usd:
                     self.logger.warning(
                         f"🚫 RISK_SIZE_MIN_RISK {symbol}: min notional arriesga "
                         f"${min_risk_usd:.2f} > límite ${max_risk_usd:.2f}"
@@ -365,50 +383,97 @@ class RiskEngine:
                     return 0.0, -4
                 raw_amount = min_amount
                 raw_notional = min_notional
+                bumped = True
                 self.logger.info(
                     f"⚠️ RISK_SIZE_MIN_NOTIONAL_ADJUST {symbol}: "
                     f"${raw_notional:.2f} forzado al mínimo "
                     f"(risk=${min_risk_usd:.2f})"
                 )
 
-            if is_shadow or exchange is None:
+            if not enforce or exchange is None:
                 return raw_amount, raw_notional
 
-            if symbol not in exchange.markets:
-                exchange.load_markets()
-                if symbol not in exchange.markets:
-                    return 0.0, -3
-
-            amount_str = exchange.amount_to_precision(symbol, raw_amount)
-            if not amount_str:
-                return 0.0, -2
-            amount = float(amount_str)
-            final_notional = amount * entry
-
+            amount = self._amount_to_step(exchange, symbol, market, raw_amount, bumped)
             if amount <= 0:
                 return 0.0, -2
+            final_notional = amount * entry
+
             if final_notional < min_notional:
                 self.logger.warning(
                     f"🚫 RISK_SIZE_MIN_NOTIONAL {symbol}: post-round ${final_notional:.2f} < ${min_notional:.2f}"
                 )
                 return 0.0, -1
+            if (
+                bumped
+                and max_notional_allowed > 0
+                and final_notional > max_notional_allowed
+            ):
+                self.logger.warning(
+                    f"🚫 RISK_SIZE_MIN_MARGIN {symbol}: post-round ${final_notional:.2f} "
+                    f"> margen permitido ${max_notional_allowed:.2f}"
+                )
+                return 0.0, -6
 
             actual_risk = amount * stop_distance
-            if not is_shadow and max_risk_usd > 0 and actual_risk > max_risk_usd:
+            if max_risk_usd > 0 and actual_risk > max_risk_usd:
                 self.logger.warning(
                     f"🚫 RISK_SIZE_POST_PRECISION_RISK {symbol}: post-round risk "
                     f"${actual_risk:.2f} > límite ${max_risk_usd:.2f}"
                 )
                 return 0.0, -4
             self.logger.info(
-                f"📊 RISK SIZING: {symbol} | risk=${actual_risk:.2f} "
-                f"({risk_fraction * 100:.2f}%) | stop_dist=${stop_distance:.6f} | "
+                f"📊 RISK SIZING{' (SHADOW=REAL)' if mirror else ''}: {symbol} | "
+                f"risk=${actual_risk:.2f} ({risk_fraction * 100:.2f}%) | "
+                f"stop_dist=${stop_distance:.6f} | "
                 f"notional=${final_notional:.2f} | amount={amount}"
             )
             return amount, final_notional
         except Exception as e:
             self.logger.error(f"❌ Error calculate_position_size_by_stop {symbol}: {e}")
             return 0.0, -2
+
+    @staticmethod
+    def _resolve_market(exchange, symbol):
+        markets = getattr(exchange, "markets", None) or {}
+        if symbol not in markets:
+            exchange.load_markets()
+            markets = getattr(exchange, "markets", None) or {}
+        return markets.get(symbol)
+
+    @staticmethod
+    def _market_min_notional(market) -> float | None:
+        if not isinstance(market, dict):
+            return None
+        raw = ((market.get("limits") or {}).get("cost") or {}).get("min")
+        if raw is None:
+            return None
+        try:
+            value = float(raw)
+        except (TypeError, ValueError):
+            return None
+        return value if value > 0 and math.isfinite(value) else None
+
+    @staticmethod
+    def _amount_to_step(exchange, symbol, market, raw_amount, round_up) -> float:
+        """Exchange precision. When the order was bumped to the minimum, round UP
+        one step so truncation cannot leave it below the exchange minimum."""
+        amount_str = exchange.amount_to_precision(symbol, raw_amount)
+        if not amount_str:
+            return 0.0
+        amount = float(amount_str)
+        if round_up and amount < raw_amount:
+            raw_step = ((market or {}).get("precision") or {}).get("amount")
+            if raw_step is None:
+                return amount
+            try:
+                step = float(raw_step)
+            except (TypeError, ValueError):
+                return amount
+            if step > 0 and math.isfinite(step):
+                amount = float(
+                    exchange.amount_to_precision(symbol, amount + step * 1.000001)
+                )
+        return amount
 
     def check_market_safety(self, df, symbol, funding, side, order_book, btc_delta):
         """

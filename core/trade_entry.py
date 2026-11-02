@@ -1003,7 +1003,14 @@ def execute_order(
 
         final_risk_usd = float(amount) * abs(float(price) - float(sl_val))
         max_risk_usd = float(getattr(Config, "MAX_RISK_USD", 0.0) or 0.0)
-        if not is_shadow and max_risk_usd > 0 and final_risk_usd > max_risk_usd:
+        mirror_real = bool(is_shadow) and bool(
+            getattr(Config, "SHADOW_MIRROR_REAL_LIMITS", False)
+        )
+        if (
+            (not is_shadow or mirror_real)
+            and max_risk_usd > 0
+            and final_risk_usd > max_risk_usd
+        ):
             bot.log(
                 f"🚫 FINAL_RISK_TOO_HIGH {symbol}: ${final_risk_usd:.2f} > ${max_risk_usd:.2f}"
             )

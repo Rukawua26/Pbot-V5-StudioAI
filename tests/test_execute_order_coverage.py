@@ -461,6 +461,36 @@ class ExecuteOrderCoverageTest(unittest.TestCase):
         )
         self.assertEqual(result, "SIZE_ERROR")
 
+    @patch("core.trade_entry.Config.MAX_RISK_USD", 2.0)
+    @patch("core.trade_entry.send_telegram_msg")
+    @patch("core.trade_entry.shadow_logger.is_trading_halted", return_value=False)
+    def test_shadow_mirror_applies_final_risk_veto(self, _, _tg):
+        # amount 1.0 * stop distance 1.0 (100 -> 99) = $1 risk; use 5.0 units = $5 > $2.
+        for mirror, expected in ((True, "FINAL_RISK_TOO_HIGH"), (False, None)):
+            with (
+                self.subTest(mirror=mirror),
+                patch(
+                    "core.trade_entry.Config.SHADOW_MIRROR_REAL_LIMITS",
+                    mirror,
+                    create=True,
+                ),
+            ):
+                bot = self._min_bot()
+                bot.risk_engine.calculate_position_size = lambda **kw: (5.0, 500.0)
+                result = execute_order(
+                    bot,
+                    "BTC/USDT",
+                    "BUY",
+                    100.0,
+                    1.0,
+                    is_shadow=True,
+                    context=self._ctx(),
+                )
+                if expected:
+                    self.assertEqual(result, expected)
+                else:
+                    self.assertNotEqual(result, "FINAL_RISK_TOO_HIGH")
+
     @patch("core.trade_entry.Config.PAPER_MODE", False)
     @patch("core.trade_entry.send_telegram_msg")
     @patch("core.trade_entry.shadow_logger.is_trading_halted", return_value=False)

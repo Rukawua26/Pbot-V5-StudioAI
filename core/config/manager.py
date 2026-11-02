@@ -54,6 +54,8 @@ class Config(OperationalConfig, StrategyConfig):
     MAX_OPEN_TRADES = _env_int("MAX_OPEN_TRADES", 3)
     MAX_DIRECTIONAL_TRADES = _env_int("MAX_DIRECTIONAL_TRADES", 2)
     MIN_NOTIONAL_VALUE = _env_float("MIN_NOTIONAL_VALUE", 5.0)
+    # SHADOW como maestro de REAL: aplica limites, minimos y precision de REAL.
+    SHADOW_MIRROR_REAL_LIMITS = _env_bool("SHADOW_MIRROR_REAL_LIMITS", False)
     MAX_MARGIN_PERCENT = _env_float("MAX_MARGIN_PERCENT", 5.0)
     DAILY_LOSS_LIMIT = _env_float("DAILY_LOSS_LIMIT", 2.0)
     RISK_REWARD_FILTER_ENABLED = _env_bool("RISK_REWARD_FILTER_ENABLED", True)
