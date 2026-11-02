@@ -57,11 +57,16 @@ Gate (se evalua por perfil, sobre los trades operables de ese perfil):
 
 | ID | Specs | Ruta | Estado | Commit |
 |---|---|---|---|---|
-| T1 | S1, S2 | inline: evaluador puro `core/strategy/mtf_pullback/` + tests RED/GREEN | pending | |
-| T2 | S2, S3 | inline: backtest `tools/mtf_backtest.py` reutilizando simulacion y perfil de cuenta | pending | |
-| T3 | S1 | ejecucion desarrollo + control de descarte | pending | |
-| T4 | S3 | holdout una vez, perfiles $20 y $100, veredicto | pending | |
-| T5 | S6 | documentar errores; cierre | pending | |
+| T1 | S1, S2 | inline: evaluador puro `core/strategy/mtf_pullback.py` + tests | done | 5b4cb14 |
+| T2 | S2, S3 | inline: backtest `tools/mtf_backtest.py` reutilizando simulacion y perfil de cuenta | done | 5b4cb14 |
+| T3 | S1 | ejecucion desarrollo + control de descarte | done (STOP) | este commit |
+| T4 | S3 | holdout una vez, perfiles $20 y $100, veredicto | dropped: control de descarte fallo | |
+| T5 | S6 | documentar errores; cierre | done | este commit |
+
+Evidencia T1/T2: 15 tests evaluador + 8 backtest; mutaciones detectadas (pendiente 1H, ruptura 5M,
+tendencia 15M, signo del stop, TP 1.5R, setup unico, cierre 8h, entrada invalida). Causalidad: features
+identicas con y sin velas futuras. Validacion de salida: senales 07:00-21:59 UTC al cierre (06:59 abre y
+cierra 07:00), stop 0.5-2.5% en la senal, sin setups duplicados.
 
 ## Log
 
@@ -70,5 +75,14 @@ Gate (se evalua por perfil, sobre los trades operables de ese perfil):
   hacer la rama / si no sirve con 20 dolares las pruebas vamos aprobar con 100 dolares a ver como funciona
   pero quiero que las temporalidades sean 1minuto 5minutos y 15 minutos teniendo encuenta el de 1 hora men
   entiendes la idea a ver si asi nos va mejor"
+- L3: DESARROLLO (2025-09→2026-08, 8 simbolos): 3402 trades, WR 38.6%, E BRUTA -0.067R, E neta -0.186R,
+  PF 0.72, coste 0.119R (era 0.27R en TTF), stop medio 1.01%. Solo SOL tiene E bruta > 0 (+0.02R).
+  33.5% llega a 1.5R; MFE mediana 0.8R. Perfiles: $20 → $10.00 (-50%, 774 trades operables);
+  $100 → $16.79 (-83%, 2049 operables). Control de descarte (E bruta <= 0) → STOP.
+  Holdout sep-oct 2026 NO se ejecuta (queda limpio para una hipotesis futura).
+- L4: Aprendizaje: el stop estructural en 15M bajo el coste a la mitad (0.27R → 0.12R) y el TP 1.5R se
+  alcanza 5x mas (33% vs 7%), pero la entrada sigue sin ventaja antes de costes en 7 de 8 simbolos:
+  el problema no es la geometria sino que el pullback en tendencia no predice continuacion en estos
+  mercados/periodo. Con $100 se pierde mas rapido porque se toman mas trades (mas simbolos operables).
 - L2 (usuario): aprobo el plan "Si, implementalo asi" (stop en estructura 15M, TP 1.5R, holdout sep-oct 2026,
   perfiles $20 y $100, Fase B solo SHADOW si pasa).

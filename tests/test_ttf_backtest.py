@@ -1,5 +1,7 @@
+import contextlib
 import io
 import tempfile
+import urllib.error
 import unittest
 import zipfile
 from pathlib import Path
@@ -167,6 +169,48 @@ class DownloadTest(unittest.TestCase):
             self.assertEqual(len(df), 1)
             download_month("XUSDT", "2026-01", Path(tmp))  # segunda vez: caché
             self.assertEqual(urlopen.call_count, 1)
+
+    def test_download_retries_transient_network_errors(self):
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr(
+                "X-1m-2026-01.csv", "1704067200000,100,101,99,100.5,10,0,0,0,0,0,0\n"
+            )
+        fake = mock.MagicMock()
+        fake.__enter__.return_value.read.return_value = buf.getvalue()
+        dns = urllib.error.URLError("Temporary failure in name resolution")
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch(
+                "tools.ttf_backtest.urllib.request.urlopen",
+                side_effect=[dns, dns, fake],
+            ) as urlopen,
+            mock.patch("tools.ttf_backtest.time.sleep") as sleep,
+        ):
+            df = download_month("XUSDT", "2026-01", Path(tmp))
+            self.assertEqual(len(df), 1)
+            self.assertEqual(urlopen.call_count, 3)
+            self.assertEqual(sleep.call_count, 2)
+
+    def test_download_gives_up_after_retries_and_never_retries_404(self):
+        dns = urllib.error.URLError("Temporary failure in name resolution")
+        missing = urllib.error.HTTPError("u", 404, "Not Found", None, None)
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch("tools.ttf_backtest.time.sleep"),
+            contextlib.redirect_stderr(io.StringIO()),
+        ):
+            with mock.patch(
+                "tools.ttf_backtest.urllib.request.urlopen", side_effect=dns
+            ) as urlopen:
+                with self.assertRaises(urllib.error.URLError):
+                    download_month("XUSDT", "2026-01", Path(tmp))
+                self.assertEqual(urlopen.call_count, 4)
+            with mock.patch(
+                "tools.ttf_backtest.urllib.request.urlopen", side_effect=missing
+            ) as urlopen:
+                self.assertIsNone(download_month("XUSDT", "2026-02", Path(tmp)))
+                self.assertEqual(urlopen.call_count, 1)
 
 
 class BacktestIntegrationTest(unittest.TestCase):

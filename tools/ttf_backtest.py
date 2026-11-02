@@ -37,6 +37,7 @@ import io
 import json
 import math
 import sys
+import time
 import urllib.error
 import urllib.request
 import zipfile
@@ -176,6 +177,30 @@ def _parse_binance_csv(raw: bytes) -> pd.DataFrame:
     return df
 
 
+DOWNLOAD_ATTEMPTS = 4
+
+
+def _fetch_with_retry(url: str, attempts: int = DOWNLOAD_ATTEMPTS) -> bytes:
+    """GET with linear backoff on transient network errors (DNS, reset, timeout).
+
+    HTTP errors (e.g. 404 = month not published) are definitive and never retried.
+    """
+    for attempt in range(1, attempts + 1):
+        try:
+            with urllib.request.urlopen(url, timeout=60) as resp:
+                return resp.read()
+        except urllib.error.HTTPError:
+            raise
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
+            if attempt == attempts:
+                raise
+            print(
+                f"  ! red ({exc}); reintento {attempt}/{attempts - 1}", file=sys.stderr
+            )
+            time.sleep(5 * attempt)
+    raise AssertionError("unreachable")
+
+
 def download_month(
     symbol: str, month: str, cache_dir: Path = DEFAULT_CACHE_DIR
 ) -> pd.DataFrame | None:
@@ -186,8 +211,7 @@ def download_month(
         return pd.read_csv(cache_file)
     url = BINANCE_VISION_URL.format(symbol=symbol, month=month)
     try:
-        with urllib.request.urlopen(url, timeout=60) as resp:
-            payload = resp.read()
+        payload = _fetch_with_retry(url)
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
             print(
