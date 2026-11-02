@@ -44,8 +44,8 @@ Universo, perfiles ($20, $100), periodos y gate: identicos a `mtf-pullback-v2.md
 | T1 | S3 | inline: push de la rama | blocked: credencial GitHub sin permiso | |
 | T2 | S1 | inline: evaluador + backtest + tests con mutacion | done | c4a89fc |
 | T3 | S1 | ejecucion desarrollo (+ holdout si pasa el descarte) | done (STOP, holdout no usado) | |
-| T4 | S2 | SHADOW realista: balance inicial, limites y precision iguales a REAL | pending | |
-| T5 | S4 | known-bugs + cierre | pending | |
+| T4 | S2 | SHADOW realista: balance inicial, limites y precision iguales a REAL | done | 84a8b0a, 0945107 |
+| T5 | S4 | known-bugs + cierre | done | 84a8b0a, 0945107 |
 
 ## Log
 
@@ -62,5 +62,17 @@ Universo, perfiles ($20, $100), periodos y gate: identicos a `mtf-pullback-v2.md
 - L5: Conclusion acumulada: 4 hipotesis (TTF, TTF x4, pullback en tendencia, reversion en rango) pierden
   antes de costes con velas de 1M-1H en estos 8 pares. Reglas de indicadores clasicos sobre precio no dan
   ventaja aqui; seguir variando reglas es buscar ruido (el error de las 66 variantes).
+- L6: T4 SHADOW maestro de REAL. `SHADOW_MIRROR_REAL_LIMITS` (default false) hace que SHADOW aplique el
+  sizing de REAL (margen, MAX_RISK_USD, minimo por simbolo, precision) y el veto final de riesgo. Balance
+  inicial: `PAPER_INITIAL_BALANCE=20` (SHADOW usa el balance del bot; no hizo falta variable nueva).
+  Fix REAL incluido: minimo = max(global, exchange) y redondeo HACIA ARRIBA al forzar el minimo.
+  Evidencia: RED observado (7 fallos + FINAL_RISK_TOO_HIGH), GREEN; 4 mutaciones detectadas;
+  diferencial 4000 casos: SHADOW sin flag identico a la base, 0 filas REAL sobre MAX_RISK_USD o margen.
+- L7: Verificador independiente (gentle-ai-verify) sobre 84a8b0a: C1, C3, C4, C5 confirmados; C2 refutado:
+  minimo menor a un step (BTC $50 a 70k = 0.000714 < 0.001) fallaba con -2 porque ccxt
+  `amount_to_precision` lanza excepcion bajo un step. Corregido en 0945107 (redondeo con Decimal), con el
+  test del verificador. Advertencias preexistentes no corregidas: MAX_MARGIN_PERCENT=0 desactiva el tope
+  de margen; minimos de exchange malformados caen al minimo global; orden de codigos -6/-3 cambio cuando
+  el simbolo no existe (el caller solo ve SIZE_ERROR).
 - L2: `git push -u origin research/edge-20usd` → 403: "Permission to Rukawua26/Pbot-V5-StudioAI.git denied to
   TecnoDAY". No se tocan credenciales; decision del humano.
