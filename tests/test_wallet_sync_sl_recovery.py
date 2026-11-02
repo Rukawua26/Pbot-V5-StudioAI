@@ -239,11 +239,13 @@ class WalletSyncSlRecoveryTest(unittest.TestCase):
 
         sync_wallet(bot)
 
+        # With the repair path, a stale/insufficient SL is replaced instead of
+        # halting forever (audit #5). The new SL is placed for the full amount.
+        self.assertEqual(bot.active_trades["ETH/USDT"].get("status"), "OPEN")
         self.assertEqual(
-            bot.active_trades["ETH/USDT"].get("status"), "HARD_SL_VISIBILITY_AMBIGUOUS"
+            bot.active_trades["ETH/USDT"].get("sl_exchange_order_id"), "new-sl"
         )
-        bot.execution.place_hard_sl.assert_not_called()
-        bot.brain.save_error_snapshot.assert_called()
+        bot.execution.place_hard_sl.assert_called_once()
 
     @patch("core.bot_wallet_sync.Config.PAPER_MODE", False)
     def test_does_not_purge_local_real_trade_when_second_position_check_not_flat(self):

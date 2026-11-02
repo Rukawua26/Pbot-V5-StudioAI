@@ -209,12 +209,38 @@ def _ensure_hard_sl_attached(bot, symbol: str, trade: dict, info: dict):
                 f"🛑 HARD_SL_VERIFICATION_HALTED {symbol}: wallet sync aborted due to verification failure"
             )
             return False
+        # The recorded SL no longer covers the position (or is gone). Do not just
+        # halt: try to repair by cancelling the stale SL (best effort) and placing
+        # a fresh one for the full amount. Only halt if repair fails.
+        stale_id = str(trade.get("sl_exchange_order_id") or "")
+        if stale_id:
+            # Only cancel if the stale SL is actually still in the book.
+            open_orders = []
+            fetch = getattr(bot.execution, "fetch_open_orders", None)
+            if callable(fetch):
+                try:
+                    open_orders = fetch(symbol) or []
+                except Exception:
+                    open_orders = []
+            if any(
+                str(o.get("id")) == stale_id
+                for o in (open_orders or [])
+                if isinstance(o, dict)
+            ):
+                cancel = getattr(bot.execution, "cancel_order", None)
+                if callable(cancel):
+                    try:
+                        cancel(symbol, stale_id)
+                    except Exception as cancel_error:
+                        bot.log(
+                            f"⚠️ No se pudo cancelar SL insuficiente {stale_id} de {symbol}: {cancel_error}"
+                        )
+        trade["sl_exchange_order_id"] = None
+        trade["sl_client_order_id"] = trade.get("sl_client_order_id") or None
         bot.log(
-            f"🛑 HARD_SL_VISIBILITY_AMBIGUOUS {symbol}: id local "
-            f"{trade.get('sl_exchange_order_id')} no se verificó en open orders."
+            f"🔧 HARD_SL_REPAIR {symbol}: SL previo {stale_id or 'N/A'} no cubre; "
+            "intentando colocar uno nuevo."
         )
-        _halt_ambiguous_hard_sl_visibility(bot, symbol, trade)
-        return False
 
     existing_sl = _find_existing_hard_sl_order(bot, symbol, trade)
     if existing_sl is _HARD_SL_ORDER_LOOKUP_FAILED:
