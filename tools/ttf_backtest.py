@@ -16,8 +16,8 @@ Supuestos (explícitos, para no sobreestimar resultados):
   (SL estructural de 5M, distancia mínima 0.2%, tope MAX_ENTRY_SL_PCT*0.95,
   TP = max(2.5R, (RRR+0.05)R + (RRR+1)*penalización)).
 * Si en la misma vela de 1M se tocan SL y TP, se asume que salió por SL.
-* Salidas: solo SL/TP fijos (más breakeven opcional). No simula trailing,
-  salida por degradación ni los vetos extra de ``core/signals/filters.py``.
+* Salidas: SL/TP fijos, trailing EMA50 del marco gatillo (por defecto activo),
+  más breakeven opcional. No simula degradación ni vetos extra de ``core/signals/filters.py``.
   Mide el núcleo de la señal, no el bot completo.
 * Una sola posición por símbolo a la vez. Resultados en R (múltiplos del riesgo)
   netos de comisiones y deslizamiento.
@@ -40,16 +40,22 @@ import sys
 import urllib.error
 import urllib.request
 import zipfile
+from collections import Counter
 from collections.abc import Iterable
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
+from decimal import Decimal, ROUND_DOWN
+from types import SimpleNamespace
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-from core.strategy.triple_tf.bias_1h import evaluate_bias_1h
-from core.strategy.triple_tf.structure_5m import evaluate_structure_5m
-from core.strategy.triple_tf.trigger_1m import evaluate_trigger_1m
+from core.strategy.triple_tf.pipeline import (
+    TTFSignalParams,
+    evaluate_ttf_signal,
+    reserve_setup,
+)
+from core.strategy.triple_tf.trailing_1m import evaluate_trailing_1m
 
 BINANCE_VISION_URL = (
     "https://data.binance.vision/data/futures/um/monthly/klines/"
@@ -91,9 +97,41 @@ class TTFBacktestParams:
     tp_min_r: float = 2.5  # trade_entry: target_dist = max(risk*2.5, ...)
     breakeven_at_r: float | None = None  # opcional: mover SL a entrada al alcanzar +xR
     max_hold_minutes: int | None = None  # opcional: cierre por tiempo
-    risk_per_trade_pct: float = field(
-        default_factory=lambda: _live_default("RISK_PER_TRADE_PERCENT", 1.2)
+    risk_per_trade_pct: float = 1.2
+    trailing_enabled: bool = True
+    tf_bias: str = "1h"
+    tf_struct: str = "5min"
+    tf_trigger: str = "1min"
+    max_setup_minutes: int | None = None
+    account_balance: float = 20.0
+    leverage: int = 10
+    max_margin_percent: float = 5.0
+    max_risk_usd: float = 2.0
+    max_open_trades: int = 3
+    # Runtime TTF_REQUIRE_SESSION_FILTER (core/signals/filters.py): 07:00-22:00 UTC.
+    session_filter: bool = field(
+        default_factory=lambda: bool(_live_default("TTF_REQUIRE_SESSION_FILTER", 1.0))
     )
+
+    def signal_params(self) -> TTFSignalParams:
+        from config import Config
+
+        base = TTFSignalParams.from_config(Config)
+        struct_minutes = pd.Timedelta(self.tf_struct).total_seconds() / 60
+        # Pre-registered H1 explicitly uses 60 minutes at 15min structure.
+        age = (
+            60
+            if struct_minutes == 15
+            else round(base.max_setup_minutes * struct_minutes / 5)
+        )
+        trigger_minutes = int(pd.Timedelta(self.tf_trigger).total_seconds() / 60)
+        return replace(
+            base,
+            max_setup_minutes=self.max_setup_minutes
+            if self.max_setup_minutes is not None
+            else age,
+            trigger_timeframe=f"{trigger_minutes}m",
+        )
 
 
 @dataclass
@@ -281,6 +319,7 @@ def _simulate_exit(
     low: np.ndarray,
     c: np.ndarray,
     params: TTFBacktestParams,
+    df_trigger: pd.DataFrame | None = None,
 ) -> tuple[int, float, str, float, float]:
     """Recorre velas 1M desde la de entrada. Devuelve (idx_salida, precio, motivo, mfe, mae)."""
     direction = 1.0 if side == "BUY" else -1.0
@@ -290,9 +329,15 @@ def _simulate_exit(
     mfe = 0.0
     mae = 0.0
     n = len(c)
+    trailing_active = False
+    if df_trigger is None:
+        df_trigger = pd.DataFrame({"close": c})
     last = n - 1
     if params.max_hold_minutes:
-        last = min(last, entry_idx + int(params.max_hold_minutes) - 1)
+        minutes = pd.Timedelta(params.tf_trigger).total_seconds() / 60
+        last = min(
+            last, entry_idx + max(1, math.ceil(params.max_hold_minutes / minutes)) - 1
+        )
     for j in range(entry_idx, last + 1):
         hi, lo = h[j], low[j]
         fav = (hi - entry_price) if side == "BUY" else (entry_price - lo)
@@ -308,6 +353,24 @@ def _simulate_exit(
             return j, fill, ("BREAKEVEN" if be_armed else "SL"), mfe, mae
         if hit_tp:
             return j, tp, "TP", mfe, mae
+        if params.trailing_enabled:
+            trailing = evaluate_trailing_1m(
+                df_1m=df_trigger.iloc[max(0, j + 1 - WINDOW_BARS) : j + 1],
+                side=side,
+                entry_price=entry_price,
+                sl_price=stop,
+                current_price=float(c[j]),
+                trailing_already_activated=trailing_active,
+            )
+            trailing_active = trailing.is_activated
+            if trailing.should_exit:
+                return (
+                    j,
+                    c[j] * (1.0 - direction * params.slippage_pct),
+                    "TRAILING",
+                    mfe,
+                    mae,
+                )
         if (
             params.breakeven_at_r
             and not be_armed
@@ -324,9 +387,19 @@ def backtest_symbol(
     symbol: str, df_1m: pd.DataFrame, params: TTFBacktestParams | None = None
 ) -> list[TTFTrade]:
     params = params or TTFBacktestParams()
-    df_1m = normalize_candles(df_1m)
-    df_5m = resample_closed(df_1m, "5min")
-    df_1h = resample_closed(df_1m, "1h")
+    source = normalize_candles(df_1m)
+    df_5m = resample_closed(source, params.tf_struct)
+    df_1h = resample_closed(source, params.tf_bias)
+    df_1m = resample_closed(source, params.tf_trigger)
+    # Exclude incomplete final aggregates (the input rows are closed 1M candles).
+    if source.empty:
+        return []
+    source_end = source["time"].iloc[-1] + pd.Timedelta(minutes=1)
+    df_1m = df_1m[
+        df_1m["time"] + pd.Timedelta(params.tf_trigger) <= source_end
+    ].reset_index(drop=True)
+    signal_params = params.signal_params()
+    consumed = SimpleNamespace()
 
     def _ns(series: pd.Series) -> np.ndarray:
         # Nanosegundos UTC como int64: evita arrays object con fechas tz-aware.
@@ -344,13 +417,11 @@ def backtest_symbol(
     c = df_1m["close"].to_numpy(float)
 
     # Momento de CIERRE de cada vela agregada: solo es utilizable cuando ya cerró.
-    close_5m = _ns(df_5m["time"] + pd.Timedelta(minutes=5))
-    close_1h = _ns(df_1h["time"] + pd.Timedelta(hours=1))
-    close_1m = t1 + 60_000_000_000
+    close_5m = _ns(df_5m["time"] + pd.Timedelta(params.tf_struct))
+    close_1h = _ns(df_1h["time"] + pd.Timedelta(params.tf_bias))
+    close_1m = t1 + pd.Timedelta(params.tf_trigger).value
 
     trades: list[TTFTrade] = []
-    bias_cache: dict[int, object] = {}
-    struct_cache: dict[tuple[int, str], object] = {}
     next_free_idx = 0  # índice 1M a partir del cual se permite una nueva entrada
     n = len(df_1m)
 
@@ -363,41 +434,25 @@ def backtest_symbol(
         if n1h < 50 or n5m < 50:
             continue
 
-        bias = bias_cache.get(n1h)
-        if bias is None:
-            bias = evaluate_bias_1h(df_1h.iloc[max(0, n1h - WINDOW_BARS) : n1h])
-            bias_cache[n1h] = bias
-            if len(bias_cache) > 100:
-                bias_cache.pop(next(iter(bias_cache)))
-        if bias.bias not in {"BUY", "SELL"}:
-            continue
-
-        key = (n5m, bias.bias)
-        struct = struct_cache.get(key)
-        if struct is None:
-            struct = evaluate_structure_5m(
-                df_5m.iloc[max(0, n5m - WINDOW_BARS) : n5m], bias_1h=bias.bias
-            )
-            struct_cache[key] = struct
-            if len(struct_cache) > 200:
-                struct_cache.pop(next(iter(struct_cache)))
-        if not struct.valid_setup:
-            continue
-
-        trig = evaluate_trigger_1m(
-            df_1m.iloc[i + 1 - WINDOW_BARS : i + 1],
-            bias_1h=bias.bias,
-            setup_5m_valid=True,
+        decision = evaluate_ttf_signal(
+            df_1h.iloc[max(0, n1h - WINDOW_BARS) : n1h],
+            df_5m.iloc[max(0, n5m - WINDOW_BARS) : n5m],
+            df_1m.iloc[max(0, i + 1 - WINDOW_BARS) : i + 1],
+            symbol=symbol,
             spread=params.spread_pct,
+            params=signal_params,
+            consumed_setups=getattr(consumed, "_ttf_consumed_setups", ()),
         )
-        if not (trig.triggered and trig.side in {"BUY", "SELL"}):
+        if decision.side not in {"BUY", "SELL"}:
             continue
+        if params.session_filter:
+            hour_utc = int((int(now) // 3_600_000_000_000) % 24)
+            if not 7 <= hour_utc < 22:
+                continue
 
-        side = trig.side
-        signal_price = float(c[i])
-        levels = compute_exit_levels(
-            side, signal_price, float(struct.suggested_sl), params
-        )
+        side = decision.side
+        signal_price = decision.entry_price or float(c[i])
+        levels = compute_exit_levels(side, signal_price, decision.suggested_sl, params)
         if levels is None:
             continue
         sl, tp, _ = levels
@@ -410,8 +465,10 @@ def backtest_symbol(
             # La apertura siguiente ya saltó el SL o el TP: en vivo sería una entrada inválida.
             continue
 
+        if not reserve_setup(consumed, decision.setup_key):
+            continue
         exit_idx, exit_price, reason, mfe, mae = _simulate_exit(
-            side, entry_idx, entry_price, sl, tp, o, h, low, c, params
+            side, entry_idx, entry_price, sl, tp, o, h, low, c, params, df_1m
         )
         gross_r = (exit_price - entry_price) * direction / risk_at_fill
         cost_r = params.fee_rate * (entry_price + exit_price) / risk_at_fill
@@ -421,7 +478,16 @@ def backtest_symbol(
                 side=side,
                 signal_time=str(pd.Timestamp(int(t1[i]), tz="UTC")),
                 entry_time=str(pd.Timestamp(int(t1[entry_idx]), tz="UTC")),
-                exit_time=str(pd.Timestamp(int(t1[exit_idx]), tz="UTC")),
+                exit_time=str(
+                    pd.Timestamp(
+                        int(
+                            close_1m[exit_idx]
+                            if reason in {"TRAILING", "TIME", "END_OF_DATA"}
+                            else t1[exit_idx]
+                        ),
+                        tz="UTC",
+                    )
+                ),
                 signal_price=signal_price,
                 entry_price=entry_price,
                 stop_loss=float(sl),
@@ -533,6 +599,152 @@ def monthly_table(trades: list[TTFTrade]) -> list[dict]:
     return out
 
 
+# Binance Futures exchangeInfo 2026-11-01: min notional USD / quantity step.
+SYMBOL_FILTERS = {
+    "BTCUSDT": (50.0, 0.001),
+    "ETHUSDT": (20.0, 0.001),
+    "LINKUSDT": (20.0, 0.01),
+    "SOLUSDT": (5.0, 0.01),
+    "XRPUSDT": (5.0, 0.1),
+    "DOGEUSDT": (5.0, 1.0),
+    "ADAUSDT": (5.0, 1.0),
+    "BNBUSDT": (5.0, 0.01),
+}
+
+
+def size_account_trade(
+    trade: TTFTrade, equity: float, params: TTFBacktestParams
+) -> tuple[float, str]:
+    """NON-shadow risk_engine sizing with immutable offline, per-symbol filters.
+
+    The runtime method is Config-bound; never patch global live Config for a report.
+    Quantity precision is rounded DOWN, then minimum notional is checked again.
+    """
+    filters = SYMBOL_FILTERS.get(trade.symbol)
+    if filters is None:
+        return 0.0, "UNKNOWN_SYMBOL"
+    minimum, step = filters
+    entry, distance = trade.entry_price, abs(trade.entry_price - trade.stop_loss)
+    if not all(
+        math.isfinite(v) and v > 0
+        for v in (equity, entry, distance, params.risk_per_trade_pct)
+    ):
+        return 0.0, "INVALID_INPUT_-2"
+    lev = max(1, int(params.leverage))
+    fraction = params.max_margin_percent
+    if fraction > 1:
+        fraction /= 100
+    cap = equity * fraction * lev
+    budget = equity * params.risk_per_trade_pct / 100
+    if params.max_risk_usd > 0:
+        budget = min(budget, params.max_risk_usd)
+    amount = budget / distance
+    if cap > 0:
+        amount = min(amount, cap / entry)
+    if amount * entry < minimum:
+        if cap > 0 and minimum > cap:
+            return 0.0, "MIN_MARGIN_-6"
+        if equity * lev < minimum:
+            return 0.0, "MIN_NOTIONAL_-1"
+        amount = minimum / entry
+        if params.max_risk_usd > 0 and amount * distance > params.max_risk_usd:
+            return 0.0, "MIN_RISK_-4"
+    quantity = (Decimal(str(amount)) / Decimal(str(step))).to_integral_value(
+        rounding=ROUND_DOWN
+    ) * Decimal(str(step))
+    amount = float(quantity)
+    if quantity * Decimal(str(entry)) < Decimal(str(minimum)):
+        return 0.0, "POST_ROUND_MIN_NOTIONAL"
+    if params.max_risk_usd > 0 and amount * distance > params.max_risk_usd:
+        return 0.0, "POST_ROUND_RISK_-4"
+    return amount, "TAKEN"
+
+
+def simulate_account(trades: Iterable[TTFTrade], params: TTFBacktestParams) -> dict:
+    """Realized account equity, entry/exit fees, chronological exits before entries.
+
+    Open positions are not marked to market: drawdown is on realized/fee equity.
+    """
+    equity = peak = float(params.account_balance)
+    drawdown = 0.0
+    active = []
+    rejected = Counter()
+    taken = skipped = 0
+
+    def update(change):
+        nonlocal equity, peak, drawdown
+        equity += change
+        peak = max(peak, equity)
+        if peak > 0:
+            drawdown = max(drawdown, (peak - equity) / peak * 100)
+
+    def settle(until):
+        nonlocal active
+        remaining = []
+        for exit_time, trade, amount in sorted(active, key=lambda row: row[0]):
+            if until is None or exit_time <= until:
+                direction = 1 if trade.side == "BUY" else -1
+                update(
+                    amount * (trade.exit_price - trade.entry_price) * direction
+                    - params.fee_rate * amount * trade.exit_price
+                )
+            else:
+                remaining.append((exit_time, trade, amount))
+        active = remaining
+
+    for trade in sorted(
+        trades, key=lambda t: (pd.Timestamp(t.entry_time), t.symbol, t.side)
+    ):
+        settle(pd.Timestamp(trade.entry_time))
+        if len(active) >= params.max_open_trades:
+            skipped += 1
+            continue
+        amount, reason = size_account_trade(trade, equity, params)
+        if not amount:
+            rejected[reason] += 1
+            continue
+        update(-params.fee_rate * amount * trade.entry_price)
+        active.append((pd.Timestamp(trade.exit_time), trade, amount))
+        taken += 1
+    settle(None)
+    margin = (
+        params.max_margin_percent / 100
+        if params.max_margin_percent > 1
+        else params.max_margin_percent
+    )
+    capacity = (
+        equity * max(1, params.leverage) * min(1.0, margin)
+        if margin > 0
+        else equity * max(1, params.leverage)
+    )
+    return {
+        "start_equity": params.account_balance,
+        "final_equity": equity,
+        "return_pct": (equity / params.account_balance - 1) * 100,
+        "max_drawdown_pct": drawdown,
+        "drawdown_basis": "realized equity including entry fees",
+        "trades_taken": taken,
+        "untradeable_count": sum(rejected.values()),
+        "untradeable_by_reason": dict(rejected),
+        "skipped_by_concurrency": skipped,
+        "ruined": capacity < min(v[0] for v in SYMBOL_FILTERS.values()),
+    }
+
+
+def preregistered_gate(summary: dict, account: dict) -> str:
+    """PASS iff >=200 trades, positive net expectancy/return, PF >=1.1."""
+    if summary["trades"] < 200:
+        return "MUESTRA_INSUFICIENTE"
+    pf = summary.get("profit_factor")
+    if (
+        summary.get("expectancy_r", 0) > 0
+        and (pf is None or pf >= 1.1)
+        and account["return_pct"] > 0
+    ):
+        return "PASS"
+    return "SIN_EDGE"
+
+
 def build_report(all_trades: list[TTFTrade], params: TTFBacktestParams) -> dict:
     first, second = split_chronological(all_trades)
     per_symbol = {}
@@ -540,18 +752,31 @@ def build_report(all_trades: list[TTFTrade], params: TTFBacktestParams) -> dict:
         per_symbol[sym] = summarize(
             [t for t in all_trades if t.symbol == sym], params.risk_per_trade_pct
         )
+    account = simulate_account(all_trades, params)
+    overall = summarize(all_trades, params.risk_per_trade_pct)
+    gate_summary = dict(overall)
+    if all_trades:
+        # Gate uses unrounded measurements, not presentation-rounded metrics.
+        net = [t.net_r for t in all_trades]
+        loss = -sum(v for v in net if v < 0)
+        gate_summary.update(
+            expectancy_r=sum(net) / len(net),
+            profit_factor=sum(v for v in net if v > 0) / loss if loss else None,
+        )
     return {
         "params": asdict(params),
-        "overall": summarize(all_trades, params.risk_per_trade_pct),
+        "account_profile": account,
+        "preregistered_gate": preregistered_gate(gate_summary, account),
+        "overall": overall,
         "first_70pct": summarize(first, params.risk_per_trade_pct),
         "last_30pct": summarize(second, params.risk_per_trade_pct),
         "per_symbol": per_symbol,
         "monthly": monthly_table(all_trades),
         "assumptions": [
-            "Solo velas cerradas; entrada en la apertura de la vela 1M siguiente.",
+            "Solo velas cerradas; entrada en la apertura del marco gatillo siguiente.",
             "SL/TP replicados de core/trade_entry.py (rama triple_tf).",
             "SL y TP en la misma vela = SL.",
-            "Sin trailing, sin salida por degradación, sin vetos de core/signals/filters.py.",
+            "Trailing EMA50 al cierre del marco gatillo si trailing_enabled; sin degradación ni vetos extra de core/signals/filters.py.",
             "Resultados en R netos de comisiones y deslizamiento.",
         ],
     }
@@ -589,7 +814,9 @@ def print_report(report: dict) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="Gate pre-registrado (use --start/--end para holdout): PASS solo con expectancy neta > 0, trades >= 200, PF >= 1.1 y retorno de cuenta > 0; si no SIN_EDGE, o MUESTRA_INSUFICIENTE con < 200 trades. verdict legacy se conserva.",
     )
     parser.add_argument(
         "--symbols", nargs="+", default=["BTCUSDT", "ETHUSDT", "SOLUSDT"]
@@ -614,7 +841,52 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--spread", type=float, default=0.0)
     parser.add_argument("--breakeven-at-r", type=float, default=None)
     parser.add_argument("--max-hold-minutes", type=int, default=None)
+    parser.add_argument("--tf-bias", default="1h", help="Marco sesgo (default 1h)")
+    parser.add_argument(
+        "--tf-struct",
+        default="5min",
+        help="Marco estructura (default 5min; 15min usa edad 60min)",
+    )
+    parser.add_argument(
+        "--tf-trigger", default="1min", help="Marco gatillo y trailing (default 1min)"
+    )
+    parser.add_argument(
+        "--max-setup-minutes",
+        type=int,
+        default=None,
+        help="Override edad setup (default runtime; 60 en 15min)",
+    )
+    parser.add_argument(
+        "--trailing-enabled",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Trailing EMA50 al cierre (default activo)",
+    )
+    parser.add_argument("--account-balance", type=float, default=20.0)
+    parser.add_argument("--leverage", type=int, default=10)
+    parser.add_argument("--max-margin-percent", type=float, default=5.0)
+    parser.add_argument("--risk-per-trade-percent", type=float, default=1.2)
+    parser.add_argument("--max-risk-usd", type=float, default=2.0)
+    parser.add_argument("--max-open-trades", type=int, default=3)
     args = parser.parse_args(argv)
+    for name in ("tf_bias", "tf_struct", "tf_trigger"):
+        value = getattr(args, name)
+        try:
+            delta = pd.Timedelta(value)
+            if (
+                delta < pd.Timedelta(minutes=1)
+                or delta.value % pd.Timedelta(minutes=1).value
+            ):
+                raise ValueError("must be whole minutes >=1")
+        except ValueError as exc:
+            parser.error(f"--{name.replace('_', '-')}: {exc}")
+    if (
+        args.account_balance <= 0
+        or args.leverage < 1
+        or args.max_open_trades < 1
+        or args.risk_per_trade_percent <= 0
+    ):
+        parser.error("balance/risk must be positive; leverage and max-open-trades >=1")
 
     params = TTFBacktestParams(
         fee_rate=args.fee,
@@ -622,12 +894,31 @@ def main(argv: list[str] | None = None) -> int:
         spread_pct=args.spread,
         breakeven_at_r=args.breakeven_at_r,
         max_hold_minutes=args.max_hold_minutes,
+        tf_bias=args.tf_bias,
+        tf_struct=args.tf_struct,
+        tf_trigger=args.tf_trigger,
+        max_setup_minutes=args.max_setup_minutes,
+        trailing_enabled=args.trailing_enabled,
+        account_balance=args.account_balance,
+        leverage=args.leverage,
+        max_margin_percent=args.max_margin_percent,
+        risk_per_trade_pct=args.risk_per_trade_percent,
+        max_risk_usd=args.max_risk_usd,
+        max_open_trades=args.max_open_trades,
     )
 
     datasets: dict[str, pd.DataFrame] = {}
     if args.csv:
         for path in args.csv:
-            datasets[path.stem.split("-")[0].upper()] = load_candles_file(path)
+            candles = load_candles_file(path)
+            if args.start:
+                candles = candles[candles["time"] >= pd.Timestamp(args.start, tz="UTC")]
+            if args.end:
+                end_exclusive = pd.Timestamp(
+                    args.end, tz="UTC"
+                ) + pd.offsets.MonthBegin(1)
+                candles = candles[candles["time"] < end_exclusive]
+            datasets[path.stem.split("-")[0].upper()] = candles
     else:
         today = pd.Timestamp.now(tz="UTC")
         end = args.end or str((today - pd.offsets.MonthBegin(1)).to_period("M") - 1)

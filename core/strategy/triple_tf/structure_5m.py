@@ -105,7 +105,11 @@ def evaluate_structure_5m(
                 cand_time = _to_ms(times[i])
                 pullback_touched = True
                 pullback_time = cand_time
-                if mss_time is not None and cand_time is not None and cand_time > mss_time:
+                if (
+                    mss_time is not None
+                    and cand_time is not None
+                    and cand_time > mss_time
+                ):
                     break
 
         valid_highs = [
@@ -123,10 +127,18 @@ def evaluate_structure_5m(
             reason = "5M_SHORT_PULLBACK_NOT_TOUCHED"
 
         if valid:
-            if mss_time is not None and pullback_time is not None and pullback_time <= mss_time:
+            if (
+                mss_time is not None
+                and pullback_time is not None
+                and pullback_time <= mss_time
+            ):
                 valid = False
                 reason = "5M_PULLBACK_BEFORE_MSS"
-            elif pullback_time is not None and now_ms is not None and (now_ms - pullback_time > max_setup_ms):
+            elif (
+                pullback_time is not None
+                and now_ms is not None
+                and (now_ms - pullback_time > max_setup_ms)
+            ):
                 valid = False
                 reason = "5M_SETUP_EXPIRED"
 
@@ -161,7 +173,11 @@ def evaluate_structure_5m(
                 cand_time = _to_ms(times[i])
                 pullback_touched = True
                 pullback_time = cand_time
-                if mss_time is not None and cand_time is not None and cand_time > mss_time:
+                if (
+                    mss_time is not None
+                    and cand_time is not None
+                    and cand_time > mss_time
+                ):
                     break
 
         valid_lows = [
@@ -179,10 +195,18 @@ def evaluate_structure_5m(
             reason = "5M_LONG_PULLBACK_NOT_TOUCHED"
 
         if valid:
-            if mss_time is not None and pullback_time is not None and pullback_time <= mss_time:
+            if (
+                mss_time is not None
+                and pullback_time is not None
+                and pullback_time <= mss_time
+            ):
                 valid = False
                 reason = "5M_PULLBACK_BEFORE_MSS"
-            elif pullback_time is not None and now_ms is not None and (now_ms - pullback_time > max_setup_ms):
+            elif (
+                pullback_time is not None
+                and now_ms is not None
+                and (now_ms - pullback_time > max_setup_ms)
+            ):
                 valid = False
                 reason = "5M_SETUP_EXPIRED"
 

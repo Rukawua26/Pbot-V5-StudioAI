@@ -505,11 +505,6 @@ def _apply_entry_filters_and_adjust_prob(
                     f"close_time={close_key}"
                 )
                 return prob_final, False, "TTF_DUPLICATE_SIGNAL", ctx
-            ttf_dedup[ttf_signal_key] = close_key
-            # Acotar tamano del mapa para no crecer sin limite
-            if len(ttf_dedup) > 200:
-                oldest = next(iter(ttf_dedup))
-                del ttf_dedup[oldest]
 
             # Filtro C1: Sesiones London/NY con liquidez institucional (07:00–22:00 UTC)
             if bool(getattr(Config, "TTF_REQUIRE_SESSION_FILTER", True)):
@@ -540,6 +535,18 @@ def _apply_entry_filters_and_adjust_prob(
                     )
                     return prob_final, False, "TTF_MACRO_REGIME_BEAR", ctx
 
+            # Analysis only checks consumption; reserve after every TTF veto passed.
+            setup_key = ctx.get("setup_key") or ctx.get("ttf_metrics", {}).get(
+                "setup_key"
+            )
+            if setup_key is not None:
+                from core.strategy.triple_tf.pipeline import reserve_setup
+
+                if not reserve_setup(bot.brain, tuple(setup_key)):
+                    return prob_final, False, "TTF_SETUP_ALREADY_CONSUMED", ctx
+            ttf_dedup[ttf_signal_key] = close_key
+            if len(ttf_dedup) > 200:
+                del ttf_dedup[next(iter(ttf_dedup))]
             return prob_final, True, "TTF_PASSED", ctx
         return prob_final, False, "WAIT_NO_TRIGGER", ctx
 
