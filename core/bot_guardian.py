@@ -10,6 +10,7 @@ from core.runtime_metrics import append_runtime_metric
 from core.time_utils import monotonic_now, parse_datetime_utc, utc_now
 from core.trade_helpers import _calculate_trade_pnl
 from core.trade_state import TradeStatus
+from core.execution_service import _exit_client_order_id
 from tools.strategy import Strategy
 
 
@@ -246,6 +247,9 @@ def _handle_tp1(bot, symbol: str, trade: dict, current_price: float) -> bool:
     """Handle TP1 partial close. Returns True when TP1 logic ran."""
     if not Config.TP1_ENABLED or trade.get("tp1_triggered", False):
         return False
+    # Never retry an ambiguous TP1: it is HALTed and must be reconciled first.
+    if trade.get("status") == "TP1_EXIT_AMBIGUOUS":
+        return False
     if float(trade.get("pnl") or 0.0) < Config.TP1_LEVEL:
         return False
 
@@ -267,6 +271,18 @@ def _handle_tp1(bot, symbol: str, trade: dict, current_price: float) -> bool:
         _mark_tp1_local(bot, symbol, trade)
         return True
 
+    # Stable client order id for this trade's TP1, so an ambiguous result can be
+    # reconciled instead of blindly re-sending a new reduction.
+    tp1_client_id = trade.get("tp1_client_order_id")
+    if not tp1_client_id:
+        tp1_client_id = _exit_client_order_id(
+            symbol,
+            "SELL" if trade["side"] == "BUY" else "BUY",
+            "tp1",
+            0,
+        )
+        trade["tp1_client_order_id"] = tp1_client_id
+
     try:
         params: dict[str, object] = {"reduceOnly": True}
         if bot.is_hedge_mode:
@@ -276,13 +292,46 @@ def _handle_tp1(bot, symbol: str, trade: dict, current_price: float) -> bool:
             "SELL" if trade["side"] == "BUY" else "BUY",
             close_amount,
             params=params,
+            client_order_id=str(tp1_client_id),
         )
     except Exception as error:
+        # Reconcile before halting: the order may have been accepted.
+        recovered = None
+        try:
+            recovered = bot.execution.fetch_order_by_client_id(
+                symbol, str(tp1_client_id)
+            )
+        except Exception:
+            recovered = None
+        filled_amount = (
+            _tp1_confirmed_fill(recovered, current_amount, close_amount)
+            if recovered
+            else None
+        )
+        if filled_amount is not None:
+            _mark_tp1_local(bot, symbol, trade, filled_amount)
+            return True
         _halt_tp1_ambiguous(bot, symbol, trade, str(error))
         return True
 
     filled_amount = _tp1_confirmed_fill(order, current_amount, close_amount)
     if filled_amount is None:
+        # Reconcile by client id before treating as ambiguous.
+        recovered = None
+        try:
+            recovered = bot.execution.fetch_order_by_client_id(
+                symbol, str(tp1_client_id)
+            )
+        except Exception:
+            recovered = None
+        filled_amount = (
+            _tp1_confirmed_fill(recovered, current_amount, close_amount)
+            if recovered
+            else None
+        )
+        if filled_amount is not None:
+            _mark_tp1_local(bot, symbol, trade, filled_amount)
+            return True
         _halt_tp1_ambiguous(
             bot,
             symbol,
@@ -332,6 +381,7 @@ def run_guardian_loop(bot):
                     if (
                         t.get("closing_in_progress")
                         or t.get("status") == TradeStatus.CLOSING_INITIATED.value
+                        or t.get("status") == "TP1_EXIT_AMBIGUOUS"
                     ):
                         continue
                     if t.get("status") in {
