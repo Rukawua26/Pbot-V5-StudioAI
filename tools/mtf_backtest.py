@@ -93,7 +93,37 @@ def mr_spec(params: mean_reversion.MRParams | None = None) -> StrategySpec:
     )
 
 
-STRATEGIES = {"mtf": mtf_spec, "mr": mr_spec}
+def ra_spec(params=None) -> StrategySpec:
+    from core.strategy import regime_adaptive as ra
+
+    p = params or ra.RAParams()
+    return StrategySpec(
+        name="REGIME_ADAPTIVE_V4",
+        params=p,
+        build=lambda *frames: ra.build_features(*frames, p),
+        candidates=lambda f: (
+            (
+                (f.regime == 1)
+                & f.mtf.warm
+                & (f.mtf.ctx != 0)
+                & (f.mtf.setup == f.mtf.ctx)
+                & (f.mtf.trigger == f.mtf.ctx)
+            )
+            | ((f.regime == -1) & mean_reversion.candidate_mask(f.mr, p.mr))
+        ),
+        signal=lambda f, i, sym: ra.signal_at(f, i, p, sym),
+        # Trend: 1.5R from the actual fill (same as MTF v2). Range: middle band.
+        target=lambda sig, entry, risk, d: (
+            entry + d * p.mtf.take_profit_r * risk
+            if sig.regime == ra.REGIME_TRENDING
+            else sig.target
+        ),
+        # Longest regime hold; each signal carries its own max_hold_minutes.
+        max_hold_minutes=max(p.mtf.max_hold_minutes, p.mr.max_hold_minutes),
+    )
+
+
+STRATEGIES = {"mtf": mtf_spec, "mr": mr_spec, "ra": ra_spec}
 PARTIAL_SUFFIX = "-partial"
 
 
@@ -176,8 +206,10 @@ def backtest_symbol(
         if (tp - entry) * direction <= 0:
             continue  # next open already beyond the target: nothing to capture
         used_setups.add(sig.setup_id)
+        sig_hold = getattr(sig, "max_hold_minutes", None)
+        p_sig = replace(p, max_hold_minutes=sig_hold) if sig_hold else p
         exit_idx, exit_price, reason, mfe, mae = _simulate_exit(
-            sig.side, entry_idx, entry, sig.stop, tp, o, h, low, c, p
+            sig.side, entry_idx, entry, sig.stop, tp, o, h, low, c, p_sig
         )
         gross = (exit_price - entry) * direction / risk
         cost = p.fee_rate * (entry + exit_price) / risk
@@ -270,7 +302,7 @@ def main(argv: list[str] | None = None) -> int:
         "--strategy",
         choices=sorted(STRATEGIES),
         default="mtf",
-        help="mtf = MTF Pullback v2 (default), mr = Mean Reversion v3",
+        help="mtf = MTF Pullback v2 (default), mr = Mean Reversion v3, ra = Regime-Adaptive v4",
     )
     args = parser.parse_args(argv)
 
