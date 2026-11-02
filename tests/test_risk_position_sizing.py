@@ -52,8 +52,10 @@ class RiskPositionSizingTest(unittest.TestCase):
             exchange=DummyExchange(precision_decimals=3),
         )
 
-        self.assertEqual(amount, 1.2)
-        self.assertEqual(notional, 12.0)
+        # With the per-trade risk budget check, the bumped minimum ($12 -> risk $6)
+        # exceeds the $1 budget, so it is rejected (audit #10).
+        self.assertEqual(amount, 0.0)
+        self.assertEqual(notional, -4)
 
     @patch("core.risk_engine.Config.MIN_NOTIONAL_VALUE", 12.0)
     @patch("core.risk_engine.Config.MAX_MARGIN_PERCENT", 100.0)

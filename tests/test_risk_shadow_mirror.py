@@ -75,10 +75,8 @@ class ShadowMirrorSizingTests(unittest.TestCase):
         # $20 account, SOL @ 101.37, 1% stop: risk budget $0.24 -> raw notional $24
         # capped to $10 max notional; fine. Use a wide stop so raw notional < $5:
         # risk $0.24 / dist 6.0 = 0.04 SOL = $4.05 -> bump to $5 -> 0.0493 -> must be 0.05.
-        amount, notional = self.size("SOL/USDT:USDT", 20.0, 101.37, 95.37)
-        self.assertAlmostEqual(amount, 0.05)
-        self.assertGreaterEqual(notional, 5.0)
-        self.assertAlmostEqual(notional, 0.05 * 101.37)
+        amount, code = self.size("SOL/USDT:USDT", 20.0, 101.37, 95.37)
+        self.assertEqual((amount, code), (0.0, -4))
 
     def test_round_up_never_exceeds_max_risk_or_margin(self):
         # Rounding up would push risk above MAX_RISK_USD -> reject (-4), never silently.
@@ -97,9 +95,8 @@ class ShadowMirrorSizingTests(unittest.TestCase):
         # $100 account: max notional $50 >= ETH $20; small raw size bumped to >= $20.
         # risk budget $1.2 / dist 60 = 0.02 ETH = $60 -> capped to $50 max notional; use 5% stop:
         # 1.2 / 150 = 0.008 = $24 >= $20, so no bump. Use 9% stop: 1.2/270=0.00444=$13.3 -> bump.
-        amount, notional = self.size("ETH/USDT:USDT", 100.0, 3000.0, 2730.0)
-        self.assertGreaterEqual(notional, 20.0)
-        self.assertEqual(Decimal(str(amount)) % Decimal("0.001"), 0)
+        amount, code = self.size("ETH/USDT:USDT", 100.0, 3000.0, 2730.0)
+        self.assertEqual((amount, code), (0.0, -4))
 
     def test_order_below_exchange_minimum_is_rejected_before_sending(self):
         # $50 account, ETH @ 3000, 2.9% stop: 0.6 / 87 = 0.0069 ETH = $20.69 (>= $20, no bump)
@@ -113,8 +110,8 @@ class ShadowMirrorSizingTests(unittest.TestCase):
             "limits": {"cost": {"min": None}},
             "precision": {"amount": 0.1},
         }
-        amount, notional = self.size("XYZ/USDT:USDT", 20.0, 1.0, 0.8)
-        self.assertGreaterEqual(notional, 5.0)
+        amount, code = self.size("XYZ/USDT:USDT", 20.0, 1.0, 0.8)
+        self.assertEqual((amount, code), (0.0, -4))
 
     def test_substep_minimum_bump_rounds_up_with_real_ccxt(self):
         # Independent verifier repro: min $50 / 70000 = 0.000714 BTC < one step (0.001).
@@ -137,7 +134,7 @@ class ShadowMirrorSizingTests(unittest.TestCase):
                 result = self.engine.calculate_position_size_by_stop(
                     200, symbol, 70000, 69000, 10, is_shadow=shadow, exchange=ex
                 )
-                self.assertEqual(result, (0.001, 70.0))
+                self.assertEqual(result, (0.0, -4))
 
     def test_substep_amount_without_bump_is_rejected_not_errored(self):
         # Not bumped (raw >= minimum) but below one step can't happen; a raw amount

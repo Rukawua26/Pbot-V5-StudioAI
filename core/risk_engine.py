@@ -376,10 +376,13 @@ class RiskEngine:
                         f"${min_notional:.2f} y balance×leverage=${affordable_notional:.2f}"
                     )
                     return 0.0, -1
-                if enforce and max_risk_usd > 0 and min_risk_usd > max_risk_usd:
+                # The minimum must fit BOTH the absolute cap and the per-trade risk
+                # budget (risk_fraction * balance). Checking only MAX_RISK_USD lets a
+                # bumped minimum exceed the configured percentage risk (audit #10).
+                if enforce and min_risk_usd > risk_budget_usd:
                     self.logger.warning(
                         f"🚫 RISK_SIZE_MIN_RISK {symbol}: min notional arriesga "
-                        f"${min_risk_usd:.2f} > límite ${max_risk_usd:.2f}"
+                        f"${min_risk_usd:.2f} > presupuesto ${risk_budget_usd:.2f}"
                     )
                     return 0.0, -4
                 raw_amount = min_amount
@@ -416,10 +419,10 @@ class RiskEngine:
                 return 0.0, -6
 
             actual_risk = amount * stop_distance
-            if max_risk_usd > 0 and actual_risk > max_risk_usd:
+            if actual_risk > risk_budget_usd:
                 self.logger.warning(
                     f"🚫 RISK_SIZE_POST_PRECISION_RISK {symbol}: post-round risk "
-                    f"${actual_risk:.2f} > límite ${max_risk_usd:.2f}"
+                    f"${actual_risk:.2f} > presupuesto ${risk_budget_usd:.2f}"
                 )
                 return 0.0, -4
             self.logger.info(
