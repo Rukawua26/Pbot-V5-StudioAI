@@ -244,10 +244,20 @@ class ExecutionLockSeparationTest(unittest.TestCase):
 
     def test_close_position_uses_exchange_lock_for_cancel(self):
         self.service.exchange.cancel_all_orders = MagicMock()
+        self.service.exchange.fetch_open_orders = MagicMock(
+            return_value=[
+                {"id": "stale-1", "type": "limit", "side": "sell", "reduceOnly": True}
+            ]
+        )
+        self.service.exchange.cancel_order = MagicMock()
+
+        def _acc(op, fn, *a, **k):
+            if op == "fetch_open_orders":
+                return self.service.exchange.fetch_open_orders("BTC/USDT")
+            return {"last": 50000.0}
 
         with patch.object(self.service, "_call_exchange") as mock_exc:
-            with patch.object(self.service, "_call_exchange_account") as mock_acc:
-                mock_acc.return_value = {"last": 50000.0}
+            with patch.object(self.service, "_call_exchange_account", side_effect=_acc):
                 with patch(
                     "core.execution_service._execute_chase_limit_steps",
                     return_value={"exit_state": "FILLED"},
