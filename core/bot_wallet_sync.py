@@ -40,20 +40,10 @@ def _order_client_id(order: dict) -> str:
 
 
 def _is_protective_stop_for_trade(order: dict, trade: dict) -> bool:
-    order_type = str(
-        order.get("type") or (order.get("info") or {}).get("type") or ""
-    ).upper()
-    if "STOP" not in order_type:
-        return False
-    if not _bool_reduce_only(order):
-        return False
-    order_side = str(order.get("side") or "").upper()
-    trade_side = str(trade.get("side") or "").upper()
-    if trade_side == "BUY":
-        return order_side == "SELL"
-    if trade_side == "SELL":
-        return order_side == "BUY"
-    return False
+    # Delegate to the shared validator: only a reduce-only STOP_MARKET counts.
+    from core.execution_safety import hard_sl_protective_order
+
+    return hard_sl_protective_order(order, trade)
 
 
 def _hard_sl_order_covers_trade(

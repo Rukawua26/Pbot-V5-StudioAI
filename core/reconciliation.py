@@ -142,13 +142,10 @@ def _bool_close_position(order: dict) -> bool:
 
 def _find_existing_orphan_stop(open_orders_by_symbol: dict, symbol: str, side: str):
     expected_side = "SELL" if str(side).upper() == "BUY" else "BUY"
+    from core.execution_safety import hard_sl_protective_order
+
     for order in open_orders_by_symbol.get(symbol, []) or []:
-        order_type = str(
-            order.get("type") or (order.get("info") or {}).get("type") or ""
-        ).upper()
-        if "STOP" not in order_type:
-            continue
-        if not _bool_reduce_only_order(order):
+        if not hard_sl_protective_order(order, {"side": side}):
             continue
         if str(order.get("side") or "").upper() == expected_side:
             return order

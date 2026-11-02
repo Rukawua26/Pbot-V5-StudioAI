@@ -81,3 +81,41 @@ def hard_sl_ack_looks_valid(
 def sl_side_for_trade_side(trade_side: str) -> str:
     """Lado del STOP_MARKET: cerrar un BUY requiere SELL, y viceversa."""
     return "sell" if str(trade_side).lower() == "buy" else "buy"
+
+
+def _order_type(order: dict) -> str:
+    raw = order.get("type")
+    if not raw and isinstance(order.get("info"), dict):
+        raw = order.get("info", {}).get("type")
+    return str(raw or "").lower().replace("-", "_")
+
+
+def _reduce_only(order: dict) -> bool:
+    raw = order.get("reduceOnly")
+    if raw is None and isinstance(order.get("info"), dict):
+        raw = order.get("info", {}).get("reduceOnly")
+    if isinstance(raw, bool):
+        return raw
+    return str(raw).lower() in {"true", "1", "yes"}
+
+
+def hard_sl_protective_order(order: dict, trade: dict) -> bool:
+    """Whether an open exchange order is a real HARD SL for ``trade``.
+
+    Only a reduce-only STOP_MARKET on the opposite side counts. A STOP_LIMIT (or
+    any other type) is NOT protection: its limit can be skipped in a gap. Shared
+    by every adoption/verification path so none of them accepts a weaker order.
+    """
+    if not isinstance(order, dict) or not isinstance(trade, dict):
+        return False
+    if _order_type(order) not in {"stop_market", "stopmarket"}:
+        return False
+    if not _reduce_only(order):
+        return False
+    order_side = str(order.get("side") or "").upper()
+    trade_side = str(trade.get("side") or "").upper()
+    if trade_side == "BUY":
+        return order_side == "SELL"
+    if trade_side == "SELL":
+        return order_side == "BUY"
+    return False
