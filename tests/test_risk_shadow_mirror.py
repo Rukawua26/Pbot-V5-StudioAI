@@ -9,7 +9,11 @@ Pins three rules in ``RiskEngine.calculate_position_size_by_stop``:
 """
 
 import math
+import os
+import subprocess
+import sys
 import unittest
+from pathlib import Path
 from decimal import ROUND_DOWN, Decimal
 from unittest.mock import MagicMock, patch
 
@@ -171,9 +175,25 @@ class ShadowMirrorSizingTests(unittest.TestCase):
 
 class ShadowMirrorConfigTests(unittest.TestCase):
     def test_mirror_flag_defaults_off(self):
-        from core.config.manager import Config
-
-        self.assertFalse(Config.SHADOW_MIRROR_REAL_LIMITS)
+        # Import Config in a clean process: no env var and no .env loading, so the
+        # assertion checks the code default rather than the developer's local .env.
+        script = (
+            "import dotenv; dotenv.load_dotenv = lambda *a, **k: False\n"
+            "from core.config.manager import Config\n"
+            "print(Config.SHADOW_MIRROR_REAL_LIMITS)\n"
+        )
+        env = {k: v for k, v in os.environ.items() if k != "SHADOW_MIRROR_REAL_LIMITS"}
+        env["SNIPER_DISABLE_FILE_TELEMETRY"] = "1"
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            cwd=Path(__file__).resolve().parents[1],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip().splitlines()[-1], "False")
 
 
 if __name__ == "__main__":

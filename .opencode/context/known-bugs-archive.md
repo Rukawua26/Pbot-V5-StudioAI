@@ -30,3 +30,6 @@
 | 2026-11-02 | SR kinetic scaling invertia el voto | Escalaba el score absoluto (64*0.7=44.8) en vez de la desviacion de 50 | `core/strategy/agents/sr_agent.py` | `50 + (score - 50) * modifier`. |
 | 2026-11-02 | HMM usaba solo la ultima observacion | `predict_proba` recibia solo `x_recent[-1]` | `core/strategy/regime_hmm.py` | Filtrar la secuencia completa y tomar la ultima posterior. |
 | 2026-11-02 | Backtester asumia fill exacto del stop en gaps | Salida por SL al precio del stop aunque la vela abriera mas alla | `core/backtester.py` | Fill al peor de apertura/stop. |
+| 2026-11-02 | Min-notional podia superar % de riesgo por trade | Bump solo verificaba MAX_RISK_USD | `core/risk_engine.py` | Verificar min_risk contra risk_budget_usd. |
+| 2026-11-02 | MT score se interpretaba como BUY pressure | MT devolvia scores relativos al lado | `core/strategy/agents/mt_agent.py` | Scores direccionales. |
+| 2026-11-02 | Veto de correlacion fabricaba consenso bajista | Ponia pesos en 0 sin renormalizar | `core/strategy/orchestrator.py` | Renormalizar; si ninguno sobrevive, neutral. |

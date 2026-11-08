@@ -79,6 +79,8 @@ class RiskPositionSizingTest(unittest.TestCase):
     @patch("core.risk_engine.Config.MAX_MARGIN_PERCENT", 100.0)
     @patch("core.risk_engine.Config.MAX_RISK_USD", 1.0)
     @patch("core.risk_engine.Config.RISK_PER_TRADE_PCT", 0.01)
+    # Pin the non-mirror path: a local .env may enable the mirror.
+    @patch("core.risk_engine.Config.SHADOW_MIRROR_REAL_LIMITS", False, create=True)
     def test_shadow_size_allows_min_notional_despite_real_risk_cap(self):
         engine = self._engine()
         amount, notional = engine.calculate_position_size_by_stop(

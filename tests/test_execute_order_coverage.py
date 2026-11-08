@@ -1114,6 +1114,8 @@ class ExecuteOrderCoverageTest(unittest.TestCase):
 
     @patch("core.trade_entry.send_telegram_msg")
     @patch("core.trade_entry.shadow_logger.is_trading_halted", return_value=False)
+    # Pin the non-mirror path: a local .env may enable the mirror.
+    @patch("core.trade_entry.Config.SHADOW_MIRROR_REAL_LIMITS", False, create=True)
     def test_override_usd_size_controls_notional_before_final_guards(self, _, _tg):
         bot = self._min_bot()
 
