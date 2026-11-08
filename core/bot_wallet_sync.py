@@ -251,6 +251,7 @@ def _ensure_hard_sl_attached(bot, symbol: str, trade: dict, info: dict):
         return False
     stale_id = ""
     stale_in_book = False
+    pending_coid = str(trade.get("sl_repair_pending_client_order_id") or "")
     if trade.get("sl_exchange_order_id"):
         verified_sl = _find_verified_hard_sl_order(bot, symbol, trade, info)
         if verified_sl and verified_sl != "HALT":
@@ -274,22 +275,31 @@ def _ensure_hard_sl_attached(bot, symbol: str, trade: dict, info: dict):
                 {"symbol": symbol, "stale_sl_id": stale_id},
             )
             return False
-        trade["sl_exchange_order_id"] = None
-        if stale_in_book:
-            # Both orders coexist briefly: Binance rejects a duplicate clientOrderId.
+        if stale_in_book and not pending_coid:
+            # Reserve one identity until confirmation, including across ambiguous
+            # ACKs/restarts. The counter counts completed repairs, not attempts.
             repair_count = int(trade.get("sl_repair_count") or 0) + 1
-            trade["sl_repair_count"] = repair_count
             seed = str(trade.get("entry_client_order_id") or stale_id)
-            trade["sl_client_order_id"] = _repair_sl_client_order_id(seed, repair_count)
+            pending_coid = _repair_sl_client_order_id(seed, repair_count)
+            trade["sl_repair_pending_client_order_id"] = pending_coid
+            with bot.db_lock:
+                bot.brain.save_active_trade_state(
+                    str(trade.get("trade_key") or symbol), trade
+                )
         bot.log(
             f"🔧 HARD_SL_REPAIR {symbol}: SL previo {stale_id or 'N/A'} no cubre; "
             "intentando colocar uno nuevo."
         )
 
-    existing_sl = _find_existing_hard_sl_order(bot, symbol, trade)
+    # Search the replacement identity without disturbing the stale order's
+    # coherent exchange/client identity, which remains useful on every failure.
+    lookup_trade = dict(trade)
+    if stale_id or pending_coid:
+        lookup_trade["sl_exchange_order_id"] = None
+    if pending_coid:
+        lookup_trade["sl_client_order_id"] = pending_coid
+    existing_sl = _find_existing_hard_sl_order(bot, symbol, lookup_trade)
     if existing_sl is _HARD_SL_ORDER_LOOKUP_FAILED:
-        if stale_in_book:
-            trade["sl_exchange_order_id"] = stale_id
         _halt_wallet_sync(
             bot,
             "HARD_SL_OPEN_ORDERS_LOOKUP_FAILED",
@@ -300,6 +310,11 @@ def _ensure_hard_sl_attached(bot, symbol: str, trade: dict, info: dict):
         if stale_in_book:
             _cancel_stale_sl(bot, symbol, stale_id, existing_sl.get("id"))
         trade["sl_exchange_order_id"] = existing_sl.get("id")
+        if pending_coid:
+            trade["sl_client_order_id"] = pending_coid
+            trade["sl_repair_count"] = int(trade.get("sl_repair_count") or 0) + 1
+            trade.pop("sl_repair_pending_client_order_id", None)
+        trade["hard_sl_attach_fail_count"] = 0
         trade["status"] = "OPEN"
         with bot.db_lock:
             bot.brain.save_active_trade_state(
@@ -320,7 +335,7 @@ def _ensure_hard_sl_attached(bot, symbol: str, trade: dict, info: dict):
         return False
 
     entry_coid = str(trade.get("entry_client_order_id") or "")
-    sl_coid = str(trade.get("sl_client_order_id") or "")
+    sl_coid = pending_coid or str(trade.get("sl_client_order_id") or "")
     if not sl_coid and entry_coid:
         sl_coid = generate_child_client_order_id(entry_coid, "SL")
         trade["sl_client_order_id"] = sl_coid
@@ -347,6 +362,10 @@ def _ensure_hard_sl_attached(bot, symbol: str, trade: dict, info: dict):
     )
     if sl_order and sl_ack_ok:
         trade["sl_exchange_order_id"] = sl_order.get("id")
+        if pending_coid:
+            trade["sl_client_order_id"] = pending_coid
+            trade["sl_repair_count"] = int(trade.get("sl_repair_count") or 0) + 1
+            trade.pop("sl_repair_pending_client_order_id", None)
         trade["hard_sl_attach_fail_count"] = 0
         trade["status"] = "OPEN"
         with bot.db_lock:
@@ -357,9 +376,8 @@ def _ensure_hard_sl_attached(bot, symbol: str, trade: dict, info: dict):
         if stale_in_book:
             _cancel_stale_sl(bot, symbol, stale_id, sl_order.get("id"))
     else:
-        if stale_in_book:
-            # Replacement failed: keep tracking the stale SL still protecting part.
-            trade["sl_exchange_order_id"] = stale_id
+        # A failed replacement leaves both stale identity fields untouched;
+        # pending_coid remains separate for adoption or an idempotent resend.
         if sl_order is not None:
             sl_error = sl_ack_reason or str(
                 getattr(bot.execution, "last_hard_sl_error", "") or ""

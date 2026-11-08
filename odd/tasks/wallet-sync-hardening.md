@@ -33,12 +33,12 @@ Runtime critico (`core/bot_wallet_sync.py`). Sin commits salvo peticion explicit
 
 | ID | Specs | Ruta | Estado | Commit |
 |---|---|---|---|---|
-| T1 | S1, S5 | inline: `core/bot_wallet_sync.py` + test | done | sin commit (AGENTS.md) |
-| T2 | S2, S5 | inline: `core/bot_wallet_sync.py` + test | done | sin commit (AGENTS.md) |
-| T3 | S3, S5 | inline: `core/bot_wallet_sync.py` + test | done | sin commit (AGENTS.md) |
-| T4 | S4 | inline: 3 tests | done | sin commit (AGENTS.md) |
-| T5 | S5 | suite, verify independiente, memoria tecnica, known-bugs | done | (fase 0) |
-| T6 | S6 | worker (context backstop): `core/bot_wallet_sync.py` + tests | pending | - |
+| T1 | S1, S5 | inline: `core/bot_wallet_sync.py` + test | done | 3ed8363 |
+| T2 | S2, S5 | inline: `core/bot_wallet_sync.py` + test | done | 3ed8363 |
+| T3 | S3, S5 | inline: `core/bot_wallet_sync.py` + test | done | 3ed8363 |
+| T4 | S4 | inline: 3 tests | done | 3ed8363 |
+| T5 | S5 | suite, verify independiente, memoria tecnica, known-bugs | done | 3ed8363 |
+| T6 | S6 | worker (context backstop): `core/bot_wallet_sync.py` + tests | done | (fase 1) |
 | T7 | S7 | inline/worker: locks + config mypy | pending | - |
 | T8 | S8 | inline: `core/execution_service.py`, `tools/learning.py` + tests | pending | - |
 | T9 | S9 | inline: medicion + doc | pending | - |
@@ -64,3 +64,5 @@ Ruta inline: cada unidad < 100 lineas y dependiente del mismo archivo; sin trigg
   Pendiente de autorizacion (dependencias/CI = riesgo item 5).
 - L7: "nuestrame el mejor plan a seguir para las todas las correciones que necesitamos" / "este es el mejor plan o hay uno mejor?"
 - L8: "si apruebo el plan" (fases 0-4; commits por fase autorizados; push no).
+- L9 (T6): RED 4 fallos (doble colocacion con IDs distintos tras ACK ambiguo; clientOrderId viejo pisado). GREEN 28/28;
+  suite completa 1503 OK (2 skipped); ruff y silent-pass OK.

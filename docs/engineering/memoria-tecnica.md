@@ -58,6 +58,9 @@ Reglas preventivas:
 - No restar datetimes de origen distinto sin normalizar a UTC aware.
 - Reemplazar un HARD SL siempre en orden crear-validar-cancelar, como el guardian.
 - Un test que dependa de un flag de config debe fijarlo; el `.env` local no es parte del test.
+- La identidad de una reparacion de SL (`sl_repair_pending_client_order_id`) es estable hasta confirmarla
+  (ACK valido o adopcion): un ACK ambiguo se adopta en el ciclo siguiente o Binance rechaza el duplicado.
+  Si el reemplazo falla, el SL viejo conserva juntos su ID de exchange y su clientOrderId.
 
 Validacion: ver `odd/tasks/wallet-sync-hardening.md` (tests RED/GREEN, suite completa, verify).
 
