@@ -38,8 +38,8 @@ Runtime critico (`core/bot_wallet_sync.py`). Sin commits salvo peticion explicit
 | T3 | S3, S5 | inline: `core/bot_wallet_sync.py` + test | done | 3ed8363 |
 | T4 | S4 | inline: 3 tests | done | 3ed8363 |
 | T5 | S5 | suite, verify independiente, memoria tecnica, known-bugs | done | 3ed8363 |
-| T6 | S6 | worker (context backstop): `core/bot_wallet_sync.py` + tests | done | (fase 1) |
-| T7 | S7 | inline/worker: locks + config mypy | pending | - |
+| T6 | S6 | worker (context backstop): `core/bot_wallet_sync.py` + tests | done | b611f91 |
+| T7 | S7 | inline: locks + mypy.ini | done | (fase 2) |
 | T8 | S8 | inline: `core/execution_service.py`, `tools/learning.py` + tests | pending | - |
 | T9 | S9 | inline: medicion + doc | pending | - |
 | T10 | S6 | humano: test de integracion testnet (claves de testnet) | blocked | - |
@@ -66,3 +66,8 @@ Ruta inline: cada unidad < 100 lineas y dependiente del mismo archivo; sin trigg
 - L8: "si apruebo el plan" (fases 0-4; commits por fase autorizados; push no).
 - L9 (T6): RED 4 fallos (doble colocacion con IDs distintos tras ACK ambiguo; clientOrderId viejo pisado). GREEN 28/28;
   suite completa 1503 OK (2 skipped); ruff y silent-pass OK.
+- L10 (T7): pip-audit local encontro mas CVEs que el CI de septiembre; actualizados en ambos locks anyio 4.14.2,
+  urllib3 2.8.0, multidict 6.9.1, setuptools 84.1.0, filelock 4.2.1 (solo dev, via cachecontrol), msgpack 1.2.3,
+  aiohttp 3.14.4, certifi 2026.10.18, yarl 1.25.1 (requerido por aiohttp). pip check, pip-audit --strict y
+  `pip install --dry-run` de ambos locks OK. mypy.ini ignora imports solo de paquetes sin stubs; 0 errores reales.
+  CI local completo OK; suite 1503 OK (2 skipped).
