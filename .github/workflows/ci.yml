@@ -55,7 +55,7 @@ jobs:
 
       - name: Ruff lint (core + tests)
         run: |
-          ruff check core/ tests/
+          ruff check core/ tests/ tools/
 
       - name: Ruff format check
         run: |

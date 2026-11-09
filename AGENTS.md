@@ -60,7 +60,7 @@
 ./.venv/bin/python -m pip check
 ./.venv/bin/python -m pip_audit --strict
 ./.venv/bin/python -m compileall -q main.py core
-./.venv/bin/ruff check core/ tests/
+./.venv/bin/ruff check core/ tests/ tools/
 ./.venv/bin/ruff format --check core/ tests/
 MYPYPATH=. ./.venv/bin/mypy --explicit-package-bases core/config/ core/types.py core/bot_facade.py core/execution_adapters.py
 PYTHON_BIN=./.venv/bin/python bash scripts/smoke_modular_imports.sh

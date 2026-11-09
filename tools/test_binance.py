@@ -5,10 +5,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 def sanitize_symbol(sym):
-    if not sym: return ""
+    if not sym:
+        return ""
     clean = str(sym).strip().upper()
     clean = clean.split(":")[0] 
-    if not "/" in clean:
+    if "/" not in clean:
         clean = f"{clean}/USDT"
     elif clean.endswith("/USD") and not clean.endswith("/USDT"):
         clean = clean.replace("/USD", "/USDT")
