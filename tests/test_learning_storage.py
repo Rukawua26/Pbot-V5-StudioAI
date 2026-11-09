@@ -1,3 +1,4 @@
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
@@ -40,6 +41,29 @@ class LearningStorageTest(unittest.TestCase):
 
         self.assertEqual(updated, 1)
         self.assertEqual(status, "EXECUTED")
+
+    def test_fresh_db_trade_id_migration_is_quiet(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertNoLogs("tools.learning", level="WARNING"):
+                Brain(str(Path(tmp) / "brain.db"))
+
+    def test_unexpected_trade_id_migration_failure_is_logged(self):
+        # An index on trade_id makes DROP COLUMN fail: it must not be swallowed.
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "brain.db"
+            conn = sqlite3.connect(db_path)
+            conn.execute(
+                "CREATE TABLE signal_alerts (id INTEGER PRIMARY KEY, ts TEXT, "
+                "status TEXT, entry_client_order_id TEXT, trade_id INTEGER)"
+            )
+            conn.execute("CREATE INDEX idx_alert_trade ON signal_alerts(trade_id)")
+            conn.commit()
+            conn.close()
+
+            with self.assertLogs("tools.learning", level="WARNING") as logs:
+                Brain(str(db_path))
+
+        self.assertTrue(any("trade_id" in line for line in logs.output))
 
 
 if __name__ == "__main__":

@@ -354,6 +354,27 @@ class ExecutionServiceResilienceTest(unittest.TestCase):
         first = service.exchange.params_seen[0].get("newClientOrderId")
         self.assertTrue(first)
 
+    @patch("core.execution_service.time.sleep", return_value=None)
+    def test_precision_order_without_client_id_is_never_resent(self, _sleep_mock):
+        # Without a clientOrderId an ambiguous timeout cannot be reconciled, so a
+        # resend could duplicate exposure: exactly one submission is allowed.
+        class _Exchange(_RetryCreateOrderExchange):
+            def price_to_precision(self, _symbol, price):
+                return f"{float(price):.2f}"
+
+            def create_order(self, symbol, type, side, amount, price, params):
+                return super().create_order(symbol, type, side, amount, price, params)
+
+        service = ExecutionService("k", "s")
+        service.exchange = _Exchange()
+        service.set_weight_tracker(None)
+
+        result = service.create_precision_order("BTC/USDT", "BUY", 0.1, 100.0)
+
+        self.assertIsNone(result)
+        self.assertEqual(service.exchange.create_attempts, 1)
+        self.assertEqual(service.exchange.lookup_attempts, 0)
+
     @patch("core.execution_service.Config.PAPER_MODE", False)
     def test_real_get_balance_raises_instead_of_returning_cached_balance(self):
         service = ExecutionService("k", "s")

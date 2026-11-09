@@ -39,9 +39,9 @@ Runtime critico (`core/bot_wallet_sync.py`). Sin commits salvo peticion explicit
 | T4 | S4 | inline: 3 tests | done | 3ed8363 |
 | T5 | S5 | suite, verify independiente, memoria tecnica, known-bugs | done | 3ed8363 |
 | T6 | S6 | worker (context backstop): `core/bot_wallet_sync.py` + tests | done | b611f91 |
-| T7 | S7 | inline: locks + mypy.ini | done | (fase 2) |
-| T8 | S8 | inline: `core/execution_service.py`, `tools/learning.py` + tests | pending | - |
-| T9 | S9 | inline: medicion + doc | pending | - |
+| T7 | S7 | inline: locks + mypy.ini | done | a7de9bb |
+| T8 | S8 | inline: `core/execution_service.py`, `tools/learning.py` + tests | done | (fase 3) |
+| T9 | S9 | inline: medicion + doc | done | (fase 4) |
 | T10 | S6 | humano: test de integracion testnet (claves de testnet) | blocked | - |
 
 Ruta inline: cada unidad < 100 lineas y dependiente del mismo archivo; sin trigger de writer.
@@ -71,3 +71,8 @@ Ruta inline: cada unidad < 100 lineas y dependiente del mismo archivo; sin trigg
   aiohttp 3.14.4, certifi 2026.10.18, yarl 1.25.1 (requerido por aiohttp). pip check, pip-audit --strict y
   `pip install --dry-run` de ambos locks OK. mypy.ini ignora imports solo de paquetes sin stubs; 0 errores reales.
   CI local completo OK; suite 1503 OK (2 skipped).
+- L11 (T8): RED: entrada sin clientOrderId enviada 3 veces; fallo inesperado de migracion sin log. GREEN.
+- L12 (T9): `ruff check tools/` solo 4 errores (corregidos) -> agregado al CI; `ruff format tools/` daria 55
+  archivos reformateados: descartado. Suite 1506 OK (2 skipped). Revision nativa (risk, resilience,
+  reliability) aprobada y reconocida; sugerencia R3-001 informativa sobre tests/test_learning_storage.py.
+- L13: "si autorizp" (3 ejecuciones de modelo de la revision nativa).

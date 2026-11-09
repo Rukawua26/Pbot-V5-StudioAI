@@ -37,6 +37,19 @@ Fuente versionada para cambios criticos, decisiones de diseno, invariantes y reg
 
 ## Cambios Criticos Registrados
 
+### 2026-11-03 - Entradas sin reenvio y migracion visible
+
+- `core/execution_service.py`: `create_precision_order` envia la entrada LIMIT IOC una sola vez
+  (`retries=1`) tambien sin `clientOrderId`. Antes reintentaba hasta 3 veces: sin ID un timeout
+  ambiguo no se puede reconciliar y el reenvio podia duplicar exposicion.
+- `tools/learning.py`: la migracion que elimina `signal_alerts.trade_id` solo se ejecuta si la
+  columna existe y registra cualquier fallo en el log en vez de tragarlo con `except: pass`.
+
+Reglas preventivas:
+
+- Ninguna orden que abre exposicion se reintenta sin una identidad reconciliable.
+- No filtrar errores de SQLite por texto: el mensaje de un fallo real puede contener "no such column".
+
 ### 2026-11-03 - Wallet sync: timeout de fill parcial, reparacion de SL y sincronizacion de cantidad
 
 Cambios (`odd/tasks/wallet-sync-hardening.md`):

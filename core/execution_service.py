@@ -872,7 +872,9 @@ class ExecutionService:
                     price=float(limit_price_str),
                     params=params,
                 ),
-                retries=1 if client_order_id else 3,
+                # Never resend an entry: without a clientOrderId an ambiguous
+                # timeout cannot be reconciled and a resend could duplicate exposure.
+                retries=1,
                 timeout_s=25.0,
             )
             self._track_api_weight("create_order", 1, "trading")
