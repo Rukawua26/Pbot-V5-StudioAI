@@ -80,3 +80,6 @@ Ruta inline: cada unidad < 100 lineas y dependiente del mismo archivo; sin trigg
   autoradas salvo tests). La rama `research/edge-20usd` acumula ~13.4k lineas de trabajo previo sobre
   origin/main: integrar estas correcciones a main por PR separado (cherry-pick) es decision del humano.
   Pendiente: T10 testnet (humano). Sin push.
+- L15: "ok procede tienes mi autorizacion". Push de research/edge-20usd (3f493ed..5c34b86). Cherry-pick a una rama
+  desde origin/main conflictua: depende de 2196542 (#7), 235829d (#5), 6b0f438 (#6) y del baseline 8181beb
+  (188 archivos). El CI solo corre en PR/push a main: estrategia de PR pendiente de decision humana.
