@@ -1,6 +1,12 @@
 import unittest
 
-from core.config.manager import _CONFIG_ENV_WARNINGS, Config, _env_bool, _env_float, _env_int
+from core.config.manager import (
+    _CONFIG_ENV_WARNINGS,
+    Config,
+    _env_bool,
+    _env_float,
+    _env_int,
+)
 from core.config.operational import OperationalConfig
 from core.config.strategy import StrategyConfig
 
@@ -8,7 +14,9 @@ from core.config.strategy import StrategyConfig
 class ConfigPrecedenceTest(unittest.TestCase):
     def test_operational_stop_loss_atr_modifier_overrides_strategy_default(self):
         original_operational = getattr(OperationalConfig, "STOP_LOSS_ATR_MODIFIER", 1.5)
-        original_operational_alias = getattr(OperationalConfig, "ATR_SL_MULTIPLIER", 1.5)
+        original_operational_alias = getattr(
+            OperationalConfig, "ATR_SL_MULTIPLIER", 1.5
+        )
         original_strategy = getattr(StrategyConfig, "STOP_LOSS_ATR_MODIFIER", 1.5)
         original_strategy_alias = getattr(StrategyConfig, "ATR_SL_MULTIPLIER", 1.5)
 

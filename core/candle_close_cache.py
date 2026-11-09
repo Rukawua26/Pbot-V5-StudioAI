@@ -12,7 +12,9 @@ class CandleCloseCache:
         self._cache: dict[tuple[str, str, str], tuple[int, Any]] = {}
         self._max = max_entries
 
-    def get(self, namespace: str, symbol: str, timeframe: str, candle_close_ms: int) -> Any | None:
+    def get(
+        self, namespace: str, symbol: str, timeframe: str, candle_close_ms: int
+    ) -> Any | None:
         key = (namespace, symbol.upper(), timeframe)
         with self._lock:
             entry = self._cache.get(key)
@@ -20,7 +22,14 @@ class CandleCloseCache:
                 return entry[1]
         return None
 
-    def set(self, namespace: str, symbol: str, timeframe: str, candle_close_ms: int, value: Any):
+    def set(
+        self,
+        namespace: str,
+        symbol: str,
+        timeframe: str,
+        candle_close_ms: int,
+        value: Any,
+    ):
         key = (namespace, symbol.upper(), timeframe)
         with self._lock:
             self._cache[key] = (candle_close_ms, value)

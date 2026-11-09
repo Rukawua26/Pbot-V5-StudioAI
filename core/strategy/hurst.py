@@ -23,7 +23,9 @@ class HurstEstimator:
     H < 0.5 → Antipersistent (mean-reverting)
     """
 
-    def __init__(self, window: int = 128, max_lag: int | None = None, min_lag: int = 10):
+    def __init__(
+        self, window: int = 128, max_lag: int | None = None, min_lag: int = 10
+    ):
         self.window = int(window)
         self.max_lag = int(max_lag) if max_lag is not None else max(2, self.window // 2)
         self.min_lag = max(2, int(min_lag))

@@ -43,7 +43,9 @@ def _is_shadow_learning_runtime(bot) -> bool:
     execution_mode = str(getattr(bot, "execution_mode", "") or "").lower()
     backend = str(getattr(Config, "EXECUTION_BACKEND", "live") or "live").lower()
     paper_mode = bool(getattr(Config, "PAPER_MODE", True))
-    return paper_mode and (execution_mode in {"shadow", "shadow_live"} or backend == "shadow_live")
+    return paper_mode and (
+        execution_mode in {"shadow", "shadow_live"} or backend == "shadow_live"
+    )
 
 
 def _get_fast_coherence_veto_reason(bot, df_main, signal: str | None = None):
@@ -148,25 +150,34 @@ def _analyze_symbol_candidate(bot, symbol_raw, symbol, df_main, df_4h, elapsed):
                 )
                 return None
             if _is_shadow_learning_runtime(bot):
-                bot.log(f"👻 SHADOW RANGE ALLOWED {symbol}: learning in {market_regime}")
+                bot.log(
+                    f"👻 SHADOW RANGE ALLOWED {symbol}: learning in {market_regime}"
+                )
 
         with bot.db_lock:
             dynamic_params = bot.brain.get_dynamic_settings(symbol)
 
         default_min = Config.SHADOW_MIN_PROBABILITY_RANGE / 10.0
-        min_score = dynamic_params.get("min_score", default_min) if dynamic_params else default_min
+        min_score = (
+            dynamic_params.get("min_score", default_min)
+            if dynamic_params
+            else default_min
+        )
         if bot.global_rag_impact > 10.0:
             min_score = max(min_score, 8.8)
 
         spread = 0.0
         try:
             raw_sym = symbol.replace("/", "").replace(":USDT", "")
-            snapshot_tk = (
-                getattr(bot, "_snapshot_tickers", {}).get(raw_sym)
-                or getattr(bot, "_snapshot_tickers", {}).get(symbol, {})
+            snapshot_tk = getattr(bot, "_snapshot_tickers", {}).get(raw_sym) or getattr(
+                bot, "_snapshot_tickers", {}
+            ).get(symbol, {})
+            bid_p = float(
+                snapshot_tk.get("bidPrice", 0) or snapshot_tk.get("bid", 0) or 0
             )
-            bid_p = float(snapshot_tk.get("bidPrice", 0) or snapshot_tk.get("bid", 0) or 0)
-            ask_p = float(snapshot_tk.get("askPrice", 0) or snapshot_tk.get("ask", 0) or 0)
+            ask_p = float(
+                snapshot_tk.get("askPrice", 0) or snapshot_tk.get("ask", 0) or 0
+            )
             if ask_p > 0 and bid_p > 0 and ask_p > bid_p:
                 spread = (ask_p - bid_p) / ask_p
         except Exception:
@@ -224,14 +235,20 @@ def _analyze_symbol_candidate(bot, symbol_raw, symbol, df_main, df_4h, elapsed):
                     spread=spread,
                 )
 
-        audit_signal = str(res[0] if isinstance(res, (list, tuple)) and len(res) > 0 else "")
+        audit_signal = str(
+            res[0] if isinstance(res, (list, tuple)) and len(res) > 0 else ""
+        )
         is_ttf = (
             isinstance(res, (list, tuple))
             and len(res) > 4
             and isinstance(res[4], dict)
             and "ttf_metrics" in res[4]
         )
-        fast_veto_reason = None if is_ttf else _get_fast_coherence_veto_reason(bot, df_main, audit_signal)
+        fast_veto_reason = (
+            None
+            if is_ttf
+            else _get_fast_coherence_veto_reason(bot, df_main, audit_signal)
+        )
         allow_conflict_shadow = fast_veto_reason and _allow_fast_regime_conflict_shadow(
             bot, market_regime, audit_signal
         )
@@ -256,7 +273,9 @@ def _analyze_symbol_candidate(bot, symbol_raw, symbol, df_main, df_4h, elapsed):
         return res
 
     except KeyError as e_key:
-        bot.log(f"⚠️ {symbol} descartado: Datos insuficientes para indicador clave ({e_key}).")
+        bot.log(
+            f"⚠️ {symbol} descartado: Datos insuficientes para indicador clave ({e_key})."
+        )
         bot.update_radar(
             symbol_raw,
             {"signal": "WAIT", "mode": "NONE"},

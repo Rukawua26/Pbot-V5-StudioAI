@@ -51,7 +51,12 @@ class ReplaySignalAlertsCounterfactualTest(unittest.TestCase):
                 "BUY",
                 "BOOTSTRAP_NONE",
                 "DISCARDED",
-                json.dumps({"filter_reason": "BULL_TREND_ENTRY_VETO", "btc_regime": "BULL_TREND"}),
+                json.dumps(
+                    {
+                        "filter_reason": "BULL_TREND_ENTRY_VETO",
+                        "btc_regime": "BULL_TREND",
+                    }
+                ),
             ),
         )
         connection.commit()
@@ -80,7 +85,11 @@ class ReplaySignalAlertsCounterfactualTest(unittest.TestCase):
             path = Path(tmp) / "signals.db"
             self._database(path)
             before = path.read_bytes()
-            aliases = [path, Path(tmp) / "signals-link.db", Path(tmp) / "signals-hard.db"]
+            aliases = [
+                path,
+                Path(tmp) / "signals-link.db",
+                Path(tmp) / "signals-hard.db",
+            ]
             aliases[1].symlink_to(path)
             os.link(path, aliases[2])
 
@@ -121,7 +130,9 @@ class ReplaySignalAlertsCounterfactualTest(unittest.TestCase):
             path = Path(tmp) / "signals.db"
             self._database(path)
             connection = sqlite3.connect(path)
-            connection.execute("UPDATE signal_alerts SET features_json = '{}' WHERE id = 1")
+            connection.execute(
+                "UPDATE signal_alerts SET features_json = '{}' WHERE id = 1"
+            )
             connection.commit()
             connection.close()
 
@@ -131,7 +142,9 @@ class ReplaySignalAlertsCounterfactualTest(unittest.TestCase):
             self.assertEqual(report["coverage"]["nonempty_feature_objects"], 0)
 
             connection = sqlite3.connect(path)
-            connection.execute("UPDATE signal_alerts SET features_json = '{bad' WHERE id = 1")
+            connection.execute(
+                "UPDATE signal_alerts SET features_json = '{bad' WHERE id = 1"
+            )
             connection.commit()
             connection.close()
             rows = _load_rows(path, latest=1, since=None, until=None, strict=False)
@@ -170,7 +183,10 @@ class ReplaySignalAlertsCounterfactualTest(unittest.TestCase):
                 "INSERT INTO signal_alerts "
                 "(ts, symbol, alert_type, execution_mode, status, features_json) "
                 "VALUES (?, 'BTC/USDT', 'BUY', 'NONE', 'DISCARDED', ?)",
-                ((f"2026-08-12T12:00:{index:02d}", payload) for index in range(rows_needed)),
+                (
+                    (f"2026-08-12T12:00:{index:02d}", payload)
+                    for index in range(rows_needed)
+                ),
             )
             connection.commit()
             connection.close()
@@ -183,7 +199,9 @@ class ReplaySignalAlertsCounterfactualTest(unittest.TestCase):
             path = Path(tmp) / "signals.db"
             self._database(path)
             with self.assertRaisesRegex(ValueError, "valid ISO-8601"):
-                _load_rows(path, latest=None, since="not-a-date", until=None, strict=True)
+                _load_rows(
+                    path, latest=None, since="not-a-date", until=None, strict=True
+                )
             with self.assertRaisesRegex(ValueError, "earlier than"):
                 _load_rows(
                     path,
@@ -195,7 +213,9 @@ class ReplaySignalAlertsCounterfactualTest(unittest.TestCase):
 
     def test_directional_bull_veto_releases_buy_as_censored(self):
         row = _row("BUY", "BULL_TREND_ENTRY_VETO (BULL_TREND)", paper_mode=True)
-        self.assertEqual(classify(row, "bull-directional"), "RELEASED_UNKNOWN_DOWNSTREAM")
+        self.assertEqual(
+            classify(row, "bull-directional"), "RELEASED_UNKNOWN_DOWNSTREAM"
+        )
 
     def test_directional_bull_veto_censors_buy_when_runtime_mode_is_missing(self):
         row = _row("BUY", "BULL_TREND_ENTRY_VETO (BULL_TREND)")
@@ -209,11 +229,15 @@ class ReplaySignalAlertsCounterfactualTest(unittest.TestCase):
         for side in ("BUY", "SELL"):
             with self.subTest(side=side):
                 row = _row(side, "BULL_TREND_ENTRY_VETO (BULL_TREND)")
-                self.assertEqual(classify(row, "bull-off"), "RELEASED_UNKNOWN_DOWNSTREAM")
+                self.assertEqual(
+                    classify(row, "bull-off"), "RELEASED_UNKNOWN_DOWNSTREAM"
+                )
 
     def test_directional_bull_veto_keeps_sell_blocked(self):
         row = _row("SELL", "BULL_TREND_ENTRY_VETO (BULL_TREND)")
-        self.assertEqual(classify(row, "bull-directional"), "REMAINS_BLOCKED_BULL_COUNTER")
+        self.assertEqual(
+            classify(row, "bull-directional"), "REMAINS_BLOCKED_BULL_COUNTER"
+        )
 
     def test_directional_bull_scenario_does_not_relabel_other_vetos(self):
         row = _row("SELL", "VETO_KAVA: RIESGO EXCESIVO")

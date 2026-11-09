@@ -57,7 +57,9 @@ class ExecutionLockSeparationTest(unittest.TestCase):
     # --- _call_exchange uses exchange_call_lock ---
 
     def test_call_exchange_uses_exchange_lock(self):
-        self.service.exchange.fetch_balance = MagicMock(return_value={"total": {"USDT": 100}})
+        self.service.exchange.fetch_balance = MagicMock(
+            return_value={"total": {"USDT": 100}}
+        )
         lock_held = {"inside_fn": False, "after_release": False}
 
         def check_lock():
@@ -65,11 +67,14 @@ class ExecutionLockSeparationTest(unittest.TestCase):
 
         self.service._call_exchange("test_op", check_lock)
         self.assertTrue(
-            lock_held["inside_fn"], "exchange lock should be owned inside _call_exchange callback"
+            lock_held["inside_fn"],
+            "exchange lock should be owned inside _call_exchange callback",
         )
 
     def test_call_exchange_account_uses_account_lock(self):
-        self.service.exchange.fetch_balance = MagicMock(return_value={"total": {"USDT": 100}})
+        self.service.exchange.fetch_balance = MagicMock(
+            return_value={"total": {"USDT": 100}}
+        )
         lock_held = {"inside_fn": False}
 
         def check_lock():
@@ -82,7 +87,9 @@ class ExecutionLockSeparationTest(unittest.TestCase):
         )
 
     def test_call_exchange_account_holds_exchange_lock(self):
-        self.service.exchange.fetch_balance = MagicMock(return_value={"total": {"USDT": 100}})
+        self.service.exchange.fetch_balance = MagicMock(
+            return_value={"total": {"USDT": 100}}
+        )
         exchange_held = {"during": False}
 
         def check_locks():
@@ -95,17 +102,23 @@ class ExecutionLockSeparationTest(unittest.TestCase):
         )
 
     def test_call_exchange_account_delegates_with_no_lock(self):
-        self.service.exchange.fetch_balance = MagicMock(return_value={"total": {"USDT": 100}})
+        self.service.exchange.fetch_balance = MagicMock(
+            return_value={"total": {"USDT": 100}}
+        )
         no_lock_value = {"value": None}
 
         original = self.service._call_exchange
 
         def tracking(op_name, fn, *, retries=2, timeout_s=0.0, _no_lock=False):
             no_lock_value["value"] = _no_lock
-            return original(op_name, fn, retries=retries, timeout_s=timeout_s, _no_lock=_no_lock)
+            return original(
+                op_name, fn, retries=retries, timeout_s=timeout_s, _no_lock=_no_lock
+            )
 
         self.service._call_exchange = tracking
-        self.service._call_exchange_account("op", lambda: self.service.exchange.fetch_balance())
+        self.service._call_exchange_account(
+            "op", lambda: self.service.exchange.fetch_balance()
+        )
         self.assertTrue(no_lock_value["value"])
 
     # --- Account-level methods use _call_exchange_account ---
@@ -142,7 +155,9 @@ class ExecutionLockSeparationTest(unittest.TestCase):
             mock_acc.assert_called()
 
     def test_fetch_balance_uses_account_lock(self):
-        self.service.exchange.fetch_balance = MagicMock(return_value={"total": {"USDT": 100.0}})
+        self.service.exchange.fetch_balance = MagicMock(
+            return_value={"total": {"USDT": 100.0}}
+        )
 
         with patch.object(self.service, "_call_exchange_account") as mock_acc:
             mock_acc.return_value = {"total": {"USDT": 100.0}}
@@ -229,10 +244,20 @@ class ExecutionLockSeparationTest(unittest.TestCase):
 
     def test_close_position_uses_exchange_lock_for_cancel(self):
         self.service.exchange.cancel_all_orders = MagicMock()
+        self.service.exchange.fetch_open_orders = MagicMock(
+            return_value=[
+                {"id": "stale-1", "type": "limit", "side": "sell", "reduceOnly": True}
+            ]
+        )
+        self.service.exchange.cancel_order = MagicMock()
+
+        def _acc(op, fn, *a, **k):
+            if op == "fetch_open_orders":
+                return self.service.exchange.fetch_open_orders("BTC/USDT")
+            return {"last": 50000.0}
 
         with patch.object(self.service, "_call_exchange") as mock_exc:
-            with patch.object(self.service, "_call_exchange_account") as mock_acc:
-                mock_acc.return_value = {"last": 50000.0}
+            with patch.object(self.service, "_call_exchange_account", side_effect=_acc):
                 with patch(
                     "core.execution_service._execute_chase_limit_steps",
                     return_value={"exit_state": "FILLED"},

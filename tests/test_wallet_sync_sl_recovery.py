@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from threading import RLock
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -7,7 +7,9 @@ from unittest.mock import MagicMock, patch
 from core.bot_wallet_sync import _manage_partial_fill_trade, sync_wallet
 
 
-def _valid_hard_sl_ack(symbol: str, sl_side: str, amount: float, order_id: str = "sl-1") -> dict:
+def _valid_hard_sl_ack(
+    symbol: str, sl_side: str, amount: float, order_id: str = "sl-1"
+) -> dict:
     """ACK estructuralmente válido para hard_sl_ack_looks_valid."""
     return {
         "id": order_id,
@@ -71,7 +73,9 @@ class WalletSyncSlRecoveryTest(unittest.TestCase):
 
         sync_wallet(bot)
 
-        self.assertEqual(bot.active_trades["BTC/USDT"].get("sl_exchange_order_id"), "sl-123")
+        self.assertEqual(
+            bot.active_trades["BTC/USDT"].get("sl_exchange_order_id"), "sl-123"
+        )
         bot.execution.place_hard_sl.assert_called_once()
 
     @patch("core.bot_wallet_sync.Config.PAPER_MODE", False)
@@ -188,13 +192,17 @@ class WalletSyncSlRecoveryTest(unittest.TestCase):
                 }
             ],
             place_hard_sl=MagicMock(
-                return_value=_valid_hard_sl_ack("ETH/USDT", "sell", 0.5, "should-not-create")
+                return_value=_valid_hard_sl_ack(
+                    "ETH/USDT", "sell", 0.5, "should-not-create"
+                )
             ),
         )
 
         sync_wallet(bot)
 
-        self.assertEqual(bot.active_trades["ETH/USDT"].get("sl_exchange_order_id"), "existing-sl")
+        self.assertEqual(
+            bot.active_trades["ETH/USDT"].get("sl_exchange_order_id"), "existing-sl"
+        )
         bot.execution.place_hard_sl.assert_not_called()
 
     @patch("core.bot_wallet_sync.Config.PAPER_MODE", False)
@@ -231,11 +239,13 @@ class WalletSyncSlRecoveryTest(unittest.TestCase):
 
         sync_wallet(bot)
 
+        # With the repair path, a stale/insufficient SL is replaced instead of
+        # halting forever (audit #5). The new SL is placed for the full amount.
+        self.assertEqual(bot.active_trades["ETH/USDT"].get("status"), "OPEN")
         self.assertEqual(
-            bot.active_trades["ETH/USDT"].get("status"), "HARD_SL_VISIBILITY_AMBIGUOUS"
+            bot.active_trades["ETH/USDT"].get("sl_exchange_order_id"), "new-sl"
         )
-        bot.execution.place_hard_sl.assert_not_called()
-        bot.brain.save_error_snapshot.assert_called()
+        bot.execution.place_hard_sl.assert_called_once()
 
     @patch("core.bot_wallet_sync.Config.PAPER_MODE", False)
     def test_does_not_purge_local_real_trade_when_second_position_check_not_flat(self):
@@ -377,7 +387,9 @@ class WalletSyncSlRecoveryTest(unittest.TestCase):
 
         sync_wallet(bot)
 
-        self.assertEqual(bot.active_trades["ETH/USDT"].get("sl_exchange_order_id"), "full-sl")
+        self.assertEqual(
+            bot.active_trades["ETH/USDT"].get("sl_exchange_order_id"), "full-sl"
+        )
         bot.execution.place_hard_sl.assert_called_once()
 
     @patch("core.bot_wallet_sync.Config.PAPER_MODE", False)
@@ -425,13 +437,17 @@ class WalletSyncSlRecoveryTest(unittest.TestCase):
 
     @patch("core.bot_wallet_sync.send_telegram_msg")
     @patch("core.bot_wallet_sync.Config.PARTIAL_FILL_TIMEOUT_SECONDS", 1)
-    def test_partial_fill_cancel_failure_halts_for_manual_reconciliation(self, mocked_tg):
+    def test_partial_fill_cancel_failure_halts_for_manual_reconciliation(
+        self, mocked_tg
+    ):
         bot = self._base_bot()
         bot.is_paused = False
         bot.integrity_lock_active = False
         bot.halt_system_active = False
         bot.execution = SimpleNamespace(
-            fetch_open_orders=MagicMock(return_value=[{"id": "entry-1", "clientOrderId": "cid-1"}]),
+            fetch_open_orders=MagicMock(
+                return_value=[{"id": "entry-1", "clientOrderId": "cid-1"}]
+            ),
             cancel_order=MagicMock(side_effect=RuntimeError("cancel down")),
         )
         trade = {
@@ -500,7 +516,9 @@ class WalletSyncSlRecoveryTest(unittest.TestCase):
         sync_wallet(bot)
 
         self.assertIn("SOL/USDT", bot.active_trades)
-        self.assertEqual(bot.active_trades["SOL/USDT"].get("status"), "EMERGENCY_CLOSE_PENDING")
+        self.assertEqual(
+            bot.active_trades["SOL/USDT"].get("status"), "EMERGENCY_CLOSE_PENDING"
+        )
         self.assertTrue(bot.is_paused)
         self.assertTrue(bot.integrity_lock_active)
         self.assertTrue(getattr(bot, "halt_system_active", False))
@@ -641,7 +659,9 @@ class WalletSyncSlRecoveryTest(unittest.TestCase):
                     "clientOrderId": "cid-entry",
                 }
             ],
-            cancel_order=MagicMock(return_value={"id": "entry-ord-1", "status": "canceled"}),
+            cancel_order=MagicMock(
+                return_value={"id": "entry-ord-1", "status": "canceled"}
+            ),
             place_hard_sl=MagicMock(
                 return_value=_valid_hard_sl_ack("BNB/USDT", "sell", 4.0, "sl-1")
             ),
@@ -731,6 +751,382 @@ class WalletSyncSlRecoveryTest(unittest.TestCase):
         self.assertTrue(bot.integrity_lock_active)
         self.assertTrue(bot.halt_system_active)
         bot.brain.delete_active_trade_state.assert_not_called()
+
+
+class WalletSyncHardeningTest(unittest.TestCase):
+    """Regressions from odd/tasks/wallet-sync-hardening.md (S1-S3, S6)."""
+
+    _base_bot = WalletSyncSlRecoveryTest._base_bot
+
+    def _partial_fill_bot(self, started_at):
+        bot = self._base_bot()
+        bot.active_trades = {
+            "BNB/USDT": {
+                "symbol": "BNB/USDT",
+                "side": "BUY",
+                "entry": 300.0,
+                "amount": 4.0,
+                "requested_amount": 10.0,
+                "remaining_amount": 6.0,
+                "status": "PARTIAL_FILL_PENDING",
+                "partial_fill_pending": True,
+                "partial_fill_started_at": started_at,
+                "is_shadow": False,
+                "open_time": datetime.now(),
+                "entry_exchange_order_id": "entry-ord-1",
+                "sl_exchange_order_id": "sl-1",
+            }
+        }
+        bot.execution = SimpleNamespace(
+            fetch_positions=lambda: [
+                {
+                    "symbol": "BNB/USDT:USDT",
+                    "contracts": 4.0,
+                    "side": "long",
+                    "entryPrice": 300.0,
+                    "unrealizedPnl": 0.0,
+                    "info": {},
+                }
+            ],
+            fetch_open_orders=lambda _symbol=None: [
+                {"id": "entry-ord-1", "symbol": "BNB/USDT", "status": "open"},
+                {
+                    "id": "sl-1",
+                    "symbol": "BNB/USDT",
+                    "type": "STOP_MARKET",
+                    "side": "sell",
+                    "amount": 4.0,
+                    "info": {"reduceOnly": True},
+                },
+            ],
+            cancel_order=MagicMock(
+                return_value={"id": "entry-ord-1", "status": "canceled"}
+            ),
+            place_hard_sl=MagicMock(return_value=None),
+        )
+        return bot
+
+    # --- S1: timezone-aware partial fill timeout -------------------------
+    @patch("core.bot_wallet_sync.Config.PARTIAL_FILL_TIMEOUT_SECONDS", 300)
+    @patch("core.bot_wallet_sync.Config.PAPER_MODE", False)
+    def test_partial_fill_timeout_with_utc_aware_timestamp_cancels(self):
+        started = (datetime.now(UTC) - timedelta(seconds=600)).isoformat()
+        bot = self._partial_fill_bot(started)
+
+        sync_wallet(bot)
+
+        trade = bot.active_trades["BNB/USDT"]
+        bot.execution.cancel_order.assert_called_once_with("BNB/USDT", "entry-ord-1")
+        self.assertEqual(trade.get("status"), "OPEN")
+        self.assertEqual(trade.get("unfilled_canceled_amount"), 6.0)
+        self.assertFalse(getattr(bot, "halt_system_active", False))
+
+    @patch("core.bot_wallet_sync.Config.PARTIAL_FILL_TIMEOUT_SECONDS", 300)
+    @patch("core.bot_wallet_sync.Config.PAPER_MODE", False)
+    def test_partial_fill_with_recent_utc_aware_timestamp_stays_pending(self):
+        started = (datetime.now(UTC) - timedelta(seconds=30)).isoformat()
+        bot = self._partial_fill_bot(started)
+
+        sync_wallet(bot)
+
+        trade = bot.active_trades["BNB/USDT"]
+        bot.execution.cancel_order.assert_not_called()
+        self.assertEqual(trade.get("status"), "PARTIAL_FILL_PENDING")
+        self.assertFalse(getattr(bot, "halt_system_active", False))
+
+    @patch("core.bot_wallet_sync.Config.PARTIAL_FILL_TIMEOUT_SECONDS", 300)
+    @patch("core.bot_wallet_sync.Config.PAPER_MODE", False)
+    def test_partial_fill_with_recent_naive_local_timestamp_stays_pending(self):
+        # Legacy rows were written with naive datetime.now() (local time).
+        started = (datetime.now() - timedelta(seconds=30)).isoformat()
+        bot = self._partial_fill_bot(started)
+
+        sync_wallet(bot)
+
+        bot.execution.cancel_order.assert_not_called()
+        self.assertEqual(
+            bot.active_trades["BNB/USDT"].get("status"), "PARTIAL_FILL_PENDING"
+        )
+
+    # --- S2: SL repair places the replacement before cancelling ----------
+    def _insufficient_sl_bot(self, place_result):
+        bot = self._base_bot()
+        bot.active_trades = {
+            "ETH/USDT": {
+                "symbol": "ETH/USDT",
+                "side": "BUY",
+                "entry": 2000.0,
+                "amount": 0.5,
+                "sl": 1980.0,
+                "is_shadow": False,
+                "open_time": datetime.now(),
+                "entry_client_order_id": "sai-v118-eth",
+                "sl_exchange_order_id": "old-sl",
+                "sl_client_order_id": "SL_old",
+            }
+        }
+        calls = MagicMock()
+        calls.place_hard_sl.return_value = place_result
+        bot.execution = SimpleNamespace(
+            fetch_positions=lambda: [
+                {
+                    "symbol": "ETH/USDT:USDT",
+                    "contracts": 0.5,
+                    "side": "long",
+                    "entryPrice": 2000.0,
+                    "unrealizedPnl": 0.0,
+                    "info": {},
+                }
+            ],
+            # The recorded SL only covers 0.2 of a 0.5 position.
+            fetch_open_orders=lambda _symbol=None: [
+                {
+                    "id": "old-sl",
+                    "clientOrderId": "SL_old",
+                    "symbol": "ETH/USDT",
+                    "type": "STOP_MARKET",
+                    "side": "sell",
+                    "amount": 0.2,
+                    "info": {"reduceOnly": True},
+                }
+            ],
+            place_hard_sl=calls.place_hard_sl,
+            cancel_order=calls.cancel_order,
+            last_hard_sl_error="network timeout",
+        )
+        return bot, calls
+
+    @patch("core.bot_wallet_sync.Config.PAPER_MODE", False)
+    def test_sl_repair_places_new_sl_before_cancelling_stale_one(self):
+        bot, calls = self._insufficient_sl_bot(
+            _valid_hard_sl_ack("ETH/USDT", "sell", 0.5, "new-sl")
+        )
+
+        sync_wallet(bot)
+
+        names = [c[0] for c in calls.mock_calls]
+        self.assertEqual(names, ["place_hard_sl", "cancel_order"])
+        calls.cancel_order.assert_called_once_with("ETH/USDT", "old-sl")
+        new_coid = calls.place_hard_sl.call_args.kwargs["client_order_id"]
+        self.assertTrue(new_coid)
+        self.assertNotEqual(new_coid, "SL_old")
+        trade = bot.active_trades["ETH/USDT"]
+        self.assertEqual(trade.get("sl_exchange_order_id"), "new-sl")
+        self.assertEqual(trade.get("sl_client_order_id"), new_coid)
+        self.assertEqual(trade.get("sl_repair_count"), 1)
+        self.assertFalse(trade.get("sl_repair_pending_client_order_id"))
+        self.assertEqual(trade.get("status"), "OPEN")
+
+    @patch("core.bot_wallet_sync.Config.PAPER_MODE", False)
+    def test_sl_repair_failure_keeps_stale_sl_in_book(self):
+        bot, calls = self._insufficient_sl_bot(None)
+
+        sync_wallet(bot)
+
+        calls.place_hard_sl.assert_called_once()
+        calls.cancel_order.assert_not_called()
+        trade = bot.active_trades["ETH/USDT"]
+        self.assertEqual(trade.get("status"), "HARD_SL_UNPROTECTED")
+        self.assertEqual(trade.get("sl_exchange_order_id"), "old-sl")
+        self.assertTrue(getattr(bot, "halt_system_active", False))
+
+    @patch("core.bot_wallet_sync.Config.PAPER_MODE", False)
+    def test_sl_repair_halts_when_stale_lookup_fails(self):
+        # A failed open-orders lookup is not proof that the stale SL is gone.
+        bot, calls = self._insufficient_sl_bot(
+            _valid_hard_sl_ack("ETH/USDT", "sell", 0.5, "new-sl")
+        )
+        old_orders = bot.execution.fetch_open_orders("ETH/USDT")
+        bot.execution.fetch_open_orders = MagicMock(
+            side_effect=[old_orders, RuntimeError("temporary failure"), old_orders]
+        )
+
+        sync_wallet(bot)
+
+        trade = bot.active_trades["ETH/USDT"]
+        self.assertEqual(trade.get("sl_exchange_order_id"), "old-sl")
+        self.assertEqual(trade.get("sl_client_order_id"), "SL_old")
+        calls.place_hard_sl.assert_not_called()
+        calls.cancel_order.assert_not_called()
+        self.assertTrue(getattr(bot, "halt_system_active", False))
+
+    def test_sl_repair_client_ids_stay_unique_across_many_repairs(self):
+        from core.bot_wallet_sync import _repair_sl_client_order_id
+
+        ids = {_repair_sl_client_order_id("sai-v118-eth", n) for n in range(1, 2001)}
+        self.assertEqual(len(ids), 2000)
+        self.assertTrue(all(len(i) <= 32 for i in ids))
+
+    @patch("core.bot_wallet_sync.Config.PAPER_MODE", False)
+    def test_sl_repair_adopts_ambiguous_ack_next_cycle(self):
+        for ack in (None, {"id": "new-sl"}):
+            with self.subTest(ack=ack):
+                bot, calls = self._insufficient_sl_bot(ack)
+                old_orders = bot.execution.fetch_open_orders("ETH/USDT")
+                sync_wallet(bot)
+                attempted_id = calls.place_hard_sl.call_args.kwargs["client_order_id"]
+                replacement = _valid_hard_sl_ack("ETH/USDT", "sell", 0.5, "new-sl")
+                replacement["clientOrderId"] = attempted_id
+                bot.execution.fetch_open_orders = MagicMock(
+                    return_value=old_orders + [replacement]
+                )
+
+                sync_wallet(bot)
+
+                calls.place_hard_sl.assert_called_once()
+                calls.cancel_order.assert_called_once_with("ETH/USDT", "old-sl")
+                trade = bot.active_trades["ETH/USDT"]
+                self.assertEqual(trade["status"], "OPEN")
+                self.assertEqual(trade["sl_exchange_order_id"], "new-sl")
+                self.assertEqual(trade["sl_client_order_id"], attempted_id)
+                self.assertEqual(trade.get("sl_repair_count"), 1)
+                self.assertFalse(trade.get("sl_repair_pending_client_order_id"))
+                self.assertEqual(trade["hard_sl_attach_fail_count"], 0)
+
+    @patch("core.bot_wallet_sync._emergency_market_close_unprotected")
+    @patch("core.bot_wallet_sync.Config.HARD_SL_ATTACH_MAX_RETRIES", 2)
+    @patch("core.bot_wallet_sync.Config.PAPER_MODE", False)
+    def test_sl_repair_failures_reuse_pending_id_and_preserve_stale_identity(
+        self, close
+    ):
+        bot, calls = self._insufficient_sl_bot(None)
+        trade = bot.active_trades["ETH/USDT"]
+        for cycle in (1, 2):
+            sync_wallet(bot)
+            self.assertEqual(trade["sl_exchange_order_id"], "old-sl")
+            self.assertEqual(trade["sl_client_order_id"], "SL_old")
+            self.assertEqual(trade.get("sl_repair_count", 0), 0)
+            self.assertEqual(trade["hard_sl_attach_fail_count"], cycle)
+            self.assertEqual(trade["status"], "HARD_SL_UNPROTECTED")
+            self.assertTrue(bot.halt_system_active)
+            self.assertEqual(close.call_count, cycle - 1)
+        attempted_ids = [
+            c.kwargs["client_order_id"] for c in calls.place_hard_sl.call_args_list
+        ]
+        self.assertEqual(len(attempted_ids), 2)
+        self.assertEqual(attempted_ids[0], attempted_ids[1])
+        self.assertEqual(trade["sl_repair_pending_client_order_id"], attempted_ids[0])
+        calls.cancel_order.assert_not_called()
+        close.assert_called_once_with(bot, "ETH/USDT", trade, 0.5, "network timeout")
+
+    @patch("core.bot_wallet_sync.Config.PAPER_MODE", False)
+    def test_sl_repair_third_lookup_failure_preserves_stale_identity(self):
+        bot, calls = self._insufficient_sl_bot(None)
+        old_orders = bot.execution.fetch_open_orders("ETH/USDT")
+        bot.execution.fetch_open_orders = MagicMock(
+            side_effect=[old_orders, old_orders, RuntimeError("lookup unavailable")]
+        )
+
+        sync_wallet(bot)
+
+        trade = bot.active_trades["ETH/USDT"]
+        self.assertEqual(trade["sl_exchange_order_id"], "old-sl")
+        self.assertEqual(trade["sl_client_order_id"], "SL_old")
+        self.assertEqual(trade.get("sl_repair_count", 0), 0)
+        self.assertEqual(trade.get("hard_sl_attach_fail_count", 0), 0)
+        self.assertTrue(bot.halt_system_active)
+        calls.place_hard_sl.assert_not_called()
+        calls.cancel_order.assert_not_called()
+        self.assertEqual(bot.execution.fetch_open_orders.call_count, 3)
+
+    def test_parse_iso_dt_normalizes_offsets_local_and_invalid_values(self):
+        from core.bot_wallet_sync import _parse_iso_dt
+
+        aware = datetime.fromisoformat("2026-05-04T12:00:00+05:30")
+        naive = datetime(2026, 5, 4, 12)
+        for value, expected in (
+            (aware, datetime(2026, 5, 4, 6, 30, tzinfo=UTC)),
+            (aware.isoformat(), datetime(2026, 5, 4, 6, 30, tzinfo=UTC)),
+            (naive, naive.astimezone(UTC)),
+            (naive.isoformat(), naive.astimezone(UTC)),
+        ):
+            with self.subTest(value=value):
+                parsed = _parse_iso_dt(value)
+                self.assertEqual(parsed, expected)
+                self.assertIs(parsed.tzinfo, UTC)
+        for value in (None, "", "not-a-timestamp", 123):
+            with self.subTest(value=value):
+                self.assertIsNone(_parse_iso_dt(value))
+
+    @patch("core.bot_wallet_sync.Config.PAPER_MODE", False)
+    def test_amount_reduction_syncs_with_unchanged_or_missing_entry(self):
+        for local_entry, exchange_entry in (
+            (2000.0, 2000.0),
+            (None, 2000.0),
+            (None, None),
+        ):
+            with self.subTest(local=local_entry, exchange=exchange_entry):
+                bot, calls = self._insufficient_sl_bot(None)
+                trade = bot.active_trades["ETH/USDT"]
+                trade["entry"] = local_entry
+                bot.execution.fetch_positions = lambda: [
+                    {
+                        "symbol": "ETH/USDT:USDT",
+                        "contracts": 0.2,
+                        "side": "long",
+                        "entryPrice": exchange_entry,
+                        "info": {},
+                    }
+                ]
+
+                sync_wallet(bot)
+
+                self.assertEqual(trade["amount"], 0.2)
+                self.assertEqual(trade["entry"], exchange_entry)
+                if exchange_entry:
+                    self.assertEqual(trade["size_usd"], 400.0)
+                self.assertFalse(getattr(bot, "halt_system_active", False))
+                calls.place_hard_sl.assert_not_called()
+                calls.cancel_order.assert_not_called()
+
+    # --- S3: amount follows the exchange even with unchanged entry -------
+    @patch("core.bot_wallet_sync.Config.PAPER_MODE", False)
+    def test_amount_syncs_when_exchange_size_changes_with_same_entry(self):
+        bot = self._base_bot()
+        bot.active_trades = {
+            "BTC/USDT": {
+                "symbol": "BTC/USDT",
+                "side": "BUY",
+                "entry": 100.0,
+                "amount": 1.0,
+                "size_usd": 100.0,
+                "sl": 99.0,
+                "is_shadow": False,
+                "open_time": datetime.now(),
+                "sl_exchange_order_id": "sl-1",
+            }
+        }
+        bot.execution = SimpleNamespace(
+            fetch_positions=lambda: [
+                {
+                    "symbol": "BTC/USDT:USDT",
+                    "contracts": 2.0,
+                    "side": "long",
+                    "entryPrice": 100.0,
+                    "unrealizedPnl": 0.0,
+                    "info": {},
+                }
+            ],
+            fetch_open_orders=lambda _symbol=None: [
+                {
+                    "id": "sl-1",
+                    "symbol": "BTC/USDT",
+                    "type": "STOP_MARKET",
+                    "side": "sell",
+                    "amount": 2.0,
+                    "info": {"reduceOnly": True},
+                }
+            ],
+            place_hard_sl=MagicMock(return_value=None),
+        )
+
+        sync_wallet(bot)
+
+        trade = bot.active_trades["BTC/USDT"]
+        self.assertEqual(trade.get("amount"), 2.0)
+        self.assertEqual(trade.get("size_usd"), 200.0)
+        self.assertEqual(trade.get("entry"), 100.0)
+        bot.execution.place_hard_sl.assert_not_called()
 
 
 if __name__ == "__main__":

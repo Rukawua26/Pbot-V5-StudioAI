@@ -2558,10 +2558,13 @@
         });
 
         /* ===== COMMANDS ===== */
-        function sendCmd(a) { 
-            fetch(API+'/command',{method:'POST',headers:getControlHeaders(),body:JSON.stringify({action:a})})
-            .then(function(){ fetchState(); })
-            .catch(function(){}); 
+        function sendCmd(a) {
+            return controlRequest(API + '/command', {method:'POST', body:JSON.stringify({action:a})})
+            .then(function(response) {
+                if (!response) return false;
+                fetchState();
+                return true;
+            });
         }
 
         /* ===== MASTER CONTROL & ACTION MODALS ===== */
@@ -2575,10 +2578,30 @@
             var headers = { 'Content-Type': 'application/json' };
             var k = localStorage.getItem('sniper_control_key') || localStorage.getItem('sniper_api_key');
             if (k) {
-                headers['X-Control-Key'] = k;
+                headers['X-Control-API-Key'] = k;
                 headers['X-API-Key'] = k;
             }
             return headers;
+        }
+
+        // Retry only an explicit authentication rejection, never an ambiguous failure.
+        async function controlRequest(url, options) {
+            options = Object.assign({}, options, {headers: getControlHeaders()});
+            try {
+                var response = await fetch(url, options);
+                if (response.status === 401) {
+                    var key = window.prompt('Clave de control del dashboard:');
+                    if (!key || !key.trim()) throw new Error('Autorización cancelada');
+                    localStorage.setItem('sniper_control_key', key);
+                    options.headers = getControlHeaders();
+                    response = await fetch(url, options);
+                }
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                return response;
+            } catch (error) {
+                showToast('Solicitud de control fallida: ' + error.message, 'critical');
+                return null;
+            }
         }
 
         function switchTab(tabName) {
@@ -2598,8 +2621,9 @@
 
         function executeConfirmedPanic() {
             closeModal('panic-modal');
-            sendCmd('/panic');
-            showToast('🚨 Protocolo de Pánico Activado: HALT del sistema y cancelación de órdenes', 'critical');
+            sendCmd('/panic').then(function(queued) {
+                if (queued) showToast('🚨 Solicitud de pánico encolada', 'critical');
+            });
         }
 
         function openRebaseModal() {
@@ -2609,8 +2633,9 @@
 
         function executeConfirmedRebase() {
             closeModal('rebase-modal');
-            sendCmd('/rebase_capital');
-            showToast('🔄 Recalibración de base de capital solicitada', 'success');
+            sendCmd('/rebase_capital').then(function(queued) {
+                if (queued) showToast('🔄 Recalibración de base de capital encolada', 'success');
+            });
         }
 
         function openCloseTradeModal(idx) {
@@ -2652,44 +2677,26 @@
         function closeTrade(symbol) {
             if (!symbol) return;
             var sym = symbol.trim().toUpperCase();
-            fetch(API + '/trade/close', {
+            controlRequest(API + '/trade/close', {
                 method: 'POST',
-                headers: getControlHeaders(),
                 body: JSON.stringify({ symbol: sym })
-            })
-            .then(function(r) {
-                if (!r.ok) throw new Error('HTTP ' + r.status);
-                return r.json();
-            })
-            .then(function() {
-                showToast('Orden de cierre enviada para ' + sym, 'success');
+            }).then(function(response) {
+                if (!response) return;
+                showToast('Orden de cierre encolada para ' + sym, 'success');
                 setTimeout(fetchState, 500);
-            })
-            .catch(function() {
-                sendCmd('/close ' + sym);
-                showToast('Cierre manual enviado para ' + sym, 'info');
             });
         }
 
         function breakevenTrade(symbol) {
             if (!symbol) return;
             var sym = symbol.trim().toUpperCase();
-            fetch(API + '/trade/breakeven', {
+            controlRequest(API + '/trade/breakeven', {
                 method: 'POST',
-                headers: getControlHeaders(),
                 body: JSON.stringify({ symbol: sym })
-            })
-            .then(function(r) {
-                if (!r.ok) throw new Error('HTTP ' + r.status);
-                return r.json();
-            })
-            .then(function() {
-                showToast('Stop Loss ajustado a Break-Even para ' + sym, 'success');
+            }).then(function(response) {
+                if (!response) return;
+                showToast('Comando Break-Even encolado para ' + sym, 'success');
                 setTimeout(fetchState, 500);
-            })
-            .catch(function() {
-                sendCmd('/breakeven ' + sym);
-                showToast('Comando Break-Even enviado para ' + sym, 'info');
             });
         }
 
@@ -5921,11 +5928,12 @@
         }
 
         function generateIntelligence() {
-            fetch(API+'/intelligence/generate',{method:'POST'}).then(function(){
+            controlRequest(API + '/intelligence/generate', {method:'POST'}).then(function(response){
+                if (!response) return;
                 fetchIntelligence();
                 fetchCorrelation();
                 fetchRegimes();
-            }).catch(function(){});
+            });
         }
 
         /* ===== CONFIGURATION (.env.example 2-COLUMN GRID) ===== */
@@ -5974,11 +5982,10 @@
         }
 
         function toggleEnvKey(key) {
-            fetch(API+'/config/env/toggle', {
+            controlRequest(API + '/config/env/toggle', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ key: key })
-            }).then(function(r){ if(r.ok) fetchConfigEnv(); }).catch(function(){});
+            }).then(function(r){ if(r) fetchConfigEnv(); });
         }
 
         function buildEnvCardHtml(item) {

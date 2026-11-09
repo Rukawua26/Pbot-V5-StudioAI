@@ -14,7 +14,9 @@ from config import Config
 logger = logging.getLogger("SniperAI")
 
 # [v118] Directorio base del módulo para rutas absolutas de caché
-_BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # raíz del proyecto
+_BASE_DIR = os.path.dirname(
+    os.path.dirname(os.path.abspath(__file__))
+)  # raíz del proyecto
 
 HAS_PARQUET = find_spec("pyarrow") is not None
 
@@ -41,7 +43,9 @@ class DataService:
             max_workers=1, thread_name_prefix="maturity-save"
         )
         # [v118] Rutas absolutas ancladas al directorio raíz del proyecto
-        self.maturity_file = os.path.join(_BASE_DIR, "data_storage", "maturity_cache.json")
+        self.maturity_file = os.path.join(
+            _BASE_DIR, "data_storage", "maturity_cache.json"
+        )
         self.cache_dir = os.path.join(_BASE_DIR, "data_storage", "candles")
         os.makedirs(self.cache_dir, exist_ok=True)
         self.load_maturity_cache()
@@ -67,7 +71,9 @@ class DataService:
             return
 
         files = [
-            f for f in os.listdir(self.cache_dir) if f.endswith(".parquet") or f.endswith(".pkl")
+            f
+            for f in os.listdir(self.cache_dir)
+            if f.endswith(".parquet") or f.endswith(".pkl")
         ]
         count = 0
         for f in files:
@@ -143,7 +149,9 @@ class DataService:
             try:
                 with open(self.maturity_file) as f:
                     self.maturity_cache = json.load(f)
-                self._last_maturity_hash = hash(json.dumps(self.maturity_cache, sort_keys=True))
+                self._last_maturity_hash = hash(
+                    json.dumps(self.maturity_cache, sort_keys=True)
+                )
                 elapsed = (time.perf_counter() - start_t) * 1000
                 logger.info(
                     f"💾 Maturity cache cargado en {elapsed:.2f}ms ({len(self.maturity_cache)} pares)"
@@ -180,7 +188,9 @@ class DataService:
         safety_counter = 0
         max_iterations = 200
 
-        logger.info(f"📥 Descargando histórico {symbol} {timeframe} ({days} días) desde Binance...")
+        logger.info(
+            f"📥 Descargando histórico {symbol} {timeframe} ({days} días) desde Binance..."
+        )
 
         while cursor < now_ms and safety_counter < max_iterations:
             batch = self.exchange.fetch_ohlcv(
@@ -206,9 +216,13 @@ class DataService:
             time.sleep(0.05)
 
         if not all_rows:
-            raise RuntimeError(f"No se pudieron descargar velas para {symbol} {timeframe}")
+            raise RuntimeError(
+                f"No se pudieron descargar velas para {symbol} {timeframe}"
+            )
 
-        df = pd.DataFrame(all_rows, columns=["time", "open", "high", "low", "close", "volume"])
+        df = pd.DataFrame(
+            all_rows, columns=["time", "open", "high", "low", "close", "volume"]
+        )
         df = self._clean_df(df)
         df = df[(df["time"] >= since_ms) & (df["time"] <= now_ms)].copy()
 
@@ -241,7 +255,9 @@ class DataService:
 
         out: dict[str, pd.DataFrame] = {}
         for tf in timeframes:
-            out[tf] = self.download_historical_data(symbol=symbol, timeframe=tf, days=days)
+            out[tf] = self.download_historical_data(
+                symbol=symbol, timeframe=tf, days=days
+            )
         return out
 
     def save_maturity_cache(self):
@@ -366,7 +382,9 @@ class DataService:
         retries = 1 if fast_mode else 2
         for i in range(retries):
             try:
-                ohlcv = self.exchange.fetch_ohlcv(symbol, timeframe, since=since, limit=limit)
+                ohlcv = self.exchange.fetch_ohlcv(
+                    symbol, timeframe, since=since, limit=limit
+                )
                 self._track_api_weight("fetch_ohlcv", 1, "market")
                 break
             except (ccxt.NetworkError, ccxt.ExchangeError) as e:
@@ -387,7 +405,9 @@ class DataService:
                 return prev_df
 
         combined = (
-            pd.concat([prev_df, new_df], ignore_index=True) if prev_df is not None else new_df
+            pd.concat([prev_df, new_df], ignore_index=True)
+            if prev_df is not None
+            else new_df
         )
         updated = self._clean_df(combined).tail(Config.CANDLE_FETCH_LIMIT)
         updated = updated[expected_cols].copy()
@@ -398,7 +418,9 @@ class DataService:
         # Gestión de memoria del caché
         if len(self.data_cache) > 50 and pairs_to_scan:
             symbols_to_keep = set(pairs_to_scan[:30])
-            keys_to_delete = [k for k in self.data_cache if k.split("_")[0] not in symbols_to_keep]
+            keys_to_delete = [
+                k for k in self.data_cache if k.split("_")[0] not in symbols_to_keep
+            ]
             for k in keys_to_delete[:20]:
                 del self.data_cache[k]
 

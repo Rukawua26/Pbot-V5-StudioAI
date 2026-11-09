@@ -49,7 +49,9 @@ class TestMTFVetoStats(unittest.TestCase):
             with patch.object(Config, "MTF_METRICS_WINDOW", 3):
                 with patch("core.signals.mtf.filter.append_execution_event"):
                     for _ in range(3):
-                        apply_mtf_filter(MagicMock(), "ETHUSDT", "SELL", 65.0, {}, MagicMock())
+                        apply_mtf_filter(
+                            MagicMock(), "ETHUSDT", "SELL", 65.0, {}, MagicMock()
+                        )
 
         import core.signals.mtf.filter as mtf_filter
 
@@ -72,7 +74,9 @@ class TestMTFVetoStats(unittest.TestCase):
         with patch.object(Config, "MTF_FILTER_ENABLED", True):
             with patch.object(Config, "MTF_METRICS_WINDOW", 100):
                 for _ in range(4):
-                    apply_mtf_filter(MagicMock(), "BTCUSDT", "BUY", 75.0, {}, MagicMock())
+                    apply_mtf_filter(
+                        MagicMock(), "BTCUSDT", "BUY", 75.0, {}, MagicMock()
+                    )
 
         import core.signals.mtf.filter as mtf_filter
 
@@ -119,7 +123,12 @@ class TestMTFWinRateTracking(unittest.TestCase):
         with patch.object(Config, "MTF_METRICS_WINDOW", 3):
             with patch("core.trade_exit.append_execution_event"):
                 for i in range(3):
-                    trade = {"market_snapshot": {"mtf_reason": f"REASON_{i}", "votos": {"MT": 80}}}
+                    trade = {
+                        "market_snapshot": {
+                            "mtf_reason": f"REASON_{i}",
+                            "votos": {"MT": 80},
+                        }
+                    }
                     _record_mtf_trade_outcome(trade, 1.0)
 
         # After window hit, report was generated and list was reset (check via module)

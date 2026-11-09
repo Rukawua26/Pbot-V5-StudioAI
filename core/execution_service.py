@@ -143,7 +143,9 @@ class ExecutionService:
             raise last_error
         raise RuntimeError(f"{op_name} failed without captured error")
 
-    def _call_exchange_account(self, op_name: str, fn, *, retries: int = 2, timeout_s: float = 0.0):
+    def _call_exchange_account(
+        self, op_name: str, fn, *, retries: int = 2, timeout_s: float = 0.0
+    ):
         with self._exchange_call_lock:
             with self._account_lock:
                 return self._call_exchange(
@@ -154,7 +156,9 @@ class ExecutionService:
                     _no_lock=True,
                 )
 
-    def _track_emergency_stuck(self, symbol: str, side: str, amount: float, order: dict):
+    def _track_emergency_stuck(
+        self, symbol: str, side: str, amount: float, order: dict
+    ):
         """Emite telemetría de emergencia cuando posición queda atrapada en libro."""
         self.logger.critical(
             f"🚨 EMERGENCY_EXIT_STUCK | {symbol} | {side} | "
@@ -170,7 +174,9 @@ class ExecutionService:
                 f"⚠️ *INTERVENCIÓN MANUAL REQUERIDA*"
             )
         except (ccxt.NetworkError, ccxt.ExchangeError) as error:
-            self.logger.warning(f"⚠️ No se pudo enviar alerta EMERGENCY_EXIT_STUCK: {error}")
+            self.logger.warning(
+                f"⚠️ No se pudo enviar alerta EMERGENCY_EXIT_STUCK: {error}"
+            )
 
     def _wait_order_filled(self, symbol: str, order_id: str, timeout_s: int) -> bool:
         start_wait = time.time()
@@ -204,7 +210,9 @@ class ExecutionService:
             return order
 
         order_id = order.get("id")
-        timeout_s = float(getattr(Config, "ENTRY_IOC_CONFIRM_TIMEOUT_SECONDS", 2.0) or 0.0)
+        timeout_s = float(
+            getattr(Config, "ENTRY_IOC_CONFIRM_TIMEOUT_SECONDS", 2.0) or 0.0
+        )
         deadline = time.time() + max(0.0, timeout_s)
         last_seen = order
 
@@ -224,7 +232,9 @@ class ExecutionService:
 
                 if isinstance(fetched, dict) and fetched:
                     last_seen = fetched
-                    fetched_filled = _parse_order_float(fetched, "filled", "executedQty") or 0.0
+                    fetched_filled = (
+                        _parse_order_float(fetched, "filled", "executedQty") or 0.0
+                    )
                     fetched_status = str(fetched.get("status") or "").lower()
                     if fetched_filled > 0.0 or fetched_status in {"closed", "filled"}:
                         self.logger.info(
@@ -232,7 +242,12 @@ class ExecutionService:
                             f"filled={fetched_filled:g} status={fetched_status or 'N/A'}"
                         )
                         return fetched
-                    if fetched_status in {"canceled", "cancelled", "expired", "rejected"}:
+                    if fetched_status in {
+                        "canceled",
+                        "cancelled",
+                        "expired",
+                        "rejected",
+                    }:
                         return fetched
             except (ccxt.NetworkError, ccxt.RequestTimeout, OrderLookupError) as error:
                 self.logger.warning(
@@ -278,13 +293,19 @@ class ExecutionService:
     def _active_no_price_day_key(self) -> str:
         return datetime.now(UTC).strftime("%Y-%m-%d")
 
-    def get_no_price_market_exit_count(self, symbol: str, day_key: str | None = None) -> int:
+    def get_no_price_market_exit_count(
+        self, symbol: str, day_key: str | None = None
+    ) -> int:
         key = day_key or self._active_no_price_day_key()
         return int((self._no_price_exit_daily_metrics.get(key) or {}).get(symbol, 0))
 
     def _resolve_no_price_threshold(self, symbol: str) -> int:
-        base_threshold = int(getattr(Config, "NO_PRICE_EXIT_ESCALATION_SECONDS", 180) or 180)
-        min_threshold = int(getattr(Config, "NO_PRICE_EXIT_MIN_ESCALATION_SECONDS", 45) or 45)
+        base_threshold = int(
+            getattr(Config, "NO_PRICE_EXIT_ESCALATION_SECONDS", 180) or 180
+        )
+        min_threshold = int(
+            getattr(Config, "NO_PRICE_EXIT_MIN_ESCALATION_SECONDS", 45) or 45
+        )
         daily_count = self.get_no_price_market_exit_count(symbol)
         dynamic_factor = 1.0 + (0.4 * min(daily_count, 5))
         dynamic_threshold = int(round(base_threshold / dynamic_factor))
@@ -358,7 +379,9 @@ class ExecutionService:
 
         events = self._cancel_all_failure_events.get(symbol, [])
         events.append(now_ts)
-        window_s = int(getattr(Config, "CANCEL_ALL_DEGRADED_WINDOW_SECONDS", 300) or 300)
+        window_s = int(
+            getattr(Config, "CANCEL_ALL_DEGRADED_WINDOW_SECONDS", 300) or 300
+        )
         cutoff = now_ts - window_s
         events = [evt for evt in events if evt >= cutoff]
         self._cancel_all_failure_events[symbol] = events
@@ -368,14 +391,18 @@ class ExecutionService:
             f"⚠️ cancel_all_orders fallo {symbol}: intento consecutivo {count}, error={error}"
         )
 
-        quarantine_events = int(getattr(Config, "CANCEL_ALL_DEGRADED_QUARANTINE_EVENTS", 3) or 3)
+        quarantine_events = int(
+            getattr(Config, "CANCEL_ALL_DEGRADED_QUARANTINE_EVENTS", 3) or 3
+        )
         if len(events) >= quarantine_events:
             quarantine_s = int(
                 getattr(Config, "CANCEL_ALL_DEGRADED_QUARANTINE_SECONDS", 900) or 900
             )
             quarantine_until = now_ts + quarantine_s
             previous_until = float(self._symbol_quarantine_until.get(symbol) or 0.0)
-            self._symbol_quarantine_until[symbol] = max(previous_until, quarantine_until)
+            self._symbol_quarantine_until[symbol] = max(
+                previous_until, quarantine_until
+            )
             remaining_s = int(max(0.0, self._symbol_quarantine_until[symbol] - now_ts))
             self.logger.critical(
                 f"🚫 SYMBOL_QUARANTINE_ACTIVATED {symbol}: {len(events)} fallos cancel_all en {window_s}s. "
@@ -462,7 +489,9 @@ class ExecutionService:
                     f"⚠️ No se pudo recuperar NO_PRICE market exit ambiguo "
                     f"{symbol}/{client_order_id}: {lookup_error}"
                 )
-            self.logger.critical(f"❌ NO_PRICE_ESCALATED_MARKET_EXIT_FAILED {symbol}: {error}")
+            self.logger.critical(
+                f"❌ NO_PRICE_ESCALATED_MARKET_EXIT_FAILED {symbol}: {error}"
+            )
             self._no_price_exit_state[symbol] = state
             return None
 
@@ -525,7 +554,9 @@ class ExecutionService:
         if symbols is None:
             tickers = self._call_exchange(
                 "fetch_tickers",
-                lambda: self.exchange.fetch_tickers(params=params or {"type": "future"}),
+                lambda: self.exchange.fetch_tickers(
+                    params=params or {"type": "future"}
+                ),
                 retries=2,
                 timeout_s=20.0,
             )
@@ -713,7 +744,12 @@ class ExecutionService:
         return ob
 
     def create_reduce_only_market_order(
-        self, symbol: str, side: str, amount: float, params=None, client_order_id: str | None = None
+        self,
+        symbol: str,
+        side: str,
+        amount: float,
+        params=None,
+        client_order_id: str | None = None,
     ):
         order_params = dict(params or {"reduceOnly": True})
         order_params.setdefault("reduceOnly", True)
@@ -795,7 +831,9 @@ class ExecutionService:
             self.last_entry_reject_error = (
                 f"SYMBOL_QUARANTINED_CANCEL_ALL_DEGRADED ({remaining_s}s)"
             )
-            self.logger.warning(f"🚫 ENTRY_BLOCKED_QUARANTINE {symbol}: {remaining_s}s restantes")
+            self.logger.warning(
+                f"🚫 ENTRY_BLOCKED_QUARANTINE {symbol}: {remaining_s}s restantes"
+            )
             return None
 
         try:
@@ -820,7 +858,9 @@ class ExecutionService:
             if client_order_id:
                 params["newClientOrderId"] = client_order_id
 
-            self.logger.info(f"🚀 Enviando LIMIT IOC {symbol} {side} @ {limit_price_str}")
+            self.logger.info(
+                f"🚀 Enviando LIMIT IOC {symbol} {side} @ {limit_price_str}"
+            )
 
             order: CCXTOrder = self._call_exchange(
                 "create_precision_order",
@@ -832,13 +872,16 @@ class ExecutionService:
                     price=float(limit_price_str),
                     params=params,
                 ),
-                retries=1 if client_order_id else 3,
+                # Never resend an entry: without a clientOrderId an ambiguous
+                # timeout cannot be reconciled and a resend could duplicate exposure.
+                retries=1,
                 timeout_s=25.0,
             )
             self._track_api_weight("create_order", 1, "trading")
 
             return cast(
-                CCXTOrder | None, self._confirm_ioc_order_state(symbol, order, client_order_id)
+                CCXTOrder | None,
+                self._confirm_ioc_order_state(symbol, order, client_order_id),
             )
         except Exception as e:
             if client_order_id:
@@ -940,7 +983,9 @@ class ExecutionService:
     ) -> CCXTOrder | None:
         """Coloca un STOP_MARKET real en Binance para seguridad extrema."""
         if client_order_id is None and not Config.PAPER_MODE:
-            self.last_hard_sl_error = "REAL HARD SL requires stable client_order_id for idempotency"
+            self.last_hard_sl_error = (
+                "REAL HARD SL requires stable client_order_id for idempotency"
+            )
             self.logger.error(self.last_hard_sl_error)
             return None
         try:
@@ -948,7 +993,9 @@ class ExecutionService:
         except (TypeError, ValueError):
             stop_price_float = float("nan")
         if not math.isfinite(stop_price_float) or stop_price_float <= 0.0:
-            self.last_hard_sl_error = f"Invalid stop_price: {stop_price} (must be finite and > 0)"
+            self.last_hard_sl_error = (
+                f"Invalid stop_price: {stop_price} (must be finite and > 0)"
+            )
             self.logger.error(self.last_hard_sl_error)
             return None
         try:
@@ -1008,17 +1055,37 @@ class ExecutionService:
         if position_side:
             params["positionSide"] = position_side
 
+        # Cancel only NON-protective orders. cancel_all_orders() also removes the
+        # HARD SL, leaving the position unprotected if the chase later fails.
+        # Protective (reduce-only STOP_MARKET on the opposite side) orders stay.
         try:
-            self._call_exchange(
-                "cancel_all_orders",
-                lambda: self.exchange.cancel_all_orders(symbol),
-                retries=3,
-                timeout_s=20.0,
-            )
-            self._track_api_weight("cancel_all_orders", 1, "trading")
+            open_orders = self.fetch_open_orders(symbol) or []
+            from core.execution_safety import hard_sl_protective_order
+
+            trade_ctx = {"side": side}
+            protected_ids = {
+                str(o.get("id"))
+                for o in open_orders
+                if o.get("id") and hard_sl_protective_order(o, trade_ctx)
+            }
+            for order in open_orders:
+                order_id = order.get("id")
+                if not order_id or str(order_id) in protected_ids:
+                    continue
+                try:
+                    self.cancel_order(symbol, str(order_id))
+                except Exception as cancel_error:
+                    self.logger.warning(
+                        f"⚠️ No se pudo cancelar orden {order_id} de {symbol}: {cancel_error}"
+                    )
             self._record_cancel_all_orders_success(symbol)
         except Exception as error:
+            # Fail-safe: if we cannot inspect orders, cancel nothing rather than
+            # risk removing the HARD SL.
             self._record_cancel_all_orders_failure(symbol, error)
+            self.logger.warning(
+                f"⚠️ No se cancelaron ordenes de {symbol} (fail-safe): {error}"
+            )
 
         current_price = float(
             (
@@ -1048,18 +1115,24 @@ class ExecutionService:
                     f"🚨 HARD_FLOOR_REACHED{prefix} {symbol}: posición atrapada en libro @ "
                     f"{last_order.get('price', 'N/A')}. Alerta manual requerida."
                 )
-                self._track_emergency_stuck(symbol, exit_side, amount, cast(dict, last_order))
+                self._track_emergency_stuck(
+                    symbol, exit_side, amount, cast(dict, last_order)
+                )
                 return _with_exit_state(last_order, "STUCK")
             else:
                 self.logger.warning(
                     f"⚠️ Sin fill tras persecución {symbol}, ordenando al precio actual"
                 )
                 try:
-                    emergency_price = self.exchange.price_to_precision(symbol, current_price)
+                    emergency_price = self.exchange.price_to_precision(
+                        symbol, current_price
+                    )
                     emergency_params: dict[str, object] = dict(params)
                     emergency_params.setdefault(
                         "newClientOrderId",
-                        _exit_client_order_id(symbol, exit_side, f"{exit_label}:emergency", 0),
+                        _exit_client_order_id(
+                            symbol, exit_side, f"{exit_label}:emergency", 0
+                        ),
                     )
                     emergency_client_id = str(emergency_params["newClientOrderId"])
                     try:
@@ -1078,7 +1151,9 @@ class ExecutionService:
                         )
                         self._track_api_weight("create_order", 1, "trading")
                     except Exception as create_error:
-                        recovered = self.fetch_order_by_client_id(symbol, emergency_client_id)
+                        recovered = self.fetch_order_by_client_id(
+                            symbol, emergency_client_id
+                        )
                         if not recovered:
                             raise create_error
                         self.logger.warning(
@@ -1089,7 +1164,9 @@ class ExecutionService:
                     self._no_price_exit_state.pop(symbol, None)
                     return _with_exit_state(cast(dict, order), "OPEN_UNCONFIRMED")
                 except Exception as emergency_err:
-                    fatal_label = f" ({emergency_fail_label})" if emergency_fail_label else ""
+                    fatal_label = (
+                        f" ({emergency_fail_label})" if emergency_fail_label else ""
+                    )
                     self.logger.critical(
                         f"❌ EMERGENCY_EXIT_FAILED{fatal_label} {symbol}: {emergency_err}"
                     )

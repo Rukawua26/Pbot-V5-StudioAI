@@ -56,7 +56,9 @@ class TestShadowDirectionalCap(unittest.TestCase):
             actives = list(bot.active_trades.values())
             side = "BUY"
             shadow_side = sum(
-                1 for t in actives if t.get("side") == side and t.get("is_shadow", False)
+                1
+                for t in actives
+                if t.get("side") == side and t.get("is_shadow", False)
             )
             shadow_dir_limit = 3
             self.assertGreaterEqual(shadow_side, shadow_dir_limit)
@@ -71,7 +73,9 @@ class TestShadowDirectionalCap(unittest.TestCase):
 
         actives = list(bot.active_trades.values())
         side = "BUY"
-        shadow_side = sum(1 for t in actives if t.get("side") == side and t.get("is_shadow", False))
+        shadow_side = sum(
+            1 for t in actives if t.get("side") == side and t.get("is_shadow", False)
+        )
         self.assertEqual(shadow_side, 2)
         self.assertLess(shadow_side, 3)
 
@@ -86,7 +90,9 @@ class TestShadowDirectionalCap(unittest.TestCase):
         bot = self._make_bot(shadow_trades)
 
         actives = list(bot.active_trades.values())
-        sell_side = sum(1 for t in actives if t.get("side") == "SELL" and t.get("is_shadow", False))
+        sell_side = sum(
+            1 for t in actives if t.get("side") == "SELL" and t.get("is_shadow", False)
+        )
         self.assertEqual(sell_side, 1)
         self.assertLess(sell_side, 3)
 

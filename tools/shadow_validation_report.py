@@ -234,18 +234,32 @@ def _filter_metrics(filters: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def _deduplicate_trades(trades: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
-    without_key = []
-    by_key = {}
+    """Deduplicate trades using a unique identity, NOT just trade_key/symbol."""
+    seen: set[str] = set()
+    unique: list[dict[str, Any]] = []
     duplicates = 0
     for trade in trades:
-        trade_key = str(trade.get("trade_key") or "").strip()
-        if not trade_key:
-            without_key.append(trade)
+        # Prefer trade_instance_id as unique identity
+        uid = str(trade.get("trade_instance_id") or trade.get("entry_client_order_id") or trade.get("trade_key") or "").strip()
+        if not uid:
+            # Fallback: deterministic composite key
+            parts = [
+                str(trade.get("campaign") or ""),
+                str(trade.get("run_id") or ""),
+                str(trade.get("symbol") or ""),
+                str(trade.get("side") or ""),
+                str(trade.get("_event_ts") or ""),
+            ]
+            uid = "|".join(parts)
+        if not uid or uid in seen:
+            if uid:
+                duplicates += 1
+            else:
+                unique.append(trade)  # no identity: keep but don't dedup
             continue
-        if trade_key in by_key:
-            duplicates += 1
-        by_key[trade_key] = trade
-    return [*without_key, *by_key.values()], duplicates
+        seen.add(uid)
+        unique.append(trade)
+    return unique, duplicates
 
 
 def _operations(records: list[dict[str, Any]], start: datetime | None, end: datetime | None) -> dict:

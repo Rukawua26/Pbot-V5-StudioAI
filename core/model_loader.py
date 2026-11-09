@@ -30,7 +30,9 @@ def resolve_script_path(path: str | os.PathLike[str]) -> Path:
     try:
         resolved.relative_to(ROOT)
     except ValueError as error:
-        raise UnsafeScriptPathError(f"Script path outside repo root: {resolved}") from error
+        raise UnsafeScriptPathError(
+            f"Script path outside repo root: {resolved}"
+        ) from error
     if resolved.is_symlink():
         raise UnsafeScriptPathError(f"Script path must not be a symlink: {resolved}")
     return resolved
@@ -41,7 +43,9 @@ def _resolve_model_path(path: str | os.PathLike[str]) -> Path:
     try:
         resolved.relative_to(ROOT)
     except ValueError as error:
-        raise UnsafeModelPathError(f"Model path outside repo root: {resolved}") from error
+        raise UnsafeModelPathError(
+            f"Model path outside repo root: {resolved}"
+        ) from error
     if resolved.is_symlink():
         raise UnsafeModelPathError(f"Model path must not be a symlink: {resolved}")
     return resolved

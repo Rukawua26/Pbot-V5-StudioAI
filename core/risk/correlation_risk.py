@@ -53,7 +53,9 @@ def compute_correlation_reduction(
     if data_service is None:
         return 1.0, []
 
-    candidate_closes = _get_close_series(data_service, candidate_symbol, min_candles, window)
+    candidate_closes = _get_close_series(
+        data_service, candidate_symbol, min_candles, window
+    )
     if candidate_closes is None:
         return 1.0, []
 
@@ -70,7 +72,9 @@ def compute_correlation_reduction(
     if not correlations:
         return 1.0, []
 
-    positive_corrs = [item["correlation"] for item in correlations if item["correlation"] > 0]
+    positive_corrs = [
+        item["correlation"] for item in correlations if item["correlation"] > 0
+    ]
     mean_corr = sum(positive_corrs) / len(positive_corrs) if positive_corrs else 0.0
     max_corr = max(positive_corrs) if positive_corrs else 0.0
     effective_corr = max(mean_corr, max_corr)

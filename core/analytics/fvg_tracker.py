@@ -75,7 +75,9 @@ def _make_gap(
     }
 
 
-def _detect_fvg(df: pd.DataFrame, symbol: str, min_gap_pct: float, expires_bars: int) -> list[dict]:
+def _detect_fvg(
+    df: pd.DataFrame, symbol: str, min_gap_pct: float, expires_bars: int
+) -> list[dict]:
     if df is None or len(df) < 3:
         return []
     gaps = []

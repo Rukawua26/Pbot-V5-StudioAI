@@ -38,13 +38,17 @@ def _compute_trade_metrics(bot) -> dict:
 def _compute_wallet_metrics(bot) -> dict:
     return {
         "balance_usd": round(float(getattr(bot, "balance", 0) or 0), 2),
-        "available_balance_usd": round(float(getattr(bot, "available_balance", 0) or 0), 2),
+        "available_balance_usd": round(
+            float(getattr(bot, "available_balance", 0) or 0), 2
+        ),
     }
 
 
 def _compute_system_metrics(bot) -> dict:
     return {
-        "uptime_s": round(time.time() - float(getattr(bot, "_start_ts", time.time())), 2),
+        "uptime_s": round(
+            time.time() - float(getattr(bot, "_start_ts", time.time())), 2
+        ),
         "is_paused": bool(getattr(bot, "is_paused", False)),
         "halt_system_active": bool(getattr(bot, "halt_system_active", False)),
         "integrity_lock_active": bool(getattr(bot, "integrity_lock_active", False)),
@@ -65,7 +69,8 @@ def export_metrics_summary(bot) -> dict:
         system = _compute_system_metrics(bot)
 
         summary = {
-            "ts": telemetry.pop("ts", None) or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "ts": telemetry.pop("ts", None)
+            or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             **wallet,
             **trade,
             **system,

@@ -38,7 +38,9 @@ class TestExecutionServiceTrackApiWeight(unittest.TestCase):
         service.weight_tracker = MagicMock()
         service.logger = MagicMock()
         service._track_api_weight("create_order", 2, "trading")
-        service.weight_tracker.track.assert_called_once_with("create_order", 2, "trading")
+        service.weight_tracker.track.assert_called_once_with(
+            "create_order", 2, "trading"
+        )
 
 
 class TestExecutionServiceConfirmIocOrderState(unittest.TestCase):

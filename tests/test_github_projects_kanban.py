@@ -27,7 +27,10 @@ class GitHubProjectsKanbanTests(unittest.TestCase):
                 return_value=type(
                     "StatusField",
                     (),
-                    {"field_id": "field-1", "options_by_name": {ESTRATEGIAS_ACTIVAS: "opt-1"}},
+                    {
+                        "field_id": "field-1",
+                        "options_by_name": {ESTRATEGIAS_ACTIVAS: "opt-1"},
+                    },
                 )(),
             ),
             patch.object(self.client, "_set_status") as mocked_set_status,
@@ -56,7 +59,10 @@ class GitHubProjectsKanbanTests(unittest.TestCase):
             return_value=type(
                 "StatusField",
                 (),
-                {"field_id": "field-1", "options_by_name": {ORDENES_PENDIENTES: "opt-2"}},
+                {
+                    "field_id": "field-1",
+                    "options_by_name": {ORDENES_PENDIENTES: "opt-2"},
+                },
             )(),
         ):
             result = self.client.mover_tarjeta("item-1", "No Existe")
@@ -74,11 +80,15 @@ class GitHubProjectsKanbanTests(unittest.TestCase):
         }
 
         with (
-            patch.object(self.client, "_get_item_with_content", return_value=item_payload),
+            patch.object(
+                self.client, "_get_item_with_content", return_value=item_payload
+            ),
             patch.object(
                 self.client,
                 "_graphql",
-                return_value={"updateProjectV2DraftIssue": {"draftIssue": {"id": "draft-1"}}},
+                return_value={
+                    "updateProjectV2DraftIssue": {"draftIssue": {"id": "draft-1"}}
+                },
             ) as mocked_graphql,
         ):
             result = self.client.actualizar_pnl_tarjeta("item-1", 15.7, 103450.5)
@@ -105,9 +115,14 @@ class GitHubProjectsKanbanTests(unittest.TestCase):
             patch.object(
                 self.client,
                 "_fetch_status_field",
-                return_value={"id": "field-1", "options": [{"id": "old", "name": "Todo"}]},
+                return_value={
+                    "id": "field-1",
+                    "options": [{"id": "old", "name": "Todo"}],
+                },
             ),
-            patch.object(self.client, "_update_status_field_options") as mocked_update_status,
+            patch.object(
+                self.client, "_update_status_field_options"
+            ) as mocked_update_status,
             patch.object(
                 self.client,
                 "_update_project_metadata",

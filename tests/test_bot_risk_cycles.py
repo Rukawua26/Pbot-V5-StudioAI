@@ -48,7 +48,9 @@ class BotRiskCyclesTest(unittest.TestCase):
     @patch("core.bot_risk_cycles.time.monotonic", return_value=1_000.0)
     @patch("core.bot_risk_cycles.time.time", return_value=1_000.0)
     @patch("core.bot_risk_cycles.Config.BTC_PANIC_DROP_PERCENT", 1.5)
-    def test_btc_panic_activates_on_drop_and_rate_limits_alert(self, _time, _mono, telegram):
+    def test_btc_panic_activates_on_drop_and_rate_limits_alert(
+        self, _time, _mono, telegram
+    ):
         bot = SimpleNamespace(
             force_btc_panic=False,
             btc_panic=False,
@@ -68,7 +70,9 @@ class BotRiskCyclesTest(unittest.TestCase):
     @patch("core.bot_risk_cycles.time.monotonic", return_value=1_100.0)
     @patch("core.bot_risk_cycles.time.time", return_value=1_100.0)
     @patch("core.bot_risk_cycles.Config.BTC_PANIC_DROP_PERCENT", 1.5)
-    def test_btc_panic_keeps_forced_state_without_duplicate_alert(self, _time, _mono, telegram):
+    def test_btc_panic_keeps_forced_state_without_duplicate_alert(
+        self, _time, _mono, telegram
+    ):
         bot = SimpleNamespace(
             force_btc_panic=True,
             btc_panic=False,
@@ -87,7 +91,9 @@ class BotRiskCyclesTest(unittest.TestCase):
     @patch("core.bot_risk_cycles.time.monotonic", return_value=1_000.0)
     @patch("core.bot_risk_cycles.send_telegram_msg")
     @patch("core.bot_risk_cycles.Config.CRASH_DETECTION_ENABLED", True)
-    def test_crash_predictor_close_all_sets_circuit_breaker(self, telegram, _mono, _sleep):
+    def test_crash_predictor_close_all_sets_circuit_breaker(
+        self, telegram, _mono, _sleep
+    ):
         predictor = MagicMock()
         predictor.analyze_crash_risk.return_value = {
             "recommended_action": "CLOSE_ALL",

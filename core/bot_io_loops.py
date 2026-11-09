@@ -14,7 +14,12 @@ from core.ws_reconciliation import handle_ws_reconnected
 def _extract_telegram_message(update):
     if not isinstance(update, dict):
         return {}
-    return update.get("message") or update.get("edited_message") or update.get("channel_post") or {}
+    return (
+        update.get("message")
+        or update.get("edited_message")
+        or update.get("channel_post")
+        or {}
+    )
 
 
 def _is_authorized_telegram_chat(chat_id, from_id=None) -> bool:
@@ -107,10 +112,16 @@ def websocket_monitor(bot):
         nonlocal is_reconnecting, reconnect_delay, reconnect_count
         if is_reconnecting:
             reconnect_count += 1
-            bot.log("⚡ WEBSOCKET: Reconectado exitosamente. Precios en tiempo real restaurados.")
+            bot.log(
+                "⚡ WEBSOCKET: Reconectado exitosamente. Precios en tiempo real restaurados."
+            )
             threading.Thread(
                 target=handle_ws_reconnected,
-                kwargs={"bot": bot, "source": "ticker_ws", "reconnect_count": reconnect_count},
+                kwargs={
+                    "bot": bot,
+                    "source": "ticker_ws",
+                    "reconnect_count": reconnect_count,
+                },
                 daemon=True,
             ).start()
         else:
@@ -140,7 +151,9 @@ def websocket_monitor(bot):
             if bot.is_running:
                 is_reconnecting = True
                 wait_s = reconnect_delay + random.uniform(0.0, 1.0)
-                bot.log(f"🔌 WEBSOCKET: Conexión cerrada. Reintentando en {wait_s:.1f}s...")
+                bot.log(
+                    f"🔌 WEBSOCKET: Conexión cerrada. Reintentando en {wait_s:.1f}s..."
+                )
                 append_execution_event(
                     bot,
                     "WS_DISCONNECTED",

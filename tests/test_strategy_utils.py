@@ -84,7 +84,9 @@ class TestDetectOrderBlock(unittest.TestCase):
             h = max(o, c) + np.random.uniform(0.1, 0.5)
             low = min(o, c) - np.random.uniform(0.1, 0.5)
             v = np.random.uniform(10, 100)
-            rows.append({"time": i, "open": o, "high": h, "low": low, "close": c, "volume": v})
+            rows.append(
+                {"time": i, "open": o, "high": h, "low": low, "close": c, "volume": v}
+            )
         df = pd.DataFrame(rows)
         df["time"] = df["time"].astype(int)
         return df
@@ -132,7 +134,9 @@ class TestDetectOrderBlock(unittest.TestCase):
                 h = max(o, c) + 0.3
                 low = min(o, c) - 0.3
                 v = np.random.uniform(10, 50)
-            rows.append({"time": i, "open": o, "high": h, "low": low, "close": c, "volume": v})
+            rows.append(
+                {"time": i, "open": o, "high": h, "low": low, "close": c, "volume": v}
+            )
         df = pd.DataFrame(rows)
         df["time"] = df["time"].astype(int)
         StrategyUtils._ob_cache.clear()

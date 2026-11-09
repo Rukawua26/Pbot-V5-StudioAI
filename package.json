@@ -1,12 +1,12 @@
 {
-  "name": "sniper-ai-monitor",
+  "name": "sniper-ai-monitor-demo",
   "version": "1.0.0",
-  "description": "Risk Radar & Master Monitor for Sniper AI",
+  "description": "DEMO / SIMULATOR ONLY - not connected to the trading bot. Do not use for real trading decisions.",
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "dev": "node server.js",
-    "start": "node server.js",
+    "demo": "node server.js",
+    "start": "node -e \"console.error('ERROR: npm start is disabled. Use npm run demo for the simulator, or run the Python dashboard (tools/dashboard.py).'); process.exit(1)\"",
     "lint": "node -e \"console.log('Lint check passed')\"",
     "build": "node -e \"console.log('Build complete')\""
   },

@@ -20,9 +20,13 @@ class RecoveryDrillTest(unittest.TestCase):
         scenarios = {row["scenario"]: row for row in report["scenarios"]}
 
         self.assertTrue(scenarios["restart_orphan_hard_sl_failure_halts"]["ok"])
-        self.assertTrue(scenarios["restart_orphan_hard_sl_failure_halts"]["halt_system_active"])
+        self.assertTrue(
+            scenarios["restart_orphan_hard_sl_failure_halts"]["halt_system_active"]
+        )
         self.assertTrue(scenarios["restart_fetch_positions_ambiguous_halts"]["ok"])
-        self.assertTrue(scenarios["restart_fetch_positions_ambiguous_halts"]["halt_system_active"])
+        self.assertTrue(
+            scenarios["restart_fetch_positions_ambiguous_halts"]["halt_system_active"]
+        )
 
 
 if __name__ == "__main__":

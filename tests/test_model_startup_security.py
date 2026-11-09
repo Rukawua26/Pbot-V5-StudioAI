@@ -26,7 +26,9 @@ class ModelStartupSecurityTest(unittest.TestCase):
         self.assertIs(bot.ml_performance, performance_cls.return_value)
         self.assertIs(bot.ml_alerts, alerts_cls.return_value)
         self.assertFalse(
-            any("Error inicializando" in call.args[0] for call in bot.log.call_args_list)
+            any(
+                "Error inicializando" in call.args[0] for call in bot.log.call_args_list
+            )
         )
 
     def test_features_migration_reads_rowcount_from_cursor(self):
@@ -54,15 +56,22 @@ class ModelStartupSecurityTest(unittest.TestCase):
             init_models_and_startup_tasks(bot, None, None, None)
 
         self.assertTrue(
-            any("Features version migrada: 2" in call.args[0] for call in bot.log.call_args_list)
+            any(
+                "Features version migrada: 2" in call.args[0]
+                for call in bot.log.call_args_list
+            )
         )
 
     @patch.dict("os.environ", {}, clear=False)
     @patch("core.bot_models_startup.threading.Thread")
     @patch("core.bot_models_startup.joblib.load")
     @patch("core.bot_models_startup.os.path.exists")
-    def test_lstm_legacy_load_requires_explicit_opt_in(self, exists, joblib_load, thread_cls):
-        exists.side_effect = lambda path: path in {"models/lstm_model.h5", "models/scaler.pkl"}
+    def test_lstm_legacy_load_requires_explicit_opt_in(
+        self, exists, joblib_load, thread_cls
+    ):
+        exists.side_effect = lambda path: (
+            path in {"models/lstm_model.h5", "models/scaler.pkl"}
+        )
         thread_cls.return_value.start = MagicMock()
         tf_module = SimpleNamespace(
             keras=SimpleNamespace(models=SimpleNamespace(load_model=MagicMock()))

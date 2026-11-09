@@ -40,6 +40,41 @@ SHADOW_VALIDATION_ENABLED=true
 SHADOW_VALIDATION_CAMPAIGN=shadow_macro_fvg_consensus_v1
 ```
 
+## SHADOW como maestro de REAL (cuenta pequena)
+
+Objetivo: que cada trade SHADOW sea uno que una cuenta REAL del mismo tamano podria abrir.
+Con `SHADOW_MIRROR_REAL_LIMITS=true`, SHADOW aplica los mismos limites que REAL:
+
+- margen maximo (`MAX_MARGIN_PERCENT` x leverage fijo 10x de `core/config/strategy.py`) y `MAX_RISK_USD`, tambien en el veto final;
+- minimo notional por simbolo del exchange (`markets[...]['limits']['cost']['min']`), que gana
+  sobre `MIN_NOTIONAL_VALUE`;
+- precision de cantidad del exchange; si la orden se sube al minimo, se redondea HACIA ARRIBA un
+  step y se revalidan riesgo y margen (nunca queda por debajo del minimo).
+
+SHADOW sigue sin enviar ordenes: solo cambia el sizing. Con el flag en `false` (default) SHADOW
+conserva el sizing permisivo anterior. REAL no depende del flag.
+
+```env
+PAPER_MODE=true
+ALLOW_REAL_TRADING=false
+PAPER_INITIAL_BALANCE=20
+SHADOW_MIRROR_REAL_LIMITS=true
+MAX_MARGIN_PERCENT=5
+RISK_PER_TRADE_PERCENT=1.2
+MAX_RISK_USD=2.0
+MAX_OPEN_TRADES=3
+SHADOW_VALIDATION_ENABLED=true
+SHADOW_VALIDATION_CAMPAIGN=shadow_mirror_real_20usd_v1
+```
+
+Con $20 el notional maximo es $10: BTC (min $50), ETH (min $20) y LINK (min $20) se rechazan
+con `RISK_SIZE_MIN_MARGIN` (-6), igual que en REAL. Reglas offline equivalentes: `tools/ttf_backtest.py`
+(`size_account_trade`).
+
+Importante: ninguna estrategia probada hasta ahora tiene ventaja (ver `odd/tasks/edge-20usd.md`,
+`mtf-pullback-v2.md`, `mean-reversion-v3.md`). Esta campana valida la operativa (sizing, ordenes,
+stops, reconciliacion), no la rentabilidad.
+
 ## Reporte semanal
 
 ```bash

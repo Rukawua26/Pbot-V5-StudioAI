@@ -9,7 +9,8 @@ from core.trade_manager import close_trade
 class RuntimeSafetyRegressionTest(unittest.TestCase):
     def _tp1_bot(self, order_result=None, order_error=None):
         execution = SimpleNamespace(
-            create_reduce_only_market_order=MagicMock(return_value=order_result)
+            create_reduce_only_market_order=MagicMock(return_value=order_result),
+            fetch_order_by_client_id=MagicMock(return_value=None),
         )
         if order_error is not None:
             execution.create_reduce_only_market_order.side_effect = order_error
@@ -106,6 +107,74 @@ class RuntimeSafetyRegressionTest(unittest.TestCase):
     @patch("core.bot_guardian.Config.TP1_LEVEL", 1.0)
     @patch("core.bot_guardian.Config.TP1_PERCENT", 50.0)
     @patch("core.bot_guardian.Config.PAPER_MODE", False)
+    def test_tp1_ambiguous_trade_is_not_retried(self):
+        from core.bot_guardian import _handle_tp1
+
+        bot = self._tp1_bot(order_result={"status": "closed", "filled": 0.4})
+        trade = {
+            "trade_key": "BTC/USDT",
+            "symbol": "BTC/USDT",
+            "side": "BUY",
+            "pnl": 1.2,
+            "size_usd": 100.0,
+            "amount": 1.0,
+            "is_shadow": False,
+            "status": "TP1_EXIT_AMBIGUOUS",
+            "tp1_client_order_id": "tp1-stable-id",
+        }
+
+        result = _handle_tp1(bot, "BTC/USDT", trade, 100.0)
+
+        self.assertFalse(result)
+        bot.execution.create_reduce_only_market_order.assert_not_called()
+        # Stable id is preserved, not regenerated.
+        self.assertEqual(trade["tp1_client_order_id"], "tp1-stable-id")
+
+    @patch("core.bot_guardian.Config.TP1_ENABLED", True)
+    @patch("core.bot_guardian.Config.TP1_LEVEL", 1.0)
+    @patch("core.bot_guardian.Config.TP1_PERCENT", 50.0)
+    @patch("core.bot_guardian.Config.PAPER_MODE", False)
+    def test_tp1_real_reconciles_ambiguous_fill_by_client_id(self):
+        from core.bot_guardian import _handle_tp1
+
+        execution = SimpleNamespace(
+            create_reduce_only_market_order=MagicMock(
+                side_effect=RuntimeError("exchange down")
+            ),
+            fetch_order_by_client_id=MagicMock(
+                return_value={"status": "filled", "filled": 0.4}
+            ),
+        )
+        bot = SimpleNamespace(
+            db_lock=RLock(),
+            execution=execution,
+            brain=SimpleNamespace(save_active_trade_state=MagicMock()),
+            is_hedge_mode=False,
+            is_paused=False,
+            integrity_lock_active=False,
+            halt_system_active=False,
+            log=MagicMock(),
+        )
+        trade = {
+            "trade_key": "BTC/USDT",
+            "symbol": "BTC/USDT",
+            "side": "BUY",
+            "pnl": 1.2,
+            "size_usd": 100.0,
+            "amount": 1.0,
+            "is_shadow": False,
+        }
+
+        self.assertTrue(_handle_tp1(bot, "BTC/USDT", trade, 100.0))
+
+        self.assertTrue(trade["tp1_triggered"])
+        self.assertAlmostEqual(trade["amount"], 0.6)
+        execution.fetch_order_by_client_id.assert_called_once()
+
+    @patch("core.bot_guardian.Config.TP1_ENABLED", True)
+    @patch("core.bot_guardian.Config.TP1_LEVEL", 1.0)
+    @patch("core.bot_guardian.Config.TP1_PERCENT", 50.0)
+    @patch("core.bot_guardian.Config.PAPER_MODE", False)
     def test_tp1_real_closed_without_filled_amount_halts(self):
         from core.bot_guardian import _handle_tp1
 
@@ -192,7 +261,11 @@ class RuntimeSafetyRegressionTest(unittest.TestCase):
             recent_closed_trades=[],
             execution=SimpleNamespace(
                 close_position=MagicMock(
-                    return_value={"id": "exit-1", "status": "open", "exit_state": "STUCK"}
+                    return_value={
+                        "id": "exit-1",
+                        "status": "open",
+                        "exit_state": "STUCK",
+                    }
                 ),
                 fetch_positions=MagicMock(
                     return_value=[

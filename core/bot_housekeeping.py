@@ -52,7 +52,9 @@ def _send_mobile_report(bot, *, prefix="", log_message="") -> bool:
     return True
 
 
-def run_periodic_housekeeping(bot, now, last_report_time, last_coach_time, last_log_check):
+def run_periodic_housekeeping(
+    bot, now, last_report_time, last_coach_time, last_log_check
+):
     reports_enabled = bool(getattr(Config, "AUTO_MOBILE_REPORTS_ENABLED", True))
     if (
         reports_enabled
@@ -70,7 +72,11 @@ def run_periodic_housekeeping(bot, now, last_report_time, last_coach_time, last_
     if now.hour == 0:
         bot.day_report_sent = False
 
-    if now.hour == 0 and now.minute == 0 and not getattr(bot, "daily_backup_done", False):
+    if (
+        now.hour == 0
+        and now.minute == 0
+        and not getattr(bot, "daily_backup_done", False)
+    ):
         backup_fn = getattr(bot, "_backup_database_fn", None)
         if backup_fn:
             bot.log("🛡️ Iniciando backup diario automático...")
@@ -83,7 +89,9 @@ def run_periodic_housekeeping(bot, now, last_report_time, last_coach_time, last_
         bot.daily_backup_done = False
 
     if reports_enabled and time.time() - last_report_time > (4 * 3600):
-        if _send_mobile_report(bot, log_message="📱 Enviando reporte móvil automático..."):
+        if _send_mobile_report(
+            bot, log_message="📱 Enviando reporte móvil automático..."
+        ):
             last_report_time = time.time()
 
     if time.time() - last_coach_time > 3600:
@@ -102,7 +110,9 @@ def run_periodic_housekeeping(bot, now, last_report_time, last_coach_time, last_
                     bot.log(f"⚠️ Error AI Coach auto: {error}")
             else:
                 if not getattr(bot, "_ai_coach_missing_logged", False):
-                    bot.log("ℹ️ AI Coach auto desactivado: tools/ai_coach.py no encontrado.")
+                    bot.log(
+                        "ℹ️ AI Coach auto desactivado: tools/ai_coach.py no encontrado."
+                    )
                     bot._ai_coach_missing_logged = True
         except Exception:
             if not getattr(bot, "_ai_coach_missing_logged", False):
@@ -125,7 +135,9 @@ def run_periodic_housekeeping(bot, now, last_report_time, last_coach_time, last_
         with bot.db_lock:
             drop_detected, curr_wr, prev_wr = bot.brain.check_performance_drop()
         if drop_detected:
-            bot.log(f"🚨 ALERTA DE RENDIMIENTO: WR cayó de {prev_wr:.1f}% a {curr_wr:.1f}%")
+            bot.log(
+                f"🚨 ALERTA DE RENDIMIENTO: WR cayó de {prev_wr:.1f}% a {curr_wr:.1f}%"
+            )
             send_telegram_msg(
                 f"🚨 *ALERTA CRÍTICA: CAÍDA DE RENDIMIENTO*\n"
                 f"El Win Rate ha caído un *{prev_wr - curr_wr:.1f}%* en 24h.\n"

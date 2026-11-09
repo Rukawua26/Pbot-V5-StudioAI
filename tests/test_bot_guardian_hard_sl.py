@@ -4,7 +4,9 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 
-def _valid_hard_sl_ack(symbol: str, sl_side: str, amount: float, order_id: str = "new-sl") -> dict:
+def _valid_hard_sl_ack(
+    symbol: str, sl_side: str, amount: float, order_id: str = "new-sl"
+) -> dict:
     """ACK estructuralmente válido para hard_sl_ack_looks_valid."""
     return {
         "id": order_id,
@@ -68,7 +70,9 @@ class GuardianHardSlSyncTest(unittest.TestCase):
             "sl_client_order_id": "SL_BASE",
             "sl_amend_count": 1,
         }
-        bot = self._bot(MagicMock(return_value=_valid_hard_sl_ack("BTC/USDT", "buy", 0.2)))
+        bot = self._bot(
+            MagicMock(return_value=_valid_hard_sl_ack("BTC/USDT", "buy", 0.2))
+        )
 
         _sync_tightened_hard_sl(bot, "BTC/USDT", trade, previous_sl=100.0)
 
@@ -92,7 +96,9 @@ class GuardianHardSlSyncTest(unittest.TestCase):
             "sl_exchange_order_id": "old-sl",
             "sl_client_order_id": "SL_BASE",
         }
-        bot = self._bot(MagicMock(return_value=_valid_hard_sl_ack("BTC/USDT", "sell", 0.2)))
+        bot = self._bot(
+            MagicMock(return_value=_valid_hard_sl_ack("BTC/USDT", "sell", 0.2))
+        )
         bot.execution.cancel_order.side_effect = RuntimeError("cancel ambiguous")
 
         _sync_tightened_hard_sl(bot, "BTC/USDT", trade, previous_sl=100.0)

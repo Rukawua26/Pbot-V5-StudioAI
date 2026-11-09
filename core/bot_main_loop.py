@@ -106,7 +106,9 @@ def run_main_logic(bot):
             bot.check_weekly_maintenance_utc()
             try:
                 base_bal_safe = (
-                    bot.daily_initial_balance if bot.daily_initial_balance > 0 else bot.balance
+                    bot.daily_initial_balance
+                    if bot.daily_initial_balance > 0
+                    else bot.balance
                 )
                 pnl_real_safe, _ = bot.brain.get_daily_real_pnl(base_bal_safe)
                 bot.check_safety_and_goals(current_pnl=pnl_real_safe)
@@ -122,11 +124,13 @@ def run_main_logic(bot):
                 bot._perform_post_mortem()
                 bot.last_pm_check = time.time()
 
-            last_report_time, last_coach_time, last_log_check = bot._run_periodic_housekeeping(
-                now,
-                last_report_time,
-                last_coach_time,
-                last_log_check,
+            last_report_time, last_coach_time, last_log_check = (
+                bot._run_periodic_housekeeping(
+                    now,
+                    last_report_time,
+                    last_coach_time,
+                    last_log_check,
+                )
             )
 
             bot._run_btc_panic_cycle()
@@ -142,7 +146,9 @@ def run_main_logic(bot):
                 continue
 
             if not bot.pairs_to_scan:
-                bot.log("⚠️ Lista de objetivos vacía tras triaje. Esperando siguiente ciclo...")
+                bot.log(
+                    "⚠️ Lista de objetivos vacía tras triaje. Esperando siguiente ciclo..."
+                )
                 bot._run_cycle_wait_and_api_log()
                 continue
 
@@ -161,7 +167,9 @@ def run_main_logic(bot):
 
             top_triage = bot._prepare_top_triage(triage_snapshot)
             if not top_triage:
-                bot.log("⚠️ Sin candidatos válidos tras cuarentena. Esperando siguiente ciclo...")
+                bot.log(
+                    "⚠️ Sin candidatos válidos tras cuarentena. Esperando siguiente ciclo..."
+                )
                 bot._run_cycle_wait_and_api_log()
                 continue
 

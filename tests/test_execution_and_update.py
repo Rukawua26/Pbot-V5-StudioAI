@@ -92,7 +92,9 @@ class TestExecuteAndUpdateSymbol(unittest.TestCase):
 
     def test_scanner_history_updated(self):
         bot, _ = _make_bot("BOT_PAUSED: paused")
-        bot.scanner_history = [{"symbol": "BTC/USDT", "result": "", "ia_real": "", "ia_shadow": ""}]
+        bot.scanner_history = [
+            {"symbol": "BTC/USDT", "result": "", "ia_real": "", "ia_shadow": ""}
+        ]
         _execute_and_update_symbol(bot=bot, **self.kw)
         self.assertIn("VETO", bot.scanner_history[0]["result"])
 

@@ -175,7 +175,9 @@ def is_closed(status: str | TradeStatus) -> bool:
     return status in _CLOSED_STATES
 
 
-def validate_transition(current: str | TradeStatus, next_status: str | TradeStatus) -> bool:
+def validate_transition(
+    current: str | TradeStatus, next_status: str | TradeStatus
+) -> bool:
     if isinstance(current, str):
         try:
             current = TradeStatus(current)

@@ -50,11 +50,15 @@ def check_for_evolution(bot):
 
     # Reentrenar cada 7 días O si hay más de 100 nuevos trades
     cursor = bot.brain._get_conn().cursor()
-    cursor.execute("SELECT COUNT(*) FROM trades WHERE timestamp > ?", (last_train.isoformat(),))
+    cursor.execute(
+        "SELECT COUNT(*) FROM trades WHERE timestamp > ?", (last_train.isoformat(),)
+    )
     new_trades = cursor.fetchone()[0]
 
     if days_since_train >= 7 or new_trades >= 100:
-        bot.log(f"🧠 Reentrenando IA (días: {days_since_train}, trades nuevos: {new_trades})")
+        bot.log(
+            f"🧠 Reentrenando IA (días: {days_since_train}, trades nuevos: {new_trades})"
+        )
         bot.log(
             "ℹ️ Entrenamiento pendiente: usa /force_train para lanzar ghost_trainer "
             "en background. No se actualiza timestamp hasta que el entrenamiento real termine."
@@ -85,8 +89,15 @@ def run_genetic_batch(bot) -> dict:
         append_execution_event(bot, "GENETIC_BATCH_SKIPPED", {"reason": "DISABLED"})
         return {"status": "SKIPPED", "reason": "DISABLED", "processed": 0, "mutated": 0}
     if not pending:
-        append_execution_event(bot, "GENETIC_BATCH_SKIPPED", {"reason": "NO_PENDING_SYMBOLS"})
-        return {"status": "SKIPPED", "reason": "NO_PENDING_SYMBOLS", "processed": 0, "mutated": 0}
+        append_execution_event(
+            bot, "GENETIC_BATCH_SKIPPED", {"reason": "NO_PENDING_SYMBOLS"}
+        )
+        return {
+            "status": "SKIPPED",
+            "reason": "NO_PENDING_SYMBOLS",
+            "processed": 0,
+            "mutated": 0,
+        }
 
     min_trades = int(getattr(Config, "GENETIC_BATCH_MIN_TRADES", 50) or 50)
     append_execution_event(
@@ -112,7 +123,9 @@ def run_genetic_batch(bot) -> dict:
         if bot.brain.evolve_genetics(symbol):
             mutated += 1
             bot.log(f"🧬 ADN MUTADO: {symbol} ha evolucionado sus parámetros SL/TP.")
-            append_execution_event(bot, "GENETIC_BATCH_SWAP_APPLIED", {"symbol": symbol})
+            append_execution_event(
+                bot, "GENETIC_BATCH_SWAP_APPLIED", {"symbol": symbol}
+            )
         still_pending.discard(symbol)
 
     bot._genetic_batch_pending_symbols = still_pending

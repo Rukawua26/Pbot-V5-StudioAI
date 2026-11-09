@@ -34,7 +34,12 @@ class ShadowReadinessGateTests(unittest.TestCase):
                 "entry_ack_unknown": 0,
                 "entry_ack_unknown_rate": 0.0,
             },
-            {"samples": 40, "rss_max": 500.0, "cpu_max": 55.0, "guardian_busy_max": 40.0},
+            {
+                "samples": 40,
+                "rss_max": 500.0,
+                "cpu_max": 55.0,
+                "guardian_busy_max": 40.0,
+            },
             {
                 "halt_system_active": False,
                 "integrity_lock_active": False,
@@ -64,7 +69,12 @@ class ShadowReadinessGateTests(unittest.TestCase):
                 "entry_ack_unknown": 1,
                 "entry_ack_unknown_rate": 0.2,
             },
-            {"samples": 4, "rss_max": 900.0, "cpu_max": 99.0, "guardian_busy_max": 96.0},
+            {
+                "samples": 4,
+                "rss_max": 900.0,
+                "cpu_max": 99.0,
+                "guardian_busy_max": 96.0,
+            },
             {
                 "halt_system_active": True,
                 "integrity_lock_active": False,
@@ -108,7 +118,8 @@ class ShadowReadinessGateTests(unittest.TestCase):
         ]
 
         filtered = filter_rows_since_ts(
-            rows, __import__("datetime").datetime.fromisoformat("2026-01-01T12:00:00+00:00")
+            rows,
+            __import__("datetime").datetime.fromisoformat("2026-01-01T12:00:00+00:00"),
         )
 
         self.assertEqual([row["event"] for row in filtered], ["NEW", "UNKNOWN"])

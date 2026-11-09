@@ -13,10 +13,15 @@ class SymbolUtilsTest(unittest.TestCase):
         self.assertEqual(normalize_position_symbol("WLF I/USDT"), "WLFI/USDT")
 
     def test_strict_mode_rejects_invalid_or_short_base(self):
-        self.assertEqual(normalize_position_symbol("", default_quote="USDT", strict=True), "")
-        self.assertEqual(normalize_position_symbol("X", default_quote="USDT", strict=True), "")
         self.assertEqual(
-            normalize_position_symbol("BTC", default_quote="USDT", strict=True), "BTC/USDT"
+            normalize_position_symbol("", default_quote="USDT", strict=True), ""
+        )
+        self.assertEqual(
+            normalize_position_symbol("X", default_quote="USDT", strict=True), ""
+        )
+        self.assertEqual(
+            normalize_position_symbol("BTC", default_quote="USDT", strict=True),
+            "BTC/USDT",
         )
 
 

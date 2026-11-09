@@ -22,7 +22,9 @@ def _synthetic_candles(months: int = 6, rows_per_month: int = 80) -> pd.DataFram
             + pd.Timedelta(days=idx // rows_per_month * 31)
             + pd.Timedelta(hours=idx % rows_per_month)
         )
-        drift = math.sin(idx / 9.0) * 0.45 + (0.08 if (idx // rows_per_month) % 2 == 0 else -0.04)
+        drift = math.sin(idx / 9.0) * 0.45 + (
+            0.08 if (idx // rows_per_month) % 2 == 0 else -0.04
+        )
         open_price = price
         close = max(1.0, open_price + drift)
         high = max(open_price, close) + 0.8
@@ -45,7 +47,9 @@ class WalkForwardBacktestToolTest(unittest.TestCase):
     def test_load_candles_requires_ohlcv_columns(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "bad.csv"
-            pd.DataFrame({"time": ["2025-01-01"], "close": [1.0]}).to_csv(path, index=False)
+            pd.DataFrame({"time": ["2025-01-01"], "close": [1.0]}).to_csv(
+                path, index=False
+            )
 
             with self.assertRaises(ValueError) as ctx:
                 load_candles_csv(path)

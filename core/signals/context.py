@@ -26,12 +26,16 @@ def _build_symbol_context(bot, symbol_raw, symbol, df_main, price, ind, audit_si
     current_adx = float(
         raw_metrics.get("adx", ind.get("adx", _safe_series_float(df_main, "adx", 0.0)))
     )
-    current_rsi = float(raw_metrics.get("rsi", _safe_series_float(df_main, "rsi", 50.0)))
+    current_rsi = float(
+        raw_metrics.get("rsi", _safe_series_float(df_main, "rsi", 50.0))
+    )
     current_atr = float(raw_metrics.get("atr", _safe_series_float(df_main, "atr", 0.0)))
     volume_now = _safe_series_float(
         df_main, "volume_raw", _safe_series_float(df_main, "volume", 0.0)
     )
-    volume_ma = float(raw_metrics.get("volume_ma", _safe_series_float(df_main, "volume_ma", 0.0)))
+    volume_ma = float(
+        raw_metrics.get("volume_ma", _safe_series_float(df_main, "volume_ma", 0.0))
+    )
     close_raw = _safe_series_float(df_main, "close", price)
 
     trend_adx_threshold = float(getattr(Config, "SIDE_PARITY_MIN_ADX", 25.0) or 25.0)
@@ -54,7 +58,9 @@ def _build_symbol_context(bot, symbol_raw, symbol, df_main, price, ind, audit_si
         "ema_compression": float(raw_metrics.get("ema_compression", 0.0) or 0.0),
         "ema50_slope": float(raw_metrics.get("ema50_slope", 0.0) or 0.0),
         "ema50_slope_alt": float(raw_metrics.get("ema50_slope_alt", 0.0) or 0.0),
-        "ema50_slope_alt_lookback": float(raw_metrics.get("ema50_slope_alt_lookback", 0.0) or 0.0),
+        "ema50_slope_alt_lookback": float(
+            raw_metrics.get("ema50_slope_alt_lookback", 0.0) or 0.0
+        ),
         "df_1h": df_main,
         "atr": current_atr,
         "atr_pct": atr_pct_raw,
@@ -83,6 +89,9 @@ def _build_symbol_context(bot, symbol_raw, symbol, df_main, price, ind, audit_si
         "agent_signal_resolved",
         "stop_loss",
         "ttf_metrics",
+        "signal_close_time",
+        "signal_id",
+        "setup_timestamp",
     ):
         if key in ind:
             ctx[key] = ind.get(key)
@@ -96,8 +105,12 @@ def _build_symbol_context(bot, symbol_raw, symbol, df_main, price, ind, audit_si
     ctx["market_hour"] = datetime.now().hour
     market_breadth = getattr(bot, "market_breadth", {}) or {}
     ctx["market_breadth_sentiment"] = str(market_breadth.get("sentiment", "") or "")
-    ctx["market_breadth_dump_ratio"] = float(market_breadth.get("dump_ratio", 0.0) or 0.0)
-    ctx["market_breadth_pump_ratio"] = float(market_breadth.get("pump_ratio", 0.0) or 0.0)
+    ctx["market_breadth_dump_ratio"] = float(
+        market_breadth.get("dump_ratio", 0.0) or 0.0
+    )
+    ctx["market_breadth_pump_ratio"] = float(
+        market_breadth.get("pump_ratio", 0.0) or 0.0
+    )
     global_m = getattr(bot, "global_market_cache", None) or {}
     ctx["btc_dominance"] = float(global_m.get("btc_dominance", 0.0) or 0.0)
     ctx["eth_dominance"] = float(global_m.get("eth_dominance", 0.0) or 0.0)

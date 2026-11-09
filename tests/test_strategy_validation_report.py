@@ -122,7 +122,9 @@ class StrategyValidationReportTests(unittest.TestCase):
                 }
             },
             regime_rows=[{"regime": "RANGE", "trades": 12, "expectancy_pct": 0.1}],
-            fidelity={"summary": {"weighted_fidelity_score": 0.75, "total_samples": 10}},
+            fidelity={
+                "summary": {"weighted_fidelity_score": 0.75, "total_samples": 10}
+            },
             min_profit_factor=1.2,
             max_drawdown=0.20,
             min_positive_windows_ratio=0.5,

@@ -22,7 +22,9 @@ class AblationBacktestToolTest(unittest.TestCase):
         self.assertEqual(report["baseline_mode"], "mt_sr_regime")
         self.assertEqual(len(report["rows"]), 4)
         self.assertIn("profit_factor", report["baseline"])
-        self.assertGreaterEqual(report["rows"][0]["objective"], report["rows"][-1]["objective"])
+        self.assertGreaterEqual(
+            report["rows"][0]["objective"], report["rows"][-1]["objective"]
+        )
 
     def test_backtester_rejects_unknown_strategy_mode(self):
         params = BacktestParams(

@@ -80,7 +80,9 @@ class MTAgent(BaseAgent):
         if df is None or len(df) < 21:
             return 50.0
         closes = df["close"]
-        alma_offset = float(alma_offset if alma_offset is not None else self.alma_offset)
+        alma_offset = float(
+            alma_offset if alma_offset is not None else self.alma_offset
+        )
         alma_sigma = float(alma_sigma if alma_sigma is not None else self.alma_sigma)
 
         # [AUDIT V118] Derivada ALMA: momento en t y en t-1
@@ -98,8 +100,14 @@ class MTAgent(BaseAgent):
             closes.iloc[:-1], window=20, offset=alma_offset, sigma=alma_sigma
         )
 
-        mom_now = (alma_short_now - alma_long_now) / alma_long_now if alma_long_now > 0 else 0
-        mom_prev = (alma_short_prev - alma_long_prev) / alma_long_prev if alma_long_prev > 0 else 0
+        mom_now = (
+            (alma_short_now - alma_long_now) / alma_long_now if alma_long_now > 0 else 0
+        )
+        mom_prev = (
+            (alma_short_prev - alma_long_prev) / alma_long_prev
+            if alma_long_prev > 0
+            else 0
+        )
 
         # Escala gradual para evitar "todo o nada"
         if side == "BUY":
@@ -110,12 +118,15 @@ class MTAgent(BaseAgent):
             if mom_now < -0.002 and mom_prev < -0.001:
                 return 34.0
         elif side == "SELL":
+            # Directional scores: bearish momentum for a SELL must read as LOW
+            # (sell pressure), not high. Otherwise _resolve_signal_from_agents
+            # flips the signal to BUY.
             if mom_now < -0.004 and mom_prev < -0.002:
-                return 78.0
+                return 22.0
             if mom_now < -0.001 and mom_prev < 0.0:
-                return 66.0
-            if mom_now > 0.002 and mom_prev > 0.001:
                 return 34.0
+            if mom_now > 0.002 and mom_prev > 0.001:
+                return 66.0
         return 50.0
 
     def _get_divergence_score(self, df: pd.DataFrame, side: str) -> float:
@@ -132,9 +143,9 @@ class MTAgent(BaseAgent):
                 return 35.0
         else:
             if price.iloc[-1] > price.iloc[-5] and rsi.iloc[-1] < rsi.iloc[-5]:
-                return 80.0
+                return 20.0
             if price.iloc[-1] < price.iloc[-5] and rsi.iloc[-1] > rsi.iloc[-5]:
-                return 35.0
+                return 65.0
         return 50.0
 
     def vote(self, context: dict[str, Any]) -> float:

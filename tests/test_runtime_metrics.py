@@ -49,7 +49,9 @@ class RuntimeMetricsTest(unittest.TestCase):
             try:
                 os.chdir(tmp)
                 os.environ["SNIPER_DISABLE_FILE_TELEMETRY"] = "1"
-                append_runtime_metric("exchange_call", {"op": "fetch_balance", "ok": True})
+                append_runtime_metric(
+                    "exchange_call", {"op": "fetch_balance", "ok": True}
+                )
                 self.assertFalse(Path("logs/runtime_metrics.jsonl").exists())
             finally:
                 if old is None:

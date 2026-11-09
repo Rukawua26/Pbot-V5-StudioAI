@@ -178,7 +178,9 @@ class TrainModelsCuratedDatasetTest(unittest.TestCase):
     def test_load_trade_rows_creates_curated_view_and_filters_training_noise(self):
         db_path = self._make_db()
 
-        rows, filtered_noise = load_trade_rows(db_path, min_abs_pnl=0.10, max_abs_pnl=10.0)
+        rows, filtered_noise = load_trade_rows(
+            db_path, min_abs_pnl=0.10, max_abs_pnl=10.0
+        )
 
         self.assertEqual([row["symbol"] for row in rows], ["OK1/USDT", "OK2/USDT"])
         self.assertGreaterEqual(filtered_noise, 3)
@@ -194,7 +196,9 @@ class TrainModelsCuratedDatasetTest(unittest.TestCase):
 
     def test_build_dataset_uses_runtime_ghost_features_only(self):
         db_path = self._make_db()
-        rows, filtered_noise = load_trade_rows(db_path, min_abs_pnl=0.10, max_abs_pnl=10.0)
+        rows, filtered_noise = load_trade_rows(
+            db_path, min_abs_pnl=0.10, max_abs_pnl=10.0
+        )
 
         bundle = build_dataset(rows, filtered_noise)
 

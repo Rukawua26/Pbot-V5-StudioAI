@@ -46,7 +46,9 @@ class BotMaintenanceTest(unittest.TestCase):
         bot = SimpleNamespace(
             log=MagicMock(),
             brain=SimpleNamespace(
-                get_last_train_timestamp=MagicMock(return_value=datetime.now() - timedelta(days=8)),
+                get_last_train_timestamp=MagicMock(
+                    return_value=datetime.now() - timedelta(days=8)
+                ),
                 _get_conn=MagicMock(return_value=conn),
             ),
         )
@@ -82,7 +84,9 @@ class BotMiscOpsTest(unittest.TestCase):
 
         bot = SimpleNamespace(
             log=MagicMock(),
-            brain=SimpleNamespace(get_hourly_blacklist=MagicMock(side_effect=RuntimeError("db"))),
+            brain=SimpleNamespace(
+                get_hourly_blacklist=MagicMock(side_effect=RuntimeError("db"))
+            ),
         )
 
         load_ai_restrictions(bot)
@@ -95,7 +99,9 @@ class BotMiscOpsTest(unittest.TestCase):
         bot = SimpleNamespace(
             db_lock=RLock(),
             dynamic_offset=0.0,
-            brain=SimpleNamespace(get_stats=MagicMock(return_value={"shadow_win_rate": 40.0})),
+            brain=SimpleNamespace(
+                get_stats=MagicMock(return_value={"shadow_win_rate": 40.0})
+            ),
         )
 
         suffix = self_adjust_exigency(bot)
@@ -106,7 +112,10 @@ class BotMiscOpsTest(unittest.TestCase):
     def test_get_vol_24h_matches_symbol_variants(self):
         from core.bot_misc_ops import get_vol_24h
 
-        tickers = {"BTC/USDT": {"quoteVolume": "123"}, "ETH/USDT": {"quoteVolume": "456"}}
+        tickers = {
+            "BTC/USDT": {"quoteVolume": "123"},
+            "ETH/USDT": {"quoteVolume": "456"},
+        }
 
         self.assertEqual(get_vol_24h("BTC/USDT:USDT", tickers), 123.0)
         self.assertEqual(get_vol_24h("ETH/BUSD", tickers), 456.0)
@@ -142,7 +151,9 @@ class BotRuntimeOpsTest(unittest.TestCase):
             bot.is_running = False
             return {"status": "ok"}
 
-        bot.execution = SimpleNamespace(exchange=SimpleNamespace(fetch_status=fetch_status))
+        bot.execution = SimpleNamespace(
+            exchange=SimpleNamespace(fetch_status=fetch_status)
+        )
         with (
             patch("core.bot_runtime_ops.Config.USE_TESTNET", False),
             patch("core.bot_runtime_ops.time.sleep"),
@@ -168,7 +179,8 @@ class BotRuntimeOpsTest(unittest.TestCase):
             return {"last": 1.0}
 
         bot.execution = SimpleNamespace(
-            exchange=SimpleNamespace(fetch_status=fetch_status), fetch_ticker=fetch_ticker
+            exchange=SimpleNamespace(fetch_status=fetch_status),
+            fetch_ticker=fetch_ticker,
         )
         with (
             patch("core.bot_runtime_ops.Config.PAPER_MODE", True),
@@ -192,7 +204,8 @@ class BotRuntimeOpsTest(unittest.TestCase):
 
         fetch_ticker = MagicMock()
         bot.execution = SimpleNamespace(
-            exchange=SimpleNamespace(fetch_status=fetch_status), fetch_ticker=fetch_ticker
+            exchange=SimpleNamespace(fetch_status=fetch_status),
+            fetch_ticker=fetch_ticker,
         )
         with (
             patch("core.bot_runtime_ops.Config.PAPER_MODE", False),
@@ -212,14 +225,19 @@ class BotRuntimeOpsTest(unittest.TestCase):
         self.assertEqual(
             check_instinctive_safety(bot, "BTC/USDT", {"atr_pct": 0.06}), "FORCE_SHADOW"
         )
-        self.assertEqual(check_instinctive_safety(bot, "BTC/USDT", {"atr_pct": 0.01}), "OK")
+        self.assertEqual(
+            check_instinctive_safety(bot, "BTC/USDT", {"atr_pct": 0.01}), "OK"
+        )
 
     def test_close_all_positions_emergency_closes_snapshot(self):
         from core.bot_runtime_ops import close_all_positions_emergency
 
         bot = SimpleNamespace(
             lock=RLock(),
-            active_trades={"BTC/USDT": {"last_price": 100.0}, "ETH/USDT": {"last_price": 50.0}},
+            active_trades={
+                "BTC/USDT": {"last_price": 100.0},
+                "ETH/USDT": {"last_price": 50.0},
+            },
             close_trade=MagicMock(),
         )
 
@@ -250,7 +268,8 @@ class BotHousekeepingTest(unittest.TestCase):
         with (
             patch("core.bot_housekeeping.time.time", return_value=100.0),
             patch(
-                "tools.reporter.generate_mobile_report", side_effect=ModuleNotFoundError("reporter")
+                "tools.reporter.generate_mobile_report",
+                side_effect=ModuleNotFoundError("reporter"),
             ) as generate,
             patch("core.bot_housekeeping.append_runtime_metric") as metric,
         ):
@@ -272,7 +291,10 @@ class BotHousekeepingTest(unittest.TestCase):
         with (
             patch("core.bot_housekeeping.Config.AUTO_MOBILE_REPORTS_ENABLED", True),
             patch("core.bot_housekeeping.time.time", return_value=20_000.0),
-            patch("tools.reporter.generate_mobile_report", side_effect=RuntimeError("generation")),
+            patch(
+                "tools.reporter.generate_mobile_report",
+                side_effect=RuntimeError("generation"),
+            ),
             patch("core.bot_housekeeping.append_runtime_metric"),
         ):
             result = run_periodic_housekeeping(bot, now, 0.0, 20_000.0, 20_000.0)
@@ -396,7 +418,10 @@ class SymbolControlsTest(unittest.TestCase):
         self.assertIn("Error refreshing", bot.log.call_args.args[0])
 
     def test_funding_and_btc_cache_paths(self):
-        from core.bot_symbol_controls import get_cached_btc_data, get_cached_funding_rate
+        from core.bot_symbol_controls import (
+            get_cached_btc_data,
+            get_cached_funding_rate,
+        )
 
         bot = SimpleNamespace(
             _funding_rate_cache={},
@@ -406,7 +431,9 @@ class SymbolControlsTest(unittest.TestCase):
             execution=SimpleNamespace(
                 fetch_funding_rate=MagicMock(return_value={"fundingRate": "0.001"})
             ),
-            data_service=SimpleNamespace(fetch_and_update_data=MagicMock(return_value={"bars": 1})),
+            data_service=SimpleNamespace(
+                fetch_and_update_data=MagicMock(return_value={"bars": 1})
+            ),
         )
 
         with patch("core.bot_symbol_controls.time.time", return_value=100.0):
@@ -471,11 +498,14 @@ class MetricsExportTest(unittest.TestCase):
                 with (
                     patch("core.metrics_export.time.time", return_value=160.0),
                     patch(
-                        "core.metrics_export.collect_telemetry", return_value={"ts": "T", "db": 1}
+                        "core.metrics_export.collect_telemetry",
+                        return_value={"ts": "T", "db": 1},
                     ),
                 ):
                     summary = export_metrics_summary(bot)
-                written = json.loads(Path("logs/metrics_summary.json").read_text(encoding="utf-8"))
+                written = json.loads(
+                    Path("logs/metrics_summary.json").read_text(encoding="utf-8")
+                )
             finally:
                 os.chdir(cwd)
 

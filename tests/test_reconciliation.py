@@ -11,7 +11,9 @@ from core.reconciliation import (
 )
 
 
-def _valid_hard_sl_ack(symbol: str, sl_side: str, amount: float, order_id: str = "sl-1") -> dict:
+def _valid_hard_sl_ack(
+    symbol: str, sl_side: str, amount: float, order_id: str = "sl-1"
+) -> dict:
     """ACK estructuralmente válido para hard_sl_ack_looks_valid."""
     return {
         "id": order_id,
@@ -28,7 +30,9 @@ class ReconciliationTest(unittest.TestCase):
     @patch("core.reconciliation.Config.PAPER_MODE", True)
     @patch("core.reconciliation.Config.PAPER_INITIAL_BALANCE", 1000.0)
     def test_paper_bootstrap_reconciliation_skips_exchange_and_restores_margin(self):
-        execution = SimpleNamespace(fetch_positions=MagicMock(), supports_real_positions=False)
+        execution = SimpleNamespace(
+            fetch_positions=MagicMock(), supports_real_positions=False
+        )
         bot = SimpleNamespace(
             lock=RLock(),
             balance_lock=RLock(),
@@ -55,7 +59,9 @@ class ReconciliationTest(unittest.TestCase):
 
     @patch("core.reconciliation.Config.PAPER_MODE", True)
     def test_paper_bootstrap_halts_on_persisted_real_trade(self):
-        execution = SimpleNamespace(fetch_positions=MagicMock(), supports_real_positions=False)
+        execution = SimpleNamespace(
+            fetch_positions=MagicMock(), supports_real_positions=False
+        )
         brain = SimpleNamespace(save_error_snapshot=MagicMock())
         bot = SimpleNamespace(
             execution=execution,
@@ -137,7 +143,9 @@ class ReconciliationTest(unittest.TestCase):
 
             reconcile_bootstrap_state(bot)
 
-            self.assertTrue(bot.integrity_lock_active, "integrity_lock_active should be True")
+            self.assertTrue(
+                bot.integrity_lock_active, "integrity_lock_active should be True"
+            )
             self.assertTrue(bot.is_paused, "is_paused should be True")
         finally:
             RealConfig.PAPER_MODE = original_paper_mode
@@ -342,7 +350,9 @@ class ReconciliationTest(unittest.TestCase):
 
     def test_keeps_pending_trade_if_open_order_exists_by_client_order_id(self):
         # Generar ID con nuevo formato
-        entry_coid = generate_client_order_id("BTC/USDT", "BUY", 1712222222.123, "abc123")
+        entry_coid = generate_client_order_id(
+            "BTC/USDT", "BUY", 1712222222.123, "abc123"
+        )
 
         bot = SimpleNamespace()
         bot.lock = RLock()
@@ -393,7 +403,9 @@ class ReconciliationTest(unittest.TestCase):
     def test_marks_lost_when_no_position_and_no_open_order(self, mocked_tg):
         stale_ts = (datetime.now(UTC) - timedelta(seconds=180)).isoformat()
         # Generar ID con nuevo formato
-        missing_coid = generate_client_order_id("BTC/USDT", "BUY", 1712222222.123, "missing")
+        missing_coid = generate_client_order_id(
+            "BTC/USDT", "BUY", 1712222222.123, "missing"
+        )
 
         bot = SimpleNamespace()
         bot.lock = RLock()
@@ -430,13 +442,17 @@ class ReconciliationTest(unittest.TestCase):
         self.assertNotIn("BTC/USDT", bot.active_trades)
         bot.brain.save_error_snapshot.assert_called_once()
         bot.brain.delete_active_trade_state.assert_called_once_with("BTC/USDT")
-        self.assertEqual(bot.brain.save_error_snapshot.call_args[0][1], "INTENT_EXPIRED")
+        self.assertEqual(
+            bot.brain.save_error_snapshot.call_args[0][1], "INTENT_EXPIRED"
+        )
         mocked_tg.assert_called_once()
 
     def test_keeps_recent_pending_send_when_exchange_still_has_no_order(self):
         fresh_ts = (datetime.now(UTC) - timedelta(seconds=10)).isoformat()
         # Generar ID con nuevo formato
-        fresh_coid = generate_client_order_id("BTC/USDT", "BUY", 1712222222.123, "fresh")
+        fresh_coid = generate_client_order_id(
+            "BTC/USDT", "BUY", 1712222222.123, "fresh"
+        )
 
         bot = SimpleNamespace()
         bot.lock = RLock()
@@ -478,7 +494,9 @@ class ReconciliationTest(unittest.TestCase):
 
     def test_keeps_stale_pending_when_order_lookup_fails_transiently(self):
         stale_ts = (datetime.now(UTC) - timedelta(seconds=180)).isoformat()
-        entry_coid = generate_client_order_id("BTC/USDT", "BUY", 1712222222.123, "lookup")
+        entry_coid = generate_client_order_id(
+            "BTC/USDT", "BUY", 1712222222.123, "lookup"
+        )
 
         bot = SimpleNamespace()
         bot.lock = RLock()
@@ -513,7 +531,9 @@ class ReconciliationTest(unittest.TestCase):
         reconcile_bootstrap_state(bot)
 
         self.assertIn("BTC/USDT", bot.active_trades)
-        self.assertEqual(bot.active_trades["BTC/USDT"].get("status"), "ORDER_LOOKUP_FAILED")
+        self.assertEqual(
+            bot.active_trades["BTC/USDT"].get("status"), "ORDER_LOOKUP_FAILED"
+        )
         bot.brain.delete_active_trade_state.assert_not_called()
         bot.brain.save_error_snapshot.assert_any_call(
             "BTC/USDT",
@@ -609,7 +629,9 @@ class ReconciliationTest(unittest.TestCase):
 
         self.assertNotIn("XRP/USDT", bot.active_trades)
         bot.brain.save_error_snapshot.assert_called_once()
-        self.assertEqual(bot.brain.save_error_snapshot.call_args[0][1], "LOST_IN_TRANSMISSION")
+        self.assertEqual(
+            bot.brain.save_error_snapshot.call_args[0][1], "LOST_IN_TRANSMISSION"
+        )
         bot.brain.delete_active_trade_state.assert_called_once_with("XRP/USDT")
 
     @patch("core.reconciliation.Config.PAPER_MODE", True)
@@ -624,7 +646,9 @@ class ReconciliationTest(unittest.TestCase):
         bot.is_paused = False
         bot.integrity_lock_active = False
         bot.log = MagicMock()
-        bot.execution = SimpleNamespace(fetch_positions=MagicMock(side_effect=RuntimeError("down")))
+        bot.execution = SimpleNamespace(
+            fetch_positions=MagicMock(side_effect=RuntimeError("down"))
+        )
         bot.get_current_balance = lambda: 100.0
         bot.brain = SimpleNamespace(
             save_active_trade_state=MagicMock(),
@@ -652,7 +676,9 @@ class ReconciliationTest(unittest.TestCase):
         bot.integrity_lock_active = False
         bot.halt_system_active = False
         bot.log = MagicMock()
-        bot.execution = SimpleNamespace(fetch_positions=MagicMock(side_effect=RuntimeError("down")))
+        bot.execution = SimpleNamespace(
+            fetch_positions=MagicMock(side_effect=RuntimeError("down"))
+        )
         bot.get_current_balance = lambda: 100.0
         bot.brain = SimpleNamespace(
             save_active_trade_state=MagicMock(),
@@ -677,7 +703,9 @@ class ReconciliationTest(unittest.TestCase):
         bot.is_paused = False
         bot.integrity_lock_active = False
         bot.log = MagicMock()
-        bot.execution = SimpleNamespace(fetch_positions=lambda: [], fetch_open_orders=lambda: [])
+        bot.execution = SimpleNamespace(
+            fetch_positions=lambda: [], fetch_open_orders=lambda: []
+        )
         bot.get_current_balance = MagicMock(side_effect=RuntimeError("balance down"))
         bot.brain = SimpleNamespace(
             save_active_trade_state=MagicMock(),
@@ -697,7 +725,9 @@ class OrphanAdoptionTest(unittest.TestCase):
         from core.config.operational import OperationalConfig
 
         original_min = getattr(OperationalConfig, "ORPHAN_ADOPTION_MIN_SIZE_USD", 10.0)
-        original_max = getattr(OperationalConfig, "ORPHAN_ADOPTION_MAX_SIZE_USD", 10000.0)
+        original_max = getattr(
+            OperationalConfig, "ORPHAN_ADOPTION_MAX_SIZE_USD", 10000.0
+        )
         OperationalConfig.ORPHAN_ADOPTION_MIN_SIZE_USD = 10.0
         OperationalConfig.ORPHAN_ADOPTION_MAX_SIZE_USD = 10000.0
 
@@ -742,7 +772,9 @@ class OrphanAdoptionTest(unittest.TestCase):
         from core.config.operational import OperationalConfig
 
         original_min = getattr(OperationalConfig, "ORPHAN_ADOPTION_MIN_SIZE_USD", 10.0)
-        original_max = getattr(OperationalConfig, "ORPHAN_ADOPTION_MAX_SIZE_USD", 10000.0)
+        original_max = getattr(
+            OperationalConfig, "ORPHAN_ADOPTION_MAX_SIZE_USD", 10000.0
+        )
         OperationalConfig.ORPHAN_ADOPTION_MIN_SIZE_USD = 10.0
         OperationalConfig.ORPHAN_ADOPTION_MAX_SIZE_USD = 10000.0
 
@@ -787,7 +819,9 @@ class OrphanAdoptionTest(unittest.TestCase):
         from core.config.operational import OperationalConfig
 
         original_min = getattr(OperationalConfig, "ORPHAN_ADOPTION_MIN_SIZE_USD", 10.0)
-        original_max = getattr(OperationalConfig, "ORPHAN_ADOPTION_MAX_SIZE_USD", 10000.0)
+        original_max = getattr(
+            OperationalConfig, "ORPHAN_ADOPTION_MAX_SIZE_USD", 10000.0
+        )
         OperationalConfig.ORPHAN_ADOPTION_MIN_SIZE_USD = 10.0
         OperationalConfig.ORPHAN_ADOPTION_MAX_SIZE_USD = 10000.0
 
@@ -838,7 +872,9 @@ class OrphanAdoptionTest(unittest.TestCase):
         from core.config.operational import OperationalConfig
 
         original_min = getattr(OperationalConfig, "ORPHAN_ADOPTION_MIN_SIZE_USD", 10.0)
-        original_max = getattr(OperationalConfig, "ORPHAN_ADOPTION_MAX_SIZE_USD", 10000.0)
+        original_max = getattr(
+            OperationalConfig, "ORPHAN_ADOPTION_MAX_SIZE_USD", 10000.0
+        )
         OperationalConfig.ORPHAN_ADOPTION_MIN_SIZE_USD = 10.0
         OperationalConfig.ORPHAN_ADOPTION_MAX_SIZE_USD = 10000.0
 
@@ -875,7 +911,9 @@ class OrphanAdoptionTest(unittest.TestCase):
             reconcile_bootstrap_state(bot)
 
             self.assertIn("ETH/USDT", bot.active_trades)
-            self.assertEqual(bot.active_trades["ETH/USDT"].get("status"), "ADOPTED_UNPROTECTED")
+            self.assertEqual(
+                bot.active_trades["ETH/USDT"].get("status"), "ADOPTED_UNPROTECTED"
+            )
             self.assertTrue(bot.is_paused)
             self.assertTrue(bot.integrity_lock_active)
             self.assertTrue(bot.halt_system_active)
@@ -889,7 +927,9 @@ class OrphanAdoptionTest(unittest.TestCase):
         from core.config.operational import OperationalConfig
 
         original_min = getattr(OperationalConfig, "ORPHAN_ADOPTION_MIN_SIZE_USD", 10.0)
-        original_max = getattr(OperationalConfig, "ORPHAN_ADOPTION_MAX_SIZE_USD", 10000.0)
+        original_max = getattr(
+            OperationalConfig, "ORPHAN_ADOPTION_MAX_SIZE_USD", 10000.0
+        )
         OperationalConfig.ORPHAN_ADOPTION_MIN_SIZE_USD = 10.0
         OperationalConfig.ORPHAN_ADOPTION_MAX_SIZE_USD = 10000.0
 
@@ -1070,8 +1110,12 @@ class RealBootstrapReconciliationFailureTest(unittest.TestCase):
         self.assertFalse(bot.integrity_lock_active)
         self.assertFalse(bot.halt_system_active)
         self.assertEqual(set(bot.active_trades), {"BTC/USDT|BUY", "BTC/USDT|SELL"})
-        self.assertEqual(bot.active_trades["BTC/USDT|BUY"]["sl_exchange_order_id"], "sl-buy")
-        self.assertEqual(bot.active_trades["BTC/USDT|SELL"]["sl_exchange_order_id"], "sl-sell")
+        self.assertEqual(
+            bot.active_trades["BTC/USDT|BUY"]["sl_exchange_order_id"], "sl-buy"
+        )
+        self.assertEqual(
+            bot.active_trades["BTC/USDT|SELL"]["sl_exchange_order_id"], "sl-sell"
+        )
         self.assertEqual(bot.brain.save_active_trade_state.call_count, 2)
         bot.brain.delete_active_trade_state.assert_not_called()
         self.assertEqual(mocked_tg.call_count, 2)
@@ -1130,8 +1174,57 @@ class HaltRecoveryTest(unittest.TestCase):
         self.assertIn("MAX_ATTEMPTS", msg3)
         self.assertTrue(bot.halt_system_active)
 
+    def test_recover_halt_resets_count_on_intervening_exposure(self):
+        bot = self._bot()
+
+        ok1, msg1 = recover_halt_if_exchange_consistent(bot, required_snapshots=2)
+        self.assertFalse(ok1)
+        self.assertIn("1/2", msg1)
+
+        # Intervening exposure: must reset the streak.
+        bot2 = self._bot(
+            positions=[{"symbol": "ETH/USDT:USDT", "contracts": 0.5, "side": "long"}]
+        )
+        bot2._halt_recovery_state = bot._halt_recovery_state
+        bot2.active_trades = bot.active_trades
+        bot2.balance = bot.balance
+        bot2.daily_initial_balance = bot.daily_initial_balance
+        bot2.is_paused = bot.is_paused
+        bot2.integrity_lock_active = bot.integrity_lock_active
+        bot2.halt_system_active = bot.halt_system_active
+        bot2.lock = bot.lock
+        bot2.db_lock = bot.db_lock
+        bot2.brain = bot.brain
+        bot2.log = bot.log
+        bot2.get_current_balance = bot.get_current_balance
+        ok_blocked, msg_blocked = recover_halt_if_exchange_consistent(
+            bot2, required_snapshots=2
+        )
+        self.assertFalse(ok_blocked)
+        self.assertIn("EXCHANGE_EXPOSURE", msg_blocked)
+
+        # Back to flat: count must restart at 1, not continue to 2.
+        bot3 = self._bot()  # flat positions by default
+        bot3._halt_recovery_state = bot2._halt_recovery_state
+        bot3.active_trades = {}
+        bot3.balance = 100.0
+        bot3.daily_initial_balance = 100.0
+        bot3.is_paused = True
+        bot3.integrity_lock_active = True
+        bot3.halt_system_active = True
+        bot3.lock = bot.lock
+        bot3.db_lock = bot.db_lock
+        bot3.brain = bot.brain
+        bot3.log = bot.log
+        bot3.get_current_balance = lambda: 100.0
+        ok3, msg3 = recover_halt_if_exchange_consistent(bot3, required_snapshots=2)
+        self.assertFalse(ok3)
+        self.assertIn("1/2", msg3)
+
     def test_recover_halt_blocks_when_local_real_trade_exists(self):
-        bot = self._bot(active_trades={"BTC/USDT": {"symbol": "BTC/USDT", "is_shadow": False}})
+        bot = self._bot(
+            active_trades={"BTC/USDT": {"symbol": "BTC/USDT", "is_shadow": False}}
+        )
 
         ok, msg = recover_halt_if_exchange_consistent(bot, required_snapshots=1)
 
@@ -1140,7 +1233,9 @@ class HaltRecoveryTest(unittest.TestCase):
         self.assertTrue(bot.halt_system_active)
 
     def test_recover_halt_blocks_when_exchange_position_exists(self):
-        bot = self._bot(positions=[{"symbol": "ETH/USDT:USDT", "contracts": 0.5, "side": "long"}])
+        bot = self._bot(
+            positions=[{"symbol": "ETH/USDT:USDT", "contracts": 0.5, "side": "long"}]
+        )
 
         ok, msg = recover_halt_if_exchange_consistent(bot, required_snapshots=1)
 

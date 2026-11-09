@@ -22,7 +22,8 @@ class AgentWeightMonitor:
     def __init__(self, brain_instance):
         self.brain = brain_instance
         self.history: dict[str, deque] = {
-            agent: deque(maxlen=Config.AGENT_MONITOR_WINDOW) for agent in ["MT", "SR", "G"]
+            agent: deque(maxlen=Config.AGENT_MONITOR_WINDOW)
+            for agent in ["MT", "SR", "G"]
         }
         self.last_alerted: dict[str, float] = {}
         self.evaluation_count = 0
@@ -50,7 +51,10 @@ class AgentWeightMonitor:
                 continue
             prior_avg = sum(prior) / len(prior)
 
-            if prior_avg > 0 and current < prior_avg * Config.AGENT_DEGRADATION_THRESHOLD:
+            if (
+                prior_avg > 0
+                and current < prior_avg * Config.AGENT_DEGRADATION_THRESHOLD
+            ):
                 pct_drop = ((prior_avg - current) / prior_avg) * 100
                 last = self.last_alerted.get(agent, 0.0)
                 if abs(current - last) > 5.0:

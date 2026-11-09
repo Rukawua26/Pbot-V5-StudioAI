@@ -72,7 +72,9 @@ def _call_auth_read_with_time_resync(bot, action_name: str, call_fn):
     except Exception as error:
         if not _is_timestamp_drift_error(error):
             raise
-        bot.log(f"⚠️ Binance timestamp drift en {action_name}: {error}. Resincronizando...")
+        bot.log(
+            f"⚠️ Binance timestamp drift en {action_name}: {error}. Resincronizando..."
+        )
         _sync_exchange_time(bot, bot.execution.exchange, action_name)
         return call_fn()
 
@@ -116,7 +118,11 @@ def connect_to_binance(bot):
         try:
             _load_execution_markets(bot)
         except Exception as error:
-            if Config.PAPER_MODE and Config.USE_TESTNET and _is_public_sandbox_limitation(error):
+            if (
+                Config.PAPER_MODE
+                and Config.USE_TESTNET
+                and _is_public_sandbox_limitation(error)
+            ):
                 bot.log(
                     "⚠️ Sandbox/testnet no soporta endpoints públicos en este backend. "
                     "Continuando en PAPER con mercado público real."
@@ -133,13 +139,19 @@ def connect_to_binance(bot):
                 balance_lock = getattr(bot, "balance_lock", None)
                 if balance_lock:
                     with balance_lock:
-                        bot.balance = float(getattr(Config, "PAPER_INITIAL_BALANCE", 1000.0))
+                        bot.balance = float(
+                            getattr(Config, "PAPER_INITIAL_BALANCE", 1000.0)
+                        )
                 else:
-                    bot.balance = float(getattr(Config, "PAPER_INITIAL_BALANCE", 1000.0))
+                    bot.balance = float(
+                        getattr(Config, "PAPER_INITIAL_BALANCE", 1000.0)
+                    )
             if not wallet_restored:
                 restore_simulated_available_balance(bot)
             if not float(getattr(bot, "daily_initial_balance", 0.0) or 0.0):
-                bot.daily_initial_balance = float(getattr(Config, "PAPER_INITIAL_BALANCE", 1000.0))
+                bot.daily_initial_balance = float(
+                    getattr(Config, "PAPER_INITIAL_BALANCE", 1000.0)
+                )
             if callable(
                 getattr(getattr(bot, "brain", None), "set_metadata_json", None)
             ) and not persist_simulated_wallet_state(bot):
@@ -149,7 +161,9 @@ def connect_to_binance(bot):
                     _call_auth_read_with_time_resync(
                         bot, "fetch_balance(PAPER)", bot.execution.fetch_balance
                     )
-                    bot.log("✅ Conectado: API Keys válidas y permisos de Futuros activos.")
+                    bot.log(
+                        "✅ Conectado: API Keys válidas y permisos de Futuros activos."
+                    )
                 except Exception as error:
                     bot.log(
                         "⚠️ PAPER_MODE: credenciales Binance no válidas o no operativas. "
@@ -158,7 +172,9 @@ def connect_to_binance(bot):
             else:
                 bot.log("ℹ️ PAPER_MODE: sin API keys, usando solo endpoints públicos.")
             bot.is_hedge_mode = False
-            bot.log(f"🧾 PAPER capital virtual inicializado en ${float(bot.balance):.2f}")
+            bot.log(
+                f"🧾 PAPER capital virtual inicializado en ${float(bot.balance):.2f}"
+            )
         else:
             # Verificación explícita de permisos
             try:
@@ -183,7 +199,9 @@ def connect_to_binance(bot):
                             mode = _call_auth_read_with_time_resync(
                                 bot,
                                 "fetch_position_mode(BTC/USDT:USDT)",
-                                lambda: bot.execution.fetch_position_mode(symbol="BTC/USDT:USDT"),
+                                lambda: bot.execution.fetch_position_mode(
+                                    symbol="BTC/USDT:USDT"
+                                ),
                             )
                             bot.is_hedge_mode = mode.get("hedged", False)
                         except Exception:
@@ -202,7 +220,9 @@ def connect_to_binance(bot):
                             bot.execution.get_position_side_dual,
                         )
                         bot.is_hedge_mode = mode["dualSidePosition"]
-                    bot.log(f"ℹ️ Modo de Posición: {'HEDGE' if bot.is_hedge_mode else 'ONE-WAY'}")
+                    bot.log(
+                        f"ℹ️ Modo de Posición: {'HEDGE' if bot.is_hedge_mode else 'ONE-WAY'}"
+                    )
                 except Exception as error:
                     bot.is_paused = True
                     bot.integrity_lock_active = True
@@ -225,9 +245,13 @@ def connect_to_binance(bot):
         mode_label = (
             "TESTNET"
             if Config.USE_TESTNET
-            else ("📝 PAPER (Simulado)" if Config.PAPER_MODE else "🔥 REAL (Dinero Real)")
+            else (
+                "📝 PAPER (Simulado)" if Config.PAPER_MODE else "🔥 REAL (Dinero Real)"
+            )
         )
         bot.log(f"🛡️ MODO OPERATIVO: {mode_label}")
     except Exception as error:
         bot.log(f"❌ ERROR FATAL: {error}")
-        raise RuntimeError(f"No se pudo inicializar conexión Binance: {error}") from error
+        raise RuntimeError(
+            f"No se pudo inicializar conexión Binance: {error}"
+        ) from error

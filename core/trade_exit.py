@@ -115,9 +115,13 @@ def close_trade(
     key_symbol, key_side = split_trade_key(trade_key or symbol)
     real_symbol = key_symbol or symbol
     desired_side = side or key_side
-    resolved_trade_key = trade_key or find_trade_key(bot.active_trades, real_symbol, desired_side)
+    resolved_trade_key = trade_key or find_trade_key(
+        bot.active_trades, real_symbol, desired_side
+    )
     with bot.lock:
-        trade = bot.active_trades.get(resolved_trade_key) if resolved_trade_key else None
+        trade = (
+            bot.active_trades.get(resolved_trade_key) if resolved_trade_key else None
+        )
         if trade and trade.get("closing_in_progress"):
             return
         if trade:
@@ -167,7 +171,9 @@ def close_trade(
                         symbol,
                         trade["side"],
                         trade["amount"],
-                        position_side=("LONG" if str(trade["side"]).upper() == "BUY" else "SHORT")
+                        position_side=(
+                            "LONG" if str(trade["side"]).upper() == "BUY" else "SHORT"
+                        )
                         if bool(getattr(bot, "is_hedge_mode", False))
                         else None,
                     )
@@ -176,7 +182,9 @@ def close_trade(
                         symbol,
                         trade["side"],
                         trade["amount"],
-                        position_side=("LONG" if str(trade["side"]).upper() == "BUY" else "SHORT")
+                        position_side=(
+                            "LONG" if str(trade["side"]).upper() == "BUY" else "SHORT"
+                        )
                         if bool(getattr(bot, "is_hedge_mode", False))
                         else None,
                     )
@@ -204,9 +212,13 @@ def close_trade(
                     )
 
                 if latency_context and latency_context.get("signal_ts") is not None:
-                    signal_to_api_ms = (pre_api_ts - float(latency_context["signal_ts"])) * 1000.0
+                    signal_to_api_ms = (
+                        pre_api_ts - float(latency_context["signal_ts"])
+                    ) * 1000.0
                     api_ms = (post_api_ts - pre_api_ts) * 1000.0
-                    total_ms = (post_api_ts - float(latency_context["signal_ts"])) * 1000.0
+                    total_ms = (
+                        post_api_ts - float(latency_context["signal_ts"])
+                    ) * 1000.0
                     status = "OK" if total_ms < 450.0 else "SLOW"
                     trigger = latency_context.get("trigger", "UNKNOWN")
                     bot.log(
@@ -236,7 +248,9 @@ def close_trade(
                             )
                             close_failed = False
                         else:
-                            bot.log(f"⚠️ Posición remota no está plana tras close para {symbol}")
+                            bot.log(
+                                f"⚠️ Posición remota no está plana tras close para {symbol}"
+                            )
                     except Exception as flat_error:
                         bot.log(
                             f"⚠️ No se pudo verificar posición plana tras close para {symbol}: {flat_error}"
@@ -249,7 +263,9 @@ def close_trade(
                     bot.integrity_lock_active = True
                     setattr(bot, "halt_system_active", True)
                     if trade_key in bot.active_trades:
-                        bot.active_trades[trade_key]["status"] = TradeStatus.EXIT_STUCK.value
+                        bot.active_trades[trade_key]["status"] = (
+                            TradeStatus.EXIT_STUCK.value
+                        )
                         bot.active_trades[trade_key]["closing_in_progress"] = False
                     with bot.db_lock:
                         bot.brain.save_active_trade_state(
@@ -258,7 +274,11 @@ def close_trade(
                     append_execution_event(
                         bot,
                         "REAL_CLOSE_FAILED_HALT",
-                        {"symbol": symbol, "error": str(e), "closing_in_progress": False},
+                        {
+                            "symbol": symbol,
+                            "error": str(e),
+                            "closing_in_progress": False,
+                        },
                     )
                     append_runtime_metric(
                         "halt",
@@ -273,15 +293,23 @@ def close_trade(
             time.sleep(1)
             try:
                 my_trades = bot.execution.fetch_my_trades(symbol, limit=2)
-                fees = sum(t["fee"]["cost"] for t in my_trades if t["fee"]["currency"] == "USDT")
+                fees = sum(
+                    t["fee"]["cost"]
+                    for t in my_trades
+                    if t["fee"]["currency"] == "USDT"
+                )
             except Exception as error:
-                bot.log(f"⚠️ No se pudo calcular fees reales de cierre para {symbol}: {error}")
+                bot.log(
+                    f"⚠️ No se pudo calcular fees reales de cierre para {symbol}: {error}"
+                )
         else:
             fees = (trade["entry"] * float(trade["amount"]) * Config.VIRTUAL_FEE) + (
                 exit_price * float(trade["amount"]) * Config.VIRTUAL_FEE
             )
             if latency_context and latency_context.get("signal_ts") is not None:
-                total_ms = (time.perf_counter() - float(latency_context["signal_ts"])) * 1000.0
+                total_ms = (
+                    time.perf_counter() - float(latency_context["signal_ts"])
+                ) * 1000.0
                 trigger = latency_context.get("trigger", "UNKNOWN")
                 bot.log(
                     f"\u23f1\ufe0f SMART_EXIT_LATENCY {symbol} trigger={trigger} total_ms={total_ms:.1f} simulated=1 (PAPER/SHADOW)"
@@ -325,6 +353,37 @@ def close_trade(
             trade=trade,
             is_adopted=trade.get("adopted_orphan", False),
         )
+
+        if trade.get("is_shadow", False):
+            now_dt = utc_now()
+            open_time_val = trade.get("open_time")
+            open_time_dt = (
+                parse_datetime_utc(open_time_val)
+                if isinstance(open_time_val, str)
+                else open_time_val
+            )
+
+            last_check_val = trade.get("last_guardian_check")
+            last_check_dt = (
+                parse_datetime_utc(last_check_val)
+                if isinstance(last_check_val, str)
+                else last_check_val
+            )
+
+            open_age_min = (
+                (now_dt - open_time_dt).total_seconds() / 60.0 if open_time_dt else 0
+            )
+
+            stale_check = True
+            if last_check_dt:
+                stale_check_min = (now_dt - last_check_dt).total_seconds() / 60.0
+                if stale_check_min <= 30.0:
+                    stale_check = False
+
+            if open_age_min > 720.0 and stale_check:
+                pm_data["is_dirty"] = 1
+                if pm_data.get("exit_reason", "UNKNOWN") in ("HARD_SL", "UNKNOWN"):
+                    pm_data["exit_reason"] = "RECOVERY_GAP"
         emit_shadow_trade_closed(
             trade,
             reason,
@@ -400,7 +459,9 @@ def close_trade(
                             is_winner=1 if pnl_neto_percent > 0 else 0,
                         )
                     except Exception as ctx_error:
-                        bot.log(f"⚠️ Error actualizando trade context result: {ctx_error}")
+                        bot.log(
+                            f"⚠️ Error actualizando trade context result: {ctx_error}"
+                        )
                 bot.brain.finalize_confidence_exit_audit(
                     trade.get("entry_client_order_id"),
                     trade_id or 0,
@@ -460,7 +521,9 @@ def close_trade(
             async_mover_tarjeta(kanban_id, "Historial de Cierre")
 
         if bool(getattr(Config, "GENETIC_BATCH_ENABLED", True)):
-            pending_genetics = set(getattr(bot, "_genetic_batch_pending_symbols", set()) or set())
+            pending_genetics = set(
+                getattr(bot, "_genetic_batch_pending_symbols", set()) or set()
+            )
             pending_genetics.add(symbol)
             bot._genetic_batch_pending_symbols = pending_genetics
             append_execution_event(
@@ -490,7 +553,9 @@ def close_trade(
                 )
 
                 try:
-                    df_snap = bot.data_service.fetch_and_update_data(symbol, Config.TIMEFRAME)
+                    df_snap = bot.data_service.fetch_and_update_data(
+                        symbol, Config.TIMEFRAME
+                    )
                     if df_snap is not None and not df_snap.empty:
                         if _module_available("tools.ai_mapper"):
                             from tools.ai_mapper import generate_strategy_snapshot
@@ -517,7 +582,9 @@ def close_trade(
                 send_telegram_msg(
                     f"\U0001f6e1\ufe0f *ESTUDIANTE ACTIVO: AUTO-CORRECCIÓN*\nHe detectado fallas repetidas en {symbol} ({info['wr']:.0f}% WR).\n\U0001f4c9 *Acción:* He vetado temporalmente este par."
                 )
-                bot.log(f"\U0001f6e1\ufe0f AUTO-VETO: {symbol} bloqueado por bajo rendimiento.")
+                bot.log(
+                    f"\U0001f6e1\ufe0f AUTO-VETO: {symbol} bloqueado por bajo rendimiento."
+                )
 
         icono = "\U0001f47b SHADOW" if trade.get("is_shadow") else "\U0001f512 REAL"
 
@@ -554,7 +621,9 @@ def close_trade(
             if float(exit_price) > 0 and atr_val > 0
             else 0.0
         )
-        shock_dist_txt = f"{shock_dist_pct:.2f}%" if shock_dist_pct is not None else "N/A"
+        shock_dist_txt = (
+            f"{shock_dist_pct:.2f}%" if shock_dist_pct is not None else "N/A"
+        )
         duration = "N/A"
         if entry_time:
             try:

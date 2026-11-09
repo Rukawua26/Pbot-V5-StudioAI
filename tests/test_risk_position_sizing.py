@@ -52,8 +52,10 @@ class RiskPositionSizingTest(unittest.TestCase):
             exchange=DummyExchange(precision_decimals=3),
         )
 
-        self.assertEqual(amount, 1.2)
-        self.assertEqual(notional, 12.0)
+        # With the per-trade risk budget check, the bumped minimum ($12 -> risk $6)
+        # exceeds the $1 budget, so it is rejected (audit #10).
+        self.assertEqual(amount, 0.0)
+        self.assertEqual(notional, -4)
 
     @patch("core.risk_engine.Config.MIN_NOTIONAL_VALUE", 12.0)
     @patch("core.risk_engine.Config.MAX_MARGIN_PERCENT", 100.0)
@@ -77,6 +79,8 @@ class RiskPositionSizingTest(unittest.TestCase):
     @patch("core.risk_engine.Config.MAX_MARGIN_PERCENT", 100.0)
     @patch("core.risk_engine.Config.MAX_RISK_USD", 1.0)
     @patch("core.risk_engine.Config.RISK_PER_TRADE_PCT", 0.01)
+    # Pin the non-mirror path: a local .env may enable the mirror.
+    @patch("core.risk_engine.Config.SHADOW_MIRROR_REAL_LIMITS", False, create=True)
     def test_shadow_size_allows_min_notional_despite_real_risk_cap(self):
         engine = self._engine()
         amount, notional = engine.calculate_position_size_by_stop(

@@ -155,7 +155,9 @@ class TestUpdateGapStates(unittest.TestCase):
 
     def test_active_gap_filled_by_price(self):
         now = int(time.time() * 1000)
-        gap = _make_gap("BTC/USDT", "BULLISH_FVG", 110.0, 105.0, 4.76, now - 3600000, 48)
+        gap = _make_gap(
+            "BTC/USDT", "BULLISH_FVG", 110.0, 105.0, 4.76, now - 3600000, 48
+        )
         gap["status"] = "ACTIVE"
         df = self._df(
             [
@@ -168,7 +170,9 @@ class TestUpdateGapStates(unittest.TestCase):
 
     def test_active_gap_partial_fill(self):
         now = int(time.time() * 1000)
-        gap = _make_gap("BTC/USDT", "BULLISH_FVG", 110.0, 105.0, 4.76, now - 3600000, 48)
+        gap = _make_gap(
+            "BTC/USDT", "BULLISH_FVG", 110.0, 105.0, 4.76, now - 3600000, 48
+        )
         gap["status"] = "ACTIVE"
         df = self._df(
             [
@@ -180,7 +184,9 @@ class TestUpdateGapStates(unittest.TestCase):
 
     def test_partial_gap_can_be_filled_later(self):
         now = int(time.time() * 1000)
-        gap = _make_gap("BTC/USDT", "BULLISH_FVG", 110.0, 105.0, 4.76, now - 3600000, 48)
+        gap = _make_gap(
+            "BTC/USDT", "BULLISH_FVG", 110.0, 105.0, 4.76, now - 3600000, 48
+        )
         gap["status"] = "PARTIAL_FILL"
         df = self._df(
             [
@@ -204,7 +210,9 @@ class TestUpdateGapStates(unittest.TestCase):
 
     def test_invalidated_gap_keeps_status(self):
         now = int(time.time() * 1000)
-        gap = _make_gap("BTC/USDT", "BULLISH_FVG", 110.0, 105.0, 4.76, now - 3600000, 48)
+        gap = _make_gap(
+            "BTC/USDT", "BULLISH_FVG", 110.0, 105.0, 4.76, now - 3600000, 48
+        )
         gap["status"] = "INVALIDATED"
         df = self._df(
             [
@@ -270,7 +278,9 @@ class TestFvgTrackerIntegration(unittest.TestCase):
     def test_run_cycle_notifies_new_gap(self):
         events = []
         notifier = MagicMock()
-        notifier.notify.side_effect = lambda event, payload: events.append((event, payload))
+        notifier.notify.side_effect = lambda event, payload: events.append(
+            (event, payload)
+        )
         tracker = FvgTracker(
             enabled=True,
             min_gap_pct=0.1,

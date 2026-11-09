@@ -37,7 +37,10 @@ class GateHistoryTests(unittest.TestCase):
                 metadata={"since_marker": "marker.json"},
             )
 
-            rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+            rows = [
+                json.loads(line)
+                for line in path.read_text(encoding="utf-8").splitlines()
+            ]
 
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["gate"], "shadow_readiness")

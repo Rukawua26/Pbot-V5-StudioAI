@@ -13,11 +13,15 @@ def fetch_pair_data(bot, symbol):
     for attempt in range(max_retries + 1):
         try:
             # Intentar fetch secuencial
-            df_main = bot.data_service.fetch_and_update_data(symbol, "1h", fast_mode=True)
+            df_main = bot.data_service.fetch_and_update_data(
+                symbol, "1h", fast_mode=True
+            )
 
             # Verificación rápida
             min_candles = 50
-            if df_main is None or (hasattr(df_main, "__len__") and len(df_main) < min_candles):
+            if df_main is None or (
+                hasattr(df_main, "__len__") and len(df_main) < min_candles
+            ):
                 # Si falla timeframe principal, no vale la pena seguir
                 if attempt < max_retries:
                     time.sleep(0.1 * (attempt + 1))

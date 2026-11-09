@@ -1,4 +1,6 @@
 import logging
+import math
+from decimal import ROUND_CEILING, Decimal
 import sqlite3
 from datetime import UTC, datetime, timedelta
 
@@ -9,7 +11,9 @@ from tools.crash_predictor import CrashPredictor
 from tools.strategy import Strategy
 
 
-def get_daily_pnl_pct(db_path, wallet_balance: float) -> tuple[float | None, float | None]:
+def get_daily_pnl_pct(
+    db_path, wallet_balance: float
+) -> tuple[float | None, float | None]:
     """Devuelve PnL real cerrado del día UTC como fracción y USD.
 
     Solo considera trades reales (`is_shadow=0`) y usa `timestamp` con prefijo
@@ -40,7 +44,9 @@ def get_daily_pnl_pct(db_path, wallet_balance: float) -> tuple[float | None, flo
 
         return pnl_usd / balance, pnl_usd
     except Exception as error:
-        logging.getLogger("RiskEngine").warning(f"⚠️ DAILY_DRAWDOWN_PNL_UNAVAILABLE: {error}")
+        logging.getLogger("RiskEngine").warning(
+            f"⚠️ DAILY_DRAWDOWN_PNL_UNAVAILABLE: {error}"
+        )
         return None, None
 
 
@@ -61,8 +67,12 @@ class RiskEngine:
         self.logger = logging.getLogger("RiskEngine")
 
         self.hyperopt_enabled = HyperoptConfigLoader.is_enabled()
-        self.stop_loss_pct = float(HyperoptConfigLoader.get_param("stop_loss_pct", 2.45))
-        self.take_profit_pct = float(HyperoptConfigLoader.get_param("take_profit_pct", 6.47))
+        self.stop_loss_pct = float(
+            HyperoptConfigLoader.get_param("stop_loss_pct", 2.45)
+        )
+        self.take_profit_pct = float(
+            HyperoptConfigLoader.get_param("take_profit_pct", 6.47)
+        )
 
         # [v118] ANTI-REVENGE SYSTEM
         self.symbol_streaks = {}  # {symbol: consecutive_losses}
@@ -291,6 +301,12 @@ class RiskEngine:
         código negativo en final_notional para mantener compatibilidad con el flujo
         actual de `trade_manager`.
         """
+        # SHADOW mirrors REAL limits only when explicitly enabled (default keeps the
+        # previous permissive SHADOW sizing). REAL behaviour never depends on it.
+        mirror = bool(is_shadow) and bool(
+            getattr(Config, "SHADOW_MIRROR_REAL_LIMITS", False)
+        )
+        enforce = not is_shadow or mirror
         try:
             balance = float(balance or 0.0)
             entry = float(entry_price or 0.0)
@@ -302,7 +318,9 @@ class RiskEngine:
             if stop_distance <= 0:
                 return 0.0, -5
 
-            risk_fraction = float(risk_pct if risk_pct is not None else Config.RISK_PER_TRADE_PCT)
+            risk_fraction = float(
+                risk_pct if risk_pct is not None else Config.RISK_PER_TRADE_PCT
+            )
             if risk_fraction <= 0:
                 return 0.0, -2
 
@@ -326,11 +344,22 @@ class RiskEngine:
                 raw_amount = max_notional_allowed / entry
                 raw_notional = raw_amount * entry
 
+            market = None
+            if enforce and exchange is not None:
+                market = self._resolve_market(exchange, symbol)
+                if market is None:
+                    return 0.0, -3
+            # The exchange per-symbol minimum wins over the global configured floor.
             min_notional = float(getattr(Config, "MIN_NOTIONAL_VALUE", 0.0) or 0.0)
+            exchange_min = self._market_min_notional(market)
+            if exchange_min is not None:
+                min_notional = max(min_notional, exchange_min)
+
+            bumped = False
             if raw_notional < min_notional:
                 affordable_notional = balance * lev
                 if (
-                    not is_shadow
+                    enforce
                     and max_notional_allowed > 0
                     and min_notional > max_notional_allowed
                 ):
@@ -347,58 +376,116 @@ class RiskEngine:
                         f"${min_notional:.2f} y balance×leverage=${affordable_notional:.2f}"
                     )
                     return 0.0, -1
-                if not is_shadow and max_risk_usd > 0 and min_risk_usd > max_risk_usd:
+                # The minimum must fit BOTH the absolute cap and the per-trade risk
+                # budget (risk_fraction * balance). Checking only MAX_RISK_USD lets a
+                # bumped minimum exceed the configured percentage risk (audit #10).
+                if enforce and min_risk_usd > risk_budget_usd:
                     self.logger.warning(
                         f"🚫 RISK_SIZE_MIN_RISK {symbol}: min notional arriesga "
-                        f"${min_risk_usd:.2f} > límite ${max_risk_usd:.2f}"
+                        f"${min_risk_usd:.2f} > presupuesto ${risk_budget_usd:.2f}"
                     )
                     return 0.0, -4
                 raw_amount = min_amount
                 raw_notional = min_notional
+                bumped = True
                 self.logger.info(
                     f"⚠️ RISK_SIZE_MIN_NOTIONAL_ADJUST {symbol}: "
                     f"${raw_notional:.2f} forzado al mínimo "
                     f"(risk=${min_risk_usd:.2f})"
                 )
 
-            if is_shadow or exchange is None:
+            if not enforce or exchange is None:
                 return raw_amount, raw_notional
 
-            if symbol not in exchange.markets:
-                exchange.load_markets()
-                if symbol not in exchange.markets:
-                    return 0.0, -3
-
-            amount_str = exchange.amount_to_precision(symbol, raw_amount)
-            if not amount_str:
-                return 0.0, -2
-            amount = float(amount_str)
-            final_notional = amount * entry
-
+            amount = self._amount_to_step(exchange, symbol, market, raw_amount, bumped)
             if amount <= 0:
                 return 0.0, -2
+            final_notional = amount * entry
+
             if final_notional < min_notional:
                 self.logger.warning(
                     f"🚫 RISK_SIZE_MIN_NOTIONAL {symbol}: post-round ${final_notional:.2f} < ${min_notional:.2f}"
                 )
                 return 0.0, -1
+            if (
+                bumped
+                and max_notional_allowed > 0
+                and final_notional > max_notional_allowed
+            ):
+                self.logger.warning(
+                    f"🚫 RISK_SIZE_MIN_MARGIN {symbol}: post-round ${final_notional:.2f} "
+                    f"> margen permitido ${max_notional_allowed:.2f}"
+                )
+                return 0.0, -6
 
             actual_risk = amount * stop_distance
-            if not is_shadow and max_risk_usd > 0 and actual_risk > max_risk_usd:
+            if actual_risk > risk_budget_usd:
                 self.logger.warning(
                     f"🚫 RISK_SIZE_POST_PRECISION_RISK {symbol}: post-round risk "
-                    f"${actual_risk:.2f} > límite ${max_risk_usd:.2f}"
+                    f"${actual_risk:.2f} > presupuesto ${risk_budget_usd:.2f}"
                 )
                 return 0.0, -4
             self.logger.info(
-                f"📊 RISK SIZING: {symbol} | risk=${actual_risk:.2f} "
-                f"({risk_fraction * 100:.2f}%) | stop_dist=${stop_distance:.6f} | "
+                f"📊 RISK SIZING{' (SHADOW=REAL)' if mirror else ''}: {symbol} | "
+                f"risk=${actual_risk:.2f} ({risk_fraction * 100:.2f}%) | "
+                f"stop_dist=${stop_distance:.6f} | "
                 f"notional=${final_notional:.2f} | amount={amount}"
             )
             return amount, final_notional
         except Exception as e:
             self.logger.error(f"❌ Error calculate_position_size_by_stop {symbol}: {e}")
             return 0.0, -2
+
+    @staticmethod
+    def _resolve_market(exchange, symbol):
+        markets = getattr(exchange, "markets", None) or {}
+        if symbol not in markets:
+            exchange.load_markets()
+            markets = getattr(exchange, "markets", None) or {}
+        return markets.get(symbol)
+
+    @staticmethod
+    def _market_min_notional(market) -> float | None:
+        if not isinstance(market, dict):
+            return None
+        raw = ((market.get("limits") or {}).get("cost") or {}).get("min")
+        if raw is None:
+            return None
+        try:
+            value = float(raw)
+        except (TypeError, ValueError):
+            return None
+        return value if value > 0 and math.isfinite(value) else None
+
+    @staticmethod
+    def _amount_to_step(exchange, symbol, market, raw_amount, round_up) -> float:
+        """Exchange precision for the order quantity.
+
+        Plain sizing truncates (``amount_to_precision``). When the order was bumped
+        to the minimum notional, the quantity is rounded UP to the next step so the
+        rounded order still meets the minimum; this also covers minimums smaller than
+        one step, where ``amount_to_precision`` raises. Callers revalidate risk/margin.
+        """
+        step = RiskEngine._market_amount_step(market)
+        if round_up and step is not None:
+            steps = (Decimal(str(raw_amount)) / step).to_integral_value(
+                rounding=ROUND_CEILING
+            )
+            amount = float(max(steps, Decimal(1)) * step)
+            return float(exchange.amount_to_precision(symbol, amount))
+        amount_str = exchange.amount_to_precision(symbol, raw_amount)
+        return float(amount_str) if amount_str else 0.0
+
+    @staticmethod
+    def _market_amount_step(market) -> Decimal | None:
+        raw = ((market or {}).get("precision") or {}).get("amount")
+        if raw is None:
+            return None
+        try:
+            step = Decimal(str(raw))
+        except (ArithmeticError, ValueError):
+            return None
+        return step if step.is_finite() and step > 0 else None
 
     def check_market_safety(self, df, symbol, funding, side, order_book, btc_delta):
         """
@@ -485,7 +572,9 @@ class RiskEngine:
         side = trade.get("side")
 
         # Cálculo de caída relativa de confianza
-        score_drop_pct = (entry_score - current_ai_score) / entry_score if entry_score > 0 else 0
+        score_drop_pct = (
+            (entry_score - current_ai_score) / entry_score if entry_score > 0 else 0
+        )
 
         # Lógica para LONG
         if side == "BUY":
@@ -571,7 +660,9 @@ class RiskEngine:
         if "CONFIDENCE_FLOOR_VIOLATED" not in reason_text:
             return False, "NOT_FEE_NOISE_REASON"
 
-        max_minutes = float(getattr(Config, "SMART_EXIT_FEE_NOISE_MAX_MINUTES", 45.0) or 45.0)
+        max_minutes = float(
+            getattr(Config, "SMART_EXIT_FEE_NOISE_MAX_MINUTES", 45.0) or 45.0
+        )
         if elapsed_mins > max_minutes:
             return False, "FEE_NOISE_WINDOW_EXPIRED"
 
@@ -585,7 +676,9 @@ class RiskEngine:
             if side == "BUY"
             else ((entry - current_price) / entry) * 100.0
         )
-        fee_floor_pct = float(getattr(Config, "VIRTUAL_FEE", 0.001) or 0.001) * 2.0 * 100.0
+        fee_floor_pct = (
+            float(getattr(Config, "VIRTUAL_FEE", 0.001) or 0.001) * 2.0 * 100.0
+        )
 
         if 0.0 <= gross_move_pct < fee_floor_pct:
             return (

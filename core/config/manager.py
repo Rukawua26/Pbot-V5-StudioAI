@@ -34,6 +34,12 @@ class Config(OperationalConfig, StrategyConfig):
     MAX_SLIPPAGE = _env_float("MAX_SLIPPAGE", 0.001)
     VIRTUAL_FEE = _env_float("VIRTUAL_FEE", 0.001)
     STRATEGY_ENGINE: str = str(_env_str("STRATEGY_ENGINE", "triple_tf") or "triple_tf")
+    # Gate REAL para TTF: sin este flag, las senales TTF se bloquean fuera de PAPER
+    TTF_REAL_ENABLED = _env_bool("TTF_REAL_ENABLED", False)
+    TTF_MIN_FVG_GAP_PCT = _env_float("TTF_MIN_FVG_GAP_PCT", 0.30)
+    TTF_MAX_PULLBACK_AGE_MINUTES = _env_int("TTF_MAX_PULLBACK_AGE_MINUTES", 15)
+    TTF_REQUIRE_SESSION_FILTER = _env_bool("TTF_REQUIRE_SESSION_FILTER", True)
+    TTF_REQUIRE_MACRO_REGIME_FILTER = _env_bool("TTF_REQUIRE_MACRO_REGIME_FILTER", True)
     ENTRY_IOC_CONFIRM_TIMEOUT_SECONDS = _env_float(
         "ENTRY_IOC_CONFIRM_TIMEOUT_SECONDS", 2.0
     )
@@ -48,6 +54,8 @@ class Config(OperationalConfig, StrategyConfig):
     MAX_OPEN_TRADES = _env_int("MAX_OPEN_TRADES", 3)
     MAX_DIRECTIONAL_TRADES = _env_int("MAX_DIRECTIONAL_TRADES", 2)
     MIN_NOTIONAL_VALUE = _env_float("MIN_NOTIONAL_VALUE", 5.0)
+    # SHADOW como maestro de REAL: aplica limites, minimos y precision de REAL.
+    SHADOW_MIRROR_REAL_LIMITS = _env_bool("SHADOW_MIRROR_REAL_LIMITS", False)
     MAX_MARGIN_PERCENT = _env_float("MAX_MARGIN_PERCENT", 5.0)
     DAILY_LOSS_LIMIT = _env_float("DAILY_LOSS_LIMIT", 2.0)
     RISK_REWARD_FILTER_ENABLED = _env_bool("RISK_REWARD_FILTER_ENABLED", True)

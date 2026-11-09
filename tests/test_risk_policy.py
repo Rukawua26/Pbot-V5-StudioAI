@@ -36,7 +36,9 @@ class RiskPolicyTests(unittest.TestCase):
         self.assertEqual(decision.reason, "SHUTDOWN_IN_PROGRESS")
 
     @patch("core.risk_policy.shadow_logger.is_trading_halted", return_value=False)
-    def test_entry_risk_returns_recovery_pending_when_active_state_exists(self, _mock_halted):
+    def test_entry_risk_returns_recovery_pending_when_active_state_exists(
+        self, _mock_halted
+    ):
         bot = self._bot()
 
         decision = evaluate_entry_risk_decision(
@@ -77,7 +79,9 @@ class RiskPolicyTests(unittest.TestCase):
 
     @patch("core.risk_policy.send_telegram_msg")
     @patch("core.risk_policy.append_execution_event")
-    def test_activate_runtime_protection_sets_flags_and_sends_once(self, _mock_evt, mock_tg):
+    def test_activate_runtime_protection_sets_flags_and_sends_once(
+        self, _mock_evt, mock_tg
+    ):
         bot = self._bot()
         bot._circuit_breaker_alert_sent = True
 
@@ -136,7 +140,9 @@ class RiskPolicyTests(unittest.TestCase):
 
     @patch("core.risk_policy.send_telegram_msg")
     @patch("core.risk_policy.append_execution_event")
-    def test_circuit_breaker_hook_does_not_alert_on_second_trigger(self, mock_evt, mock_tg):
+    def test_circuit_breaker_hook_does_not_alert_on_second_trigger(
+        self, mock_evt, mock_tg
+    ):
         bot = self._bot()
         bot._circuit_breaker_alert_sent = True
 

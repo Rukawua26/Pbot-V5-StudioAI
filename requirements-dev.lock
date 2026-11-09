@@ -12,7 +12,7 @@ cachecontrol[filecache]==0.14.4
     # via
     #   cachecontrol
     #   pip-audit
-certifi==2026.4.22
+certifi==2026.10.18
     # via
     #   -c requirements.lock
     #   requests
@@ -26,7 +26,7 @@ cyclonedx-python-lib==11.8.0
     # via pip-audit
 defusedxml==0.7.1
     # via py-serializable
-filelock==3.29.1
+filelock==4.2.1
     # via cachecontrol
 hypothesis==6.165.5
     # via -r requirements-dev.in
@@ -46,7 +46,7 @@ mdurl==0.1.2
     # via
     #   -c requirements.lock
     #   markdown-it-py
-msgpack==1.2.1
+msgpack==1.2.3
     # via cachecontrol
 mypy==2.1.0
     # via -r requirements-dev.in
@@ -101,7 +101,7 @@ typing-extensions==4.15.0
     #   -c requirements.lock
     #   cyclonedx-python-lib
     #   mypy
-urllib3==2.7.0
+urllib3==2.8.0
     # via
     #   -c requirements.lock
     #   requests
@@ -109,7 +109,7 @@ urllib3==2.7.0
 # The following packages are considered to be unsafe in a requirements file:
 pip==26.2.1
     # via pip-api
-setuptools==84.0.0
+setuptools==84.1.0
     # via
     #   -c requirements.lock
     #   -r requirements-dev.in

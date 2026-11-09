@@ -48,7 +48,9 @@ class AblationBacktestTests(unittest.TestCase):
 
         self.assertEqual(report["baseline_mode"], "equal_weight")
         self.assertEqual(report["candidate"]["mode"], "mt_sr_regime")
-        self.assertAlmostEqual(report["candidate"]["delta_vs_baseline"]["objective"], 0.5)
+        self.assertAlmostEqual(
+            report["candidate"]["delta_vs_baseline"]["objective"], 0.5
+        )
 
 
 if __name__ == "__main__":

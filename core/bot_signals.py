@@ -385,9 +385,9 @@ def run_signal_scan_cycle(bot, top_triage, results, signal_stats, pnl_real_hoy):
                             symbol=symbol,
                             alert_type=audit_signal,
                             execution_mode=(
-                                "BOOTSTRAP_NONE"
+                                f"BOOTSTRAP_{filter_reason or 'NONE'}"
                                 if bot.bootstrap_heuristic_mode
-                                else "NONE"
+                                else str(filter_reason or "NONE")
                             ),
                             status="DISCARDED",
                             features=payload,
@@ -400,9 +400,9 @@ def run_signal_scan_cycle(bot, top_triage, results, signal_stats, pnl_real_hoy):
                             symbol=symbol,
                             alert_type=audit_signal,
                             execution_mode=(
-                                "BOOTSTRAP_NONE"
+                                f"BOOTSTRAP_{filter_reason or 'NONE'}"
                                 if bot.bootstrap_heuristic_mode
-                                else "NONE"
+                                else str(filter_reason or "NONE")
                             ),
                             status="DISCARDED",
                             features=payload,

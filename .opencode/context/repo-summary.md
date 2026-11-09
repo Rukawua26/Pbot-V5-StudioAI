@@ -12,7 +12,7 @@ Core truths:
 - `core/bot_connection.py` separates connection behavior by mode.
 - `core/execution_adapters.py` defines live and shadow-live execution boundaries.
 - `core/trade_entry.py` is the entry-point for trade execution (SHADOW/PAPER/REAL); builds `trade_state` with confidence, similarity boost, and context snapshot.
-- `learning.py` and `tools/learning.py` both define `Brain` with a Trade Context Vault: `save_trade_context_snapshot`, `find_similar_contexts`, `cleanup_stale_snapshots`. The bot uses `tools/learning.Brain` at runtime.
+- `tools/learning.py` defines the runtime `Brain` with a Trade Context Vault: `save_trade_context_snapshot`, `find_similar_contexts`, `cleanup_stale_snapshots`. There is no root `learning.py`.
 - The DB table `trade_context_snapshots` stores market fingerprints (derived features, ~1 KB) for cosine-similarity search against historical winners.
 - Startup migrations in `core/bot_models_startup.py` handle stale snapshot cleanup and features_version migration.
 

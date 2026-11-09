@@ -48,18 +48,28 @@ class RagCacheTest(unittest.TestCase):
     def test_get_rag_inference_returns_weighted_scores(self):
         features = {"rsi": 50, "adx": 20, "vol_rel": 1.0, "btc_delta": 0.0}
         brain = SimpleNamespace(
-            rag_cache_matrix=np.array([rag_cache.build_rag_vector(features)], dtype=float),
+            rag_cache_matrix=np.array(
+                [rag_cache.build_rag_vector(features)], dtype=float
+            ),
             rag_cache_meta=[{"symbol": "BTC/USDT", "pnl": 3.0}],
         )
-        config = SimpleNamespace(RAG_ENABLED=True, RAG_SIMILARITY_THRESHOLD=0.1, RAG_MIN_MATCHES=1)
+        config = SimpleNamespace(
+            RAG_ENABLED=True, RAG_SIMILARITY_THRESHOLD=0.1, RAG_MIN_MATCHES=1
+        )
 
-        scores, evidence = rag_cache.get_rag_inference(brain, "BTC/USDT", features, config)
+        scores, evidence = rag_cache.get_rag_inference(
+            brain, "BTC/USDT", features, config
+        )
 
-        self.assertEqual(scores, {"T": 100.0, "V": 100.0, "C": 100.0, "L": 100.0, "S": 100.0})
+        self.assertEqual(
+            scores, {"T": 100.0, "V": 100.0, "C": 100.0, "L": 100.0, "S": 100.0}
+        )
         self.assertEqual(evidence, ["BTC/USDT (+3.0%)"])
 
     def test_get_rag_inference_respects_disabled_config(self):
-        brain = SimpleNamespace(rag_cache_matrix=np.array([[1.0] * 8]), rag_cache_meta=[])
+        brain = SimpleNamespace(
+            rag_cache_matrix=np.array([[1.0] * 8]), rag_cache_meta=[]
+        )
         config = SimpleNamespace(RAG_ENABLED=False)
 
         scores, evidence = rag_cache.get_rag_inference(brain, "BTC/USDT", {}, config)

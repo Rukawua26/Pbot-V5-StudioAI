@@ -37,6 +37,46 @@ Fuente versionada para cambios criticos, decisiones de diseno, invariantes y reg
 
 ## Cambios Criticos Registrados
 
+### 2026-11-03 - Entradas sin reenvio y migracion visible
+
+- `core/execution_service.py`: `create_precision_order` envia la entrada LIMIT IOC una sola vez
+  (`retries=1`) tambien sin `clientOrderId`. Antes reintentaba hasta 3 veces: sin ID un timeout
+  ambiguo no se puede reconciliar y el reenvio podia duplicar exposicion.
+- `tools/learning.py`: la migracion que elimina `signal_alerts.trade_id` solo se ejecuta si la
+  columna existe y registra cualquier fallo en el log en vez de tragarlo con `except: pass`.
+
+Reglas preventivas:
+
+- Ninguna orden que abre exposicion se reintenta sin una identidad reconciliable.
+- No filtrar errores de SQLite por texto: el mensaje de un fallo real puede contener "no such column".
+
+### 2026-11-03 - Wallet sync: timeout de fill parcial, reparacion de SL y sincronizacion de cantidad
+
+Cambios (`odd/tasks/wallet-sync-hardening.md`):
+
+- `core/bot_wallet_sync.py`: `_parse_iso_dt` devuelve siempre UTC aware (naive legacy = hora
+  local) y la edad del fill parcial se calcula contra `utc_now()`. Antes, el timestamp aware que
+  escribe `trade_entry` provocaba `TypeError` y el wallet sync terminaba en HALT.
+- `_ensure_hard_sl_attached`: un SL insuficiente se reemplaza colocando y validando primero el
+  nuevo (clientOrderId `SLR<n>` derivado, porque ambos coexisten) y cancelando el viejo despues.
+  Si el reemplazo falla, el SL viejo sigue en el libro y en `sl_exchange_order_id`; se mantiene
+  `HARD_SL_UNPROTECTED` + HALT y la escalada a cierre de emergencia. Un cancel fallido del viejo
+  solo deja un stop reduce-only extra: se registra `HARD_SL_STALE_CANCEL_FAILED`, sin HALT.
+- `sync_wallet`: `amount`/`size_usd` se sincronizan con el exchange aunque no cambie `entry`.
+- Tests: 3 tests dependian del `.env` local (`load_runtime_env` usa `override=True`); ahora fijan
+  `SHADOW_MIRROR_REAL_LIMITS` o comprueban el default en un proceso sin `.env`.
+
+Reglas preventivas:
+
+- No restar datetimes de origen distinto sin normalizar a UTC aware.
+- Reemplazar un HARD SL siempre en orden crear-validar-cancelar, como el guardian.
+- Un test que dependa de un flag de config debe fijarlo; el `.env` local no es parte del test.
+- La identidad de una reparacion de SL (`sl_repair_pending_client_order_id`) es estable hasta confirmarla
+  (ACK valido o adopcion): un ACK ambiguo se adopta en el ciclo siguiente o Binance rechaza el duplicado.
+  Si el reemplazo falla, el SL viejo conserva juntos su ID de exchange y su clientOrderId.
+
+Validacion: ver `odd/tasks/wallet-sync-hardening.md` (tests RED/GREEN, suite completa, verify).
+
 ### 2026-09-17 - Continuidad SHADOW entre reinicios y WR honesto
 
 Cambios:

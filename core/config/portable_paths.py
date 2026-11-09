@@ -67,7 +67,13 @@ def runtime_path(*parts: str, base_dir: Path | None = None) -> Path:
 
 def ensure_portable_dirs(base_dir: Path | None = None) -> Path:
     base = base_dir or portable_base_dir()
-    for folder in (base, data_dir(base), logs_dir(base), models_dir(base), backups_dir(base)):
+    for folder in (
+        base,
+        data_dir(base),
+        logs_dir(base),
+        models_dir(base),
+        backups_dir(base),
+    ):
         folder.mkdir(parents=True, exist_ok=True)
     return base
 

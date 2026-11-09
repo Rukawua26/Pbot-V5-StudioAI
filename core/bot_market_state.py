@@ -55,7 +55,9 @@ def _persist_hmm_snapshot_async(bot, snapshot) -> None:
     snapshot_ts = snapshot.get("ts")
     with _hmm_snapshot_persist_lock:
         now = time.monotonic()
-        min_interval = float(getattr(Config, "MARKOV_SNAPSHOT_PERSIST_INTERVAL_SECONDS", 5 * 60))
+        min_interval = float(
+            getattr(Config, "MARKOV_SNAPSHOT_PERSIST_INTERVAL_SECONDS", 5 * 60)
+        )
         if snapshot_ts == _last_hmm_snapshot_persist_ts:
             return
         if now - _last_hmm_snapshot_persist_monotonic < min_interval:
@@ -219,7 +221,9 @@ def _detect_market_regime_heuristic(bot, btc_data=None) -> str:
         if adx_values is None or len(adx_values) < 14:
             from tools.pandas_ta import adx
 
-            btc_data = adx(btc_data["high"], btc_data["low"], btc_data["close"], length=14)
+            btc_data = adx(
+                btc_data["high"], btc_data["low"], btc_data["close"], length=14
+            )
             adx_values = btc_data.get("ADX_14")
 
         if adx_values is None or len(adx_values) < 14:
@@ -267,7 +271,9 @@ def warmup_hurst(bot) -> bool:
 
         btc_data = _get_cached_btc_1h(bot)
         if btc_data is None or len(btc_data) < hurst_estimator.window:
-            ohlcv = exchange.fetch_ohlcv("BTC/USDT", "1h", limit=hurst_estimator.window * 2)
+            ohlcv = exchange.fetch_ohlcv(
+                "BTC/USDT", "1h", limit=hurst_estimator.window * 2
+            )
             if hasattr(data_service, "_track_api_weight"):
                 data_service._track_api_weight("fetch_ohlcv", 1, "market")
             if not ohlcv:
@@ -355,7 +361,9 @@ def detect_market_regime(bot) -> str:
         regime, confidence = hmm_filter.predict_regime(btc_data)
         min_confidence = float(getattr(Config, "HMM_MIN_CONFIDENCE", 0.55))
         if regime == "UNKNOWN" or confidence < min_confidence:
-            bot.log(f"⚠️ HMM regime fallback: regime={regime} confidence={confidence:.2f}")
+            bot.log(
+                f"⚠️ HMM regime fallback: regime={regime} confidence={confidence:.2f}"
+            )
             regime = _detect_market_regime_heuristic(bot, btc_data)
             bot.market_regime = regime
             _compute_hurst_on_btc(bot, btc_data)

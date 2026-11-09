@@ -40,6 +40,9 @@ except ImportError:
     Config = None  # type: ignore[assignment, misc]
 
 import time
+import logging
+
+logger = logging.getLogger(__name__)
 
 RAG_CACHE_MAX_TRADES = 5000
 
@@ -343,10 +346,15 @@ class Brain:
         )
 
         # Migración: eliminar columna trade_id si existe (era NULL siempre, nunca usada)
-        try:
-            c.execute("ALTER TABLE signal_alerts DROP COLUMN trade_id")
-        except Exception:
-            pass
+        alert_columns = {
+            row[1] for row in c.execute("PRAGMA table_info(signal_alerts)")
+        }
+        if "trade_id" in alert_columns:
+            try:
+                c.execute("ALTER TABLE signal_alerts DROP COLUMN trade_id")
+            except sqlite3.Error as error:
+                # Non-fatal (the column is unused) but must not stay silent.
+                logger.warning("signal_alerts.trade_id migration failed: %s", error)
 
         c.execute("""
             CREATE TABLE IF NOT EXISTS trade_context_snapshots (

@@ -111,7 +111,9 @@ class TradeContextSnapshotsTest(unittest.TestCase):
         conn.commit()
         conn.close()
 
-        similar = self.brain.find_similar_contexts(self._fake_context(rsi=58, adx=28), limit=5)
+        similar = self.brain.find_similar_contexts(
+            self._fake_context(rsi=58, adx=28), limit=5
+        )
         self.assertEqual(len(similar), 1)
         self.assertEqual(similar[0]["is_winner"], 1)
 
@@ -128,7 +130,9 @@ class TradeContextSnapshotsTest(unittest.TestCase):
         conn.commit()
         conn.close()
 
-        similar = self.brain.find_similar_contexts(self._fake_context(rsi=58, adx=28), limit=5)
+        similar = self.brain.find_similar_contexts(
+            self._fake_context(rsi=58, adx=28), limit=5
+        )
 
         self.assertEqual(similar, [])
 

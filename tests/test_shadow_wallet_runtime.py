@@ -98,7 +98,9 @@ class ShadowWalletRuntimeTest(unittest.TestCase):
             )
 
             conn = sqlite3.connect(db_path)
-            active_count = conn.execute("SELECT COUNT(*) FROM active_trades_state").fetchone()[0]
+            active_count = conn.execute(
+                "SELECT COUNT(*) FROM active_trades_state"
+            ).fetchone()[0]
             wallet_raw = conn.execute(
                 "SELECT value FROM system_meta WHERE key = ?",
                 ("simulated_wallet_state_v1",),
@@ -185,7 +187,9 @@ class ShadowWalletRuntimeTest(unittest.TestCase):
         self.assertFalse(_release_simulated_margin(bot, trade, 0.75))
         self.assertAlmostEqual(bot.balance, 20.75)
         self.assertAlmostEqual(bot.available_balance, 20.75)
-        self.assertEqual(bot.brain.metadata["simulated_wallet_state_v1"]["balance"], 20.75)
+        self.assertEqual(
+            bot.brain.metadata["simulated_wallet_state_v1"]["balance"], 20.75
+        )
 
     def test_failed_atomic_settlement_rolls_back_simulated_wallet(self):
         brain = _Brain()
@@ -290,7 +294,9 @@ class ShadowWalletRuntimeTest(unittest.TestCase):
             available_balance=1.0,
             balance_lock=threading.Lock(),
         )
-        ok, reason = _reserve_simulated_margin(bot, {"is_shadow": True, "margin_used": 2.0})
+        ok, reason = _reserve_simulated_margin(
+            bot, {"is_shadow": True, "margin_used": 2.0}
+        )
         self.assertFalse(ok)
         self.assertIn("SIM_BALANCE_INSUFFICIENT", reason)
         self.assertAlmostEqual(bot.available_balance, 1.0)
@@ -312,7 +318,9 @@ class ShadowWalletRuntimeTest(unittest.TestCase):
         self.assertAlmostEqual(pnl["net_pct"], 48.95)
 
     def test_shadow_adapter_balance_provider(self):
-        adapter = ShadowExecutionAdapter(_LiveExecution(), simulated_balance_provider=lambda: 42.5)
+        adapter = ShadowExecutionAdapter(
+            _LiveExecution(), simulated_balance_provider=lambda: 42.5
+        )
         self.assertEqual(adapter.get_balance(), 42.5)
         self.assertEqual(adapter.fetch_balance()["total"]["USDT"], 42.5)
 

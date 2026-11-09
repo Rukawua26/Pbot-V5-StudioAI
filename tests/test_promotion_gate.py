@@ -48,7 +48,11 @@ class PromotionGateTests(unittest.TestCase):
 
     def test_evaluate_fidelity_passes_with_sufficient_data(self):
         failures = evaluate_fidelity(
-            {"fidelity": {"summary": {"weighted_fidelity_score": 0.95, "total_samples": 50}}},
+            {
+                "fidelity": {
+                    "summary": {"weighted_fidelity_score": 0.95, "total_samples": 50}
+                }
+            },
             min_fidelity_score=0.80,
             min_fidelity_samples=20,
         )
@@ -56,7 +60,11 @@ class PromotionGateTests(unittest.TestCase):
 
     def test_evaluate_fidelity_fails_when_below_thresholds(self):
         failures = evaluate_fidelity(
-            {"fidelity": {"summary": {"weighted_fidelity_score": 0.75, "total_samples": 10}}},
+            {
+                "fidelity": {
+                    "summary": {"weighted_fidelity_score": 0.75, "total_samples": 10}
+                }
+            },
             min_fidelity_score=0.80,
             min_fidelity_samples=20,
         )
@@ -76,7 +84,9 @@ class PromotionGateTests(unittest.TestCase):
         failures = evaluate_strategy_report_doc(
             {
                 "verdict": {"passed": True, "failures": []},
-                "fidelity": {"summary": {"weighted_fidelity_score": 0.70, "total_samples": 5}},
+                "fidelity": {
+                    "summary": {"weighted_fidelity_score": 0.70, "total_samples": 5}
+                },
             },
             require_strategy_report=True,
             require_fidelity_report=True,

@@ -193,7 +193,9 @@ class TestShouldAbortTrade(unittest.TestCase):
         self.assertIn("CONF_DEGRADED", reason)
 
     def test_uses_custom_threshold_factor(self):
-        should_abort, reason = self.engine.should_abort_trade(80.0, 50.0, threshold_factor=0.60)
+        should_abort, reason = self.engine.should_abort_trade(
+            80.0, 50.0, threshold_factor=0.60
+        )
         # 50 < 80 * 0.60 = 48 → False
         self.assertFalse(should_abort)
 

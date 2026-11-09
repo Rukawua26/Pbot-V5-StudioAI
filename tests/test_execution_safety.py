@@ -252,5 +252,72 @@ class SlSideMappingTest(unittest.TestCase):
         self.assertEqual(sl_side_for_trade_side("X"), "buy")
 
 
+class HardSlProtectiveOrderTest(unittest.TestCase):
+    def _order(self, **kw):
+        base = {
+            "id": "sl-1",
+            "type": "STOP_MARKET",
+            "side": "sell",
+            "reduceOnly": True,
+            "amount": 1.0,
+        }
+        base.update(kw)
+        return base
+
+    def test_stop_market_reduce_only_counts(self):
+        from core.execution_safety import hard_sl_protective_order
+
+        order = self._order()
+        trade = {"side": "BUY"}
+        self.assertTrue(hard_sl_protective_order(order, trade))
+
+    def test_stop_limit_does_not_count(self):
+        from core.execution_safety import hard_sl_protective_order
+
+        order = self._order(type="STOP_LIMIT")
+        self.assertFalse(hard_sl_protective_order(order, {"side": "BUY"}))
+
+    def test_any_type_containing_stop_does_not_count(self):
+        from core.execution_safety import hard_sl_protective_order
+
+        for bad in ("STOP", "STOP_LOSS", "TRAILING_STOP", "STOP_MARKET_LIMIT"):
+            order = self._order(type=bad)
+            self.assertFalse(hard_sl_protective_order(order, {"side": "BUY"}), msg=bad)
+
+    def test_missing_reduce_only_does_not_count(self):
+        from core.execution_safety import hard_sl_protective_order
+
+        order = self._order(reduceOnly=False)
+        self.assertFalse(hard_sl_protective_order(order, {"side": "BUY"}))
+
+    def test_wrong_side_does_not_count(self):
+        from core.execution_safety import hard_sl_protective_order
+
+        order = self._order(side="buy")
+        self.assertFalse(hard_sl_protective_order(order, {"side": "BUY"}))
+
+    def test_malformed_inputs_do_not_count(self):
+        from core.execution_safety import hard_sl_protective_order
+
+        self.assertFalse(hard_sl_protective_order("x", {"side": "BUY"}))
+        self.assertFalse(hard_sl_protective_order(self._order(), "x"))
+        self.assertFalse(hard_sl_protective_order(None, None))
+
+    def test_stop_market_type_variants(self):
+        from core.execution_safety import hard_sl_protective_order
+
+        for variant in ("STOP_MARKET", "stop_market", "STOP-MARKET", "stopmarket"):
+            order = self._order(type=variant)
+            self.assertTrue(
+                hard_sl_protective_order(order, {"side": "BUY"}), msg=variant
+            )
+
+    def test_sell_trade_requires_buy_stop(self):
+        from core.execution_safety import hard_sl_protective_order
+
+        order = self._order(side="buy", type="STOP_MARKET")
+        self.assertTrue(hard_sl_protective_order(order, {"side": "SELL"}))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -11,7 +11,9 @@ from core.strategy.agents.ghost_agent import GhostAgent
 from core.time_utils import utc_now, utc_now_iso
 
 
-def _valid_hard_sl_ack(symbol: str, sl_side: str, amount: float, order_id: str = "new-sl") -> dict:
+def _valid_hard_sl_ack(
+    symbol: str, sl_side: str, amount: float, order_id: str = "new-sl"
+) -> dict:
     """ACK estructuralmente válido para hard_sl_ack_looks_valid."""
     return {
         "id": order_id,
@@ -35,9 +37,15 @@ class SmartExitConfidenceGuardrailsTest(unittest.TestCase):
 
     @patch("core.strategy.agents.ghost_agent.os.path.exists", return_value=True)
     @patch("core.strategy.agents.ghost_agent.safe_pickle_load")
-    def test_ghost_agent_assigns_selected_model_after_pickle_load(self, mocked_load, _exists):
+    def test_ghost_agent_assigns_selected_model_after_pickle_load(
+        self, mocked_load, _exists
+    ):
         model = _PredictProbaModel()
-        mocked_load.return_value = {"n_samples": 7, "rf": model, "feature_cols": ["rsi"]}
+        mocked_load.return_value = {
+            "n_samples": 7,
+            "rf": model,
+            "feature_cols": ["rsi"],
+        }
 
         agent = GhostAgent()
         loaded = agent.load_trained_model()
@@ -46,8 +54,13 @@ class SmartExitConfidenceGuardrailsTest(unittest.TestCase):
         self.assertIs(agent.model, model)
 
     @patch("core.strategy.agents.ghost_agent.os.path.exists", return_value=True)
-    @patch("core.strategy.agents.ghost_agent.safe_pickle_load", return_value={"n_samples": 7})
-    def test_ghost_agent_keeps_model_none_when_pickle_has_no_predictor(self, _load, _exists):
+    @patch(
+        "core.strategy.agents.ghost_agent.safe_pickle_load",
+        return_value={"n_samples": 7},
+    )
+    def test_ghost_agent_keeps_model_none_when_pickle_has_no_predictor(
+        self, _load, _exists
+    ):
         agent = GhostAgent()
 
         agent.load_trained_model()
@@ -55,7 +68,9 @@ class SmartExitConfidenceGuardrailsTest(unittest.TestCase):
         self.assertIsNone(agent.model)
 
     @patch("core.bot_guardian.time.sleep", return_value=None)
-    def test_guardian_uses_shadow_threshold_and_entry_confidence_fallback(self, _sleep_mock):
+    def test_guardian_uses_shadow_threshold_and_entry_confidence_fallback(
+        self, _sleep_mock
+    ):
         trade = {
             "symbol": "XPL/USDT",
             "side": "BUY",
@@ -82,11 +97,20 @@ class SmartExitConfidenceGuardrailsTest(unittest.TestCase):
         bot.log = MagicMock()
         bot.close_trade = MagicMock()
         bot.sync_wallet = MagicMock()
-        bot._guardian_stats = {"bailout_count": 0, "loops": 0, "work_s": 0.0, "sleep_s": 0.0}
+        bot._guardian_stats = {
+            "bailout_count": 0,
+            "loops": 0,
+            "work_s": 0.0,
+            "sleep_s": 0.0,
+        }
         bot._exit_eval_last_log = {}
-        bot.execution = SimpleNamespace(fetch_ticker=MagicMock(return_value={"last": 1.0}))
+        bot.execution = SimpleNamespace(
+            fetch_ticker=MagicMock(return_value={"last": 1.0})
+        )
         bot.exit_engine = SimpleNamespace(
-            evaluate_exit=MagicMock(return_value={"should_exit": False, "reason": "HOLD"})
+            evaluate_exit=MagicMock(
+                return_value={"should_exit": False, "reason": "HOLD"}
+            )
         )
         bot.risk_engine = SimpleNamespace(
             should_abort_trade=MagicMock(return_value=(False, "CONF_OK")),
@@ -137,11 +161,20 @@ class SmartExitConfidenceGuardrailsTest(unittest.TestCase):
         bot.log = MagicMock()
         bot.close_trade = MagicMock()
         bot.sync_wallet = MagicMock()
-        bot._guardian_stats = {"bailout_count": 0, "loops": 0, "work_s": 0.0, "sleep_s": 0.0}
+        bot._guardian_stats = {
+            "bailout_count": 0,
+            "loops": 0,
+            "work_s": 0.0,
+            "sleep_s": 0.0,
+        }
         bot._exit_eval_last_log = {}
-        bot.execution = SimpleNamespace(fetch_ticker=MagicMock(return_value={"last": 1.12}))
+        bot.execution = SimpleNamespace(
+            fetch_ticker=MagicMock(return_value={"last": 1.12})
+        )
         bot.exit_engine = SimpleNamespace(
-            evaluate_exit=MagicMock(return_value={"should_exit": False, "reason": "HOLD"})
+            evaluate_exit=MagicMock(
+                return_value={"should_exit": False, "reason": "HOLD"}
+            )
         )
         bot.risk_engine = SimpleNamespace(
             should_abort_trade=MagicMock(return_value=(False, "CONF_OK")),
@@ -199,7 +232,12 @@ class SmartExitConfidenceGuardrailsTest(unittest.TestCase):
         bot.log = MagicMock()
         bot.close_trade = MagicMock()
         bot.sync_wallet = MagicMock()
-        bot._guardian_stats = {"bailout_count": 0, "loops": 0, "work_s": 0.0, "sleep_s": 0.0}
+        bot._guardian_stats = {
+            "bailout_count": 0,
+            "loops": 0,
+            "work_s": 0.0,
+            "sleep_s": 0.0,
+        }
         bot._exit_eval_last_log = {}
         bot.execution = SimpleNamespace(
             fetch_ticker=MagicMock(return_value={"last": 1.02}),
@@ -261,11 +299,20 @@ class SmartExitConfidenceGuardrailsTest(unittest.TestCase):
         bot.log = MagicMock()
         bot.close_trade = MagicMock()
         bot.sync_wallet = MagicMock()
-        bot._guardian_stats = {"bailout_count": 0, "loops": 0, "work_s": 0.0, "sleep_s": 0.0}
+        bot._guardian_stats = {
+            "bailout_count": 0,
+            "loops": 0,
+            "work_s": 0.0,
+            "sleep_s": 0.0,
+        }
         bot._exit_eval_last_log = {}
-        bot.execution = SimpleNamespace(fetch_ticker=MagicMock(return_value={"last": 1.0}))
+        bot.execution = SimpleNamespace(
+            fetch_ticker=MagicMock(return_value={"last": 1.0})
+        )
         bot.exit_engine = SimpleNamespace(
-            evaluate_exit=MagicMock(return_value={"should_exit": False, "reason": "HOLD"})
+            evaluate_exit=MagicMock(
+                return_value={"should_exit": False, "reason": "HOLD"}
+            )
         )
         bot.risk_engine = SimpleNamespace(
             should_abort_trade=MagicMock(return_value=(False, "CONF_OK")),
@@ -321,11 +368,20 @@ class SmartExitConfidenceGuardrailsTest(unittest.TestCase):
         bot.log = MagicMock()
         bot.close_trade = MagicMock()
         bot.sync_wallet = MagicMock()
-        bot._guardian_stats = {"bailout_count": 0, "loops": 0, "work_s": 0.0, "sleep_s": 0.0}
+        bot._guardian_stats = {
+            "bailout_count": 0,
+            "loops": 0,
+            "work_s": 0.0,
+            "sleep_s": 0.0,
+        }
         bot._exit_eval_last_log = {}
-        bot.execution = SimpleNamespace(fetch_ticker=MagicMock(return_value={"last": 1.0}))
+        bot.execution = SimpleNamespace(
+            fetch_ticker=MagicMock(return_value={"last": 1.0})
+        )
         bot.exit_engine = SimpleNamespace(
-            evaluate_exit=MagicMock(return_value={"should_exit": False, "reason": "HOLD"})
+            evaluate_exit=MagicMock(
+                return_value={"should_exit": False, "reason": "HOLD"}
+            )
         )
         bot.risk_engine = SimpleNamespace(
             should_abort_trade=MagicMock(return_value=(True, "CONF_DEGRADED_37.5%")),
@@ -376,13 +432,22 @@ class SmartExitConfidenceGuardrailsTest(unittest.TestCase):
         bot.log = MagicMock()
         bot.close_trade = MagicMock()
         bot.sync_wallet = MagicMock()
-        bot._guardian_stats = {"bailout_count": 0, "loops": 0, "work_s": 0.0, "sleep_s": 0.0}
+        bot._guardian_stats = {
+            "bailout_count": 0,
+            "loops": 0,
+            "work_s": 0.0,
+            "sleep_s": 0.0,
+        }
         bot._exit_eval_last_log = {}
         bot.ghost_model = None
         bot.ghost_model_type = None
-        bot.execution = SimpleNamespace(fetch_ticker=MagicMock(return_value={"last": 0.999}))
+        bot.execution = SimpleNamespace(
+            fetch_ticker=MagicMock(return_value={"last": 0.999})
+        )
         bot.exit_engine = SimpleNamespace(
-            evaluate_exit=MagicMock(return_value={"should_exit": False, "reason": "HOLD"})
+            evaluate_exit=MagicMock(
+                return_value={"should_exit": False, "reason": "HOLD"}
+            )
         )
         bot.risk_engine = SimpleNamespace(
             should_abort_trade=MagicMock(return_value=(False, "CONF_OK")),
@@ -404,7 +469,9 @@ class SmartExitConfidenceGuardrailsTest(unittest.TestCase):
 
         self.assertTrue(trade["pre_sl_warning_logged"])
         self.assertFalse(
-            any("Guardian error" in str(call.args[0]) for call in bot.log.call_args_list)
+            any(
+                "Guardian error" in str(call.args[0]) for call in bot.log.call_args_list
+            )
         )
         bot.close_trade.assert_not_called()
 
@@ -422,7 +489,9 @@ class SmartExitConfidenceGuardrailsTest(unittest.TestCase):
         bot.lock = threading.Lock()
         bot.db_lock = threading.Lock()
         bot.active_trades = {"XPL/USDT": trade}
-        bot.brain = SimpleNamespace(upsert_confidence_exit_audit=MagicMock(return_value=1))
+        bot.brain = SimpleNamespace(
+            upsert_confidence_exit_audit=MagicMock(return_value=1)
+        )
         bot.ghost_model = None
         bot.scaler = None
         bot.market_btc_change_tf = 0.0
@@ -444,7 +513,9 @@ class SmartExitConfidenceGuardrailsTest(unittest.TestCase):
         bot.close_trade.assert_not_called()
 
     @patch("core.bot_trade_monitor.Strategy.analyze")
-    def test_monitor_defers_degraded_exit_when_move_does_not_cover_fees(self, analyze_mock):
+    def test_monitor_defers_degraded_exit_when_move_does_not_cover_fees(
+        self, analyze_mock
+    ):
         trade = {
             "symbol": "TRX/USDT",
             "side": "BUY",
@@ -469,14 +540,20 @@ class SmartExitConfidenceGuardrailsTest(unittest.TestCase):
         bot.lock = threading.Lock()
         bot.db_lock = threading.Lock()
         bot.active_trades = {"TRX/USDT": trade}
-        bot.brain = SimpleNamespace(upsert_confidence_exit_audit=MagicMock(return_value=1))
+        bot.brain = SimpleNamespace(
+            upsert_confidence_exit_audit=MagicMock(return_value=1)
+        )
         bot.ghost_model = MagicMock()
         bot.scaler = None
         bot.bootstrap_heuristic_mode = False
         bot.market_btc_change_tf = 0.0
-        bot.data_service = SimpleNamespace(fetch_and_update_data=MagicMock(return_value=market_df))
+        bot.data_service = SimpleNamespace(
+            fetch_and_update_data=MagicMock(return_value=market_df)
+        )
         bot.risk_engine = SimpleNamespace(
-            check_signal_integrity=MagicMock(return_value=(True, "CONFIDENCE_FLOOR_VIOLATED_22.1")),
+            check_signal_integrity=MagicMock(
+                return_value=(True, "CONFIDENCE_FLOOR_VIOLATED_22.1")
+            ),
             should_defer_confidence_exit_for_fee_noise=MagicMock(
                 return_value=(True, "FEE_NOISE_GROSS=0.100%_FLOOR=0.200%")
             ),

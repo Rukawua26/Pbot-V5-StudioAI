@@ -167,7 +167,9 @@ class BinanceWeightTracker:
 
             # Clean old entries (older than 60 seconds)
             cutoff = now - 60
-            self._weight_log = [(t, w, e, c) for t, w, e, c in self._weight_log if t > cutoff]
+            self._weight_log = [
+                (t, w, e, c) for t, w, e, c in self._weight_log if t > cutoff
+            ]
 
             # Clean old order entries (older than 10 seconds)
             order_cutoff = now - 10
@@ -352,7 +354,9 @@ class BinanceWeightTracker:
                 status["endpoints"].items(), key=lambda x: x[1]["weight"], reverse=True
             )[:5]
             for ep, data in sorted_endpoints:
-                lines.append(f"     {ep}: {data['count']} calls, {data['weight']} weight")
+                lines.append(
+                    f"     {ep}: {data['count']} calls, {data['weight']} weight"
+                )
 
         if status["categories"]:
             lines.append("   Categories:")

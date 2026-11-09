@@ -327,3 +327,24 @@ class ExecutionAdapterContractTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestnetSandboxFailureTest(unittest.TestCase):
+    def test_factory_aborts_when_sandbox_activation_fails(self):
+        class _ExplodingService(_FakeExecutionService):
+            def __init__(self, _api_key, _api_secret):
+                super().__init__(_api_key, _api_secret)
+                self.exchange.set_sandbox_mode.side_effect = RuntimeError(
+                    "sandbox boom"
+                )
+
+        config = SimpleNamespace(
+            BINANCE_API_KEY="k",
+            BINANCE_API_SECRET="s",
+            USE_TESTNET=True,
+            PAPER_MODE=False,
+            EXECUTION_BACKEND="live",
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "sandbox"):
+            build_execution_gateway(config, _ExplodingService)

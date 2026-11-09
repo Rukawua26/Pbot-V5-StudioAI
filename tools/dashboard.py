@@ -35,7 +35,8 @@ def __getattr__(name: str):
 
 def _env_bool(name: str, default: bool) -> bool:
     raw = os.getenv(name)
-    if raw is None: return default
+    if raw is None:
+        return default
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 def _is_port_open(host: str, port: int) -> bool:
@@ -45,7 +46,8 @@ def _is_port_open(host: str, port: int) -> bool:
 
 def _log(bot, message: str) -> None:
     logger = getattr(bot, "log", None)
-    if callable(logger): logger(message)
+    if callable(logger):
+        logger(message)
 
 
 def _run_intelligence_refresh(bot=None) -> None:

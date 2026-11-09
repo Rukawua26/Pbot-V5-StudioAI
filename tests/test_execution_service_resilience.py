@@ -179,6 +179,10 @@ class _ChaseLimitNoFillExchange:
     def cancel_all_orders(self, _symbol):
         return []
 
+    def fetch_open_orders(self, _symbol):
+        # No stale orders: the chase itself creates and cancels exit-1..3.
+        return []
+
     def fetch_ticker(self, _symbol):
         return {"last": 100.0}
 
@@ -263,7 +267,9 @@ class ExecutionServiceResilienceTest(unittest.TestCase):
             loaded = service.has_markets_loaded()
 
         self.assertFalse(loaded)
-        self.assertTrue(any("markets cargados" in message for message in captured.output))
+        self.assertTrue(
+            any("markets cargados" in message for message in captured.output)
+        )
 
     @patch("core.execution_service.time.sleep", return_value=None)
     def test_cancel_order_retries_on_network_error(self, _sleep_mock):
@@ -282,7 +288,9 @@ class ExecutionServiceResilienceTest(unittest.TestCase):
         service.exchange = _FlakyHardSlExchange()
         service.set_weight_tracker(None)
 
-        result = service.place_hard_sl("BTC/USDT", side="BUY", amount=1.0, stop_price=99.5)
+        result = service.place_hard_sl(
+            "BTC/USDT", side="BUY", amount=1.0, stop_price=99.5
+        )
 
         self.assertIsNotNone(result)
         self.assertEqual(service.exchange.create_attempts, 2)
@@ -293,7 +301,9 @@ class ExecutionServiceResilienceTest(unittest.TestCase):
         service.exchange = _FlakyHardSlExchange()
         service.set_weight_tracker(None)
 
-        result = service.place_hard_sl("BTC/USDT", side="BUY", amount=1.0, stop_price=float("nan"))
+        result = service.place_hard_sl(
+            "BTC/USDT", side="BUY", amount=1.0, stop_price=float("nan")
+        )
 
         self.assertIsNone(result)
         self.assertIn("finite", service.last_hard_sl_error)
@@ -329,7 +339,9 @@ class ExecutionServiceResilienceTest(unittest.TestCase):
         self.assertEqual(service.exchange.lookup_attempts, 1)
 
     @patch("core.execution_service.time.sleep", return_value=None)
-    def test_reduce_only_market_recovers_by_client_order_id_after_timeout(self, _sleep_mock):
+    def test_reduce_only_market_recovers_by_client_order_id_after_timeout(
+        self, _sleep_mock
+    ):
         service = ExecutionService("k", "s")
         service.exchange = _RetryCreateOrderExchange()
         service.set_weight_tracker(None)
@@ -342,12 +354,35 @@ class ExecutionServiceResilienceTest(unittest.TestCase):
         first = service.exchange.params_seen[0].get("newClientOrderId")
         self.assertTrue(first)
 
+    @patch("core.execution_service.time.sleep", return_value=None)
+    def test_precision_order_without_client_id_is_never_resent(self, _sleep_mock):
+        # Without a clientOrderId an ambiguous timeout cannot be reconciled, so a
+        # resend could duplicate exposure: exactly one submission is allowed.
+        class _Exchange(_RetryCreateOrderExchange):
+            def price_to_precision(self, _symbol, price):
+                return f"{float(price):.2f}"
+
+            def create_order(self, symbol, type, side, amount, price, params):
+                return super().create_order(symbol, type, side, amount, price, params)
+
+        service = ExecutionService("k", "s")
+        service.exchange = _Exchange()
+        service.set_weight_tracker(None)
+
+        result = service.create_precision_order("BTC/USDT", "BUY", 0.1, 100.0)
+
+        self.assertIsNone(result)
+        self.assertEqual(service.exchange.create_attempts, 1)
+        self.assertEqual(service.exchange.lookup_attempts, 0)
+
     @patch("core.execution_service.Config.PAPER_MODE", False)
     def test_real_get_balance_raises_instead_of_returning_cached_balance(self):
         service = ExecutionService("k", "s")
         service._last_valid_balance = 123.0
 
-        with patch.object(service, "_call_exchange_account", side_effect=RuntimeError("auth down")):
+        with patch.object(
+            service, "_call_exchange_account", side_effect=RuntimeError("auth down")
+        ):
             with self.assertRaisesRegex(RuntimeError, "REAL_BALANCE_UNAVAILABLE"):
                 service.get_balance()
 
@@ -433,8 +468,12 @@ class ExecutionServiceResilienceTest(unittest.TestCase):
         service.set_weight_tracker(None)
 
         with (
-            patch("core.execution_service.Config.NO_PRICE_EXIT_ESCALATION_SECONDS", 180),
-            patch("core.execution_service.Config.NO_PRICE_EXIT_MIN_ESCALATION_SECONDS", 45),
+            patch(
+                "core.execution_service.Config.NO_PRICE_EXIT_ESCALATION_SECONDS", 180
+            ),
+            patch(
+                "core.execution_service.Config.NO_PRICE_EXIT_MIN_ESCALATION_SECONDS", 45
+            ),
         ):
             base = service._resolve_no_price_threshold("BTC/USDT")
             service._record_no_price_market_exit("BTC/USDT")
@@ -448,7 +487,9 @@ class ExecutionServiceResilienceTest(unittest.TestCase):
         self.assertGreaterEqual(tuned_floor, 45)
 
     @patch("core.execution_service.time.sleep", return_value=None)
-    def test_close_position_returns_stuck_state_when_hard_floor_not_filled(self, _sleep):
+    def test_close_position_returns_stuck_state_when_hard_floor_not_filled(
+        self, _sleep
+    ):
         service = ExecutionService("k", "s")
         service.exchange = _ChaseLimitNoFillExchange()
         service.set_weight_tracker(None)
@@ -459,14 +500,82 @@ class ExecutionServiceResilienceTest(unittest.TestCase):
         self.assertEqual(result.get("id"), "exit-4")
         self.assertEqual(service.exchange.canceled, ["exit-1", "exit-2", "exit-3"])
 
+    def test_close_position_preserves_hard_sl_during_chase(self):
+        """The chase must cancel stale exit orders but never the HARD SL."""
+        service = ExecutionService("k", "s")
+
+        class _Ex:
+            def __init__(self):
+                self.timeout = 9000
+                self.created = []
+                self.canceled = []
+                self.fetch_open_orders_calls = 0
+
+            def fetch_open_orders(self, _symbol):
+                self.fetch_open_orders_calls += 1
+                return [
+                    {
+                        "id": "stale-1",
+                        "type": "limit",
+                        "side": "sell",
+                        "reduceOnly": True,
+                    },
+                    {
+                        "id": "sl-1",
+                        "type": "STOP_MARKET",
+                        "side": "sell",
+                        "reduceOnly": True,
+                    },
+                ]
+
+            def fetch_ticker(self, _symbol):
+                return {"last": 100.0}
+
+            def price_to_precision(self, _symbol, price):
+                return str(round(float(price), 2))
+
+            def create_order(self, symbol, order_type, side, amount, price, params):
+                order = {
+                    "id": f"exit-{len(self.created) + 1}",
+                    "symbol": symbol,
+                    "type": order_type,
+                    "side": side,
+                    "amount": amount,
+                    "price": price,
+                    "status": "open",
+                    "params": params,
+                }
+                self.created.append(order)
+                return order
+
+            def fetch_order(self, order_id, symbol):
+                return {"id": order_id, "symbol": symbol, "status": "open"}
+
+            def cancel_order(self, order_id, symbol):
+                self.canceled.append(order_id)
+                return {"id": order_id, "symbol": symbol, "status": "canceled"}
+
+        service.exchange = _Ex()
+        service.set_weight_tracker(None)
+
+        result = service.close_position("BTC/USDT", side="BUY", amount=0.1)
+
+        self.assertEqual(result.get("exit_state"), "STUCK")
+        self.assertIn("stale-1", service.exchange.canceled)
+        self.assertNotIn("sl-1", service.exchange.canceled)
+
     def test_cancel_all_degraded_activates_symbol_quarantine(self):
         service = ExecutionService("k", "s")
         service.exchange = _TimeoutProbeExchange()
         service.set_weight_tracker(None)
 
         with (
-            patch("core.execution_service.Config.CANCEL_ALL_DEGRADED_WINDOW_SECONDS", 300),
-            patch("core.execution_service.Config.CANCEL_ALL_DEGRADED_QUARANTINE_EVENTS", 3),
+            patch(
+                "core.execution_service.Config.CANCEL_ALL_DEGRADED_WINDOW_SECONDS", 300
+            ),
+            patch(
+                "core.execution_service.Config.CANCEL_ALL_DEGRADED_QUARANTINE_EVENTS", 3
+            ),
             patch(
                 "core.execution_service.Config.CANCEL_ALL_DEGRADED_QUARANTINE_SECONDS",
                 600,

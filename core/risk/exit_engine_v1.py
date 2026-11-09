@@ -178,7 +178,9 @@ class ExitEngineV1:
 
         trigger_pct = float(self.breakeven_trigger_pct)
         if current_atr > 0:
-            atr_trigger_pct = (current_atr / entry) * 100.0 * lev * self.breakeven_atr_mult
+            atr_trigger_pct = (
+                (current_atr / entry) * 100.0 * lev * self.breakeven_atr_mult
+            )
             trigger_pct = max(trigger_pct, atr_trigger_pct)
 
         if pnl < trigger_pct:
@@ -267,7 +269,9 @@ class ExitEngineV1:
                 else Config.SMART_EXIT_THRESHOLD_REAL
             )
         # Prioridad: invalidación estructural -> trailing ATR -> flat volatility -> time decay
-        result = self.check_structural_invalidation_exit(trade, current_price, current_atr)
+        result = self.check_structural_invalidation_exit(
+            trade, current_price, current_atr
+        )
         if result:
             return result
 

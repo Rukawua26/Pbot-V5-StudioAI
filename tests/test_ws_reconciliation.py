@@ -30,7 +30,9 @@ class WebSocketReconciliationTests(unittest.TestCase):
     @patch("core.ws_reconciliation.reconcile_bootstrap_state")
     @patch("core.ws_reconciliation.append_execution_event")
     @patch("core.ws_reconciliation.Config.PAPER_MODE", False)
-    def test_real_mode_reconciles_and_clears_in_progress(self, append_event, reconcile, _timeout):
+    def test_real_mode_reconciles_and_clears_in_progress(
+        self, append_event, reconcile, _timeout
+    ):
         bot = self._bot()
 
         handle_ws_reconnected(bot, source="ticker_ws", reconnect_count=2)
@@ -45,7 +47,9 @@ class WebSocketReconciliationTests(unittest.TestCase):
     @patch("core.ws_reconciliation.reconcile_bootstrap_state")
     @patch("core.ws_reconciliation.append_execution_event")
     @patch("core.ws_reconciliation.Config.PAPER_MODE", False)
-    def test_real_mode_debounces_reconciliation(self, _append_event, reconcile, _timeout):
+    def test_real_mode_debounces_reconciliation(
+        self, _append_event, reconcile, _timeout
+    ):
         bot = self._bot()
         bot._last_ws_reconcile_mono = 1000.0
 
@@ -56,7 +60,10 @@ class WebSocketReconciliationTests(unittest.TestCase):
 
     @patch("core.ws_reconciliation._check_ws_reconcile_timeout")
     @patch("core.ws_reconciliation.activate_runtime_protection")
-    @patch("core.ws_reconciliation.reconcile_bootstrap_state", side_effect=RuntimeError("boom"))
+    @patch(
+        "core.ws_reconciliation.reconcile_bootstrap_state",
+        side_effect=RuntimeError("boom"),
+    )
     @patch("core.ws_reconciliation.append_execution_event")
     @patch("core.ws_reconciliation.Config.PAPER_MODE", False)
     def test_real_mode_halts_on_reconciliation_exception(
@@ -78,7 +85,9 @@ class WebSocketReconciliationTests(unittest.TestCase):
     @patch("core.ws_reconciliation.send_telegram_msg")
     @patch("core.ws_reconciliation.append_execution_event")
     @patch("core.ws_reconciliation.WS_RECONCILE_TIMEOUT_SECONDS", 0.01)
-    def test_timeout_daemon_alerts_when_flag_stays_active(self, append_event, send_telegram):
+    def test_timeout_daemon_alerts_when_flag_stays_active(
+        self, append_event, send_telegram
+    ):
         bot = self._bot()
         bot.ws_reconciliation_in_progress = True
 

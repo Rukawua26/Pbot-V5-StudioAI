@@ -21,13 +21,20 @@ class CycleContext:
 
     @classmethod
     def capture(
-        cls, bot, tickers: dict[str, Any] | None = None, pnl_real_hoy: float | None = None
+        cls,
+        bot,
+        tickers: dict[str, Any] | None = None,
+        pnl_real_hoy: float | None = None,
     ) -> "CycleContext":
         return cls(
             cycle_start_ts=time.time(),
-            tickers=tickers if tickers is not None else getattr(bot, "_snapshot_tickers", {}),
+            tickers=tickers
+            if tickers is not None
+            else getattr(bot, "_snapshot_tickers", {}),
             btc_price=float(getattr(bot, "market_btc_price", 0.0) or 0.0),
-            btc_price_source=str(getattr(bot, "market_btc_price_source", "unknown") or "unknown"),
+            btc_price_source=str(
+                getattr(bot, "market_btc_price_source", "unknown") or "unknown"
+            ),
             btc_change_tf=float(getattr(bot, "market_btc_change_tf", 0.0) or 0.0),
             sentiment=getattr(bot, "current_sentiment", None),
             market_regime=str(getattr(bot, "market_regime", "RANGE") or "RANGE"),

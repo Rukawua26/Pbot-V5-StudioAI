@@ -17,7 +17,9 @@ def collect_telemetry(bot, logger):
                 {
                     "ai_xp": maturity.get("xp_percent", 0),
                     "rank": maturity.get("rank", "BRONZE"),
-                    "daily_pnl": pnl_data[0] if isinstance(pnl_data, tuple) else pnl_data,
+                    "daily_pnl": pnl_data[0]
+                    if isinstance(pnl_data, tuple)
+                    else pnl_data,
                     "total_real_trades": brain_stats.get("total_trades", 0),
                     "total_shadow_trades": brain_stats.get("shadow_trades", 0),
                     "win_rate": shadow_wr,
@@ -36,7 +38,9 @@ def collect_telemetry(bot, logger):
                 "btc_ws_age_seconds": ws_btc_age,
                 "market_regime": getattr(bot, "market_regime", "UNKNOWN"),
                 "market_regime_source": getattr(bot, "market_regime_source", "UNKNOWN"),
-                "market_regime_confidence": getattr(bot, "market_regime_confidence", None),
+                "market_regime_confidence": getattr(
+                    bot, "market_regime_confidence", None
+                ),
                 "btc_panic": getattr(bot, "btc_panic", False),
                 "fear_greed": getattr(bot, "fear_greed", 50),
                 "circuit_breaker": getattr(bot, "circuit_breaker_active", False),

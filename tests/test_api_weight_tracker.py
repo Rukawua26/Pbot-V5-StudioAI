@@ -24,7 +24,9 @@ class BinanceWeightTrackerTest(unittest.TestCase):
     def test_warning_threshold_emits_alert(self):
         tracker = BinanceWeightTracker()
         alerts = []
-        tracker.set_alert_callback(lambda level, message: alerts.append((level, message)))
+        tracker.set_alert_callback(
+            lambda level, message: alerts.append((level, message))
+        )
 
         with patch("core.api_weight_tracker.time.time", return_value=1000.0):
             tracker.track("custom_heavy", weight=1440, category="market")

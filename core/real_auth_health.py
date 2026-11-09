@@ -45,7 +45,9 @@ def maybe_check_real_auth(bot, now_mono: float | None = None) -> bool:
     """Return True when runtime may continue; False means HALT was activated."""
     if Config.PAPER_MODE:
         return True
-    interval = float(getattr(Config, "REAL_AUTH_HEALTHCHECK_INTERVAL_SECONDS", 300) or 300)
+    interval = float(
+        getattr(Config, "REAL_AUTH_HEALTHCHECK_INTERVAL_SECONDS", 300) or 300
+    )
     if interval <= 0:
         return True
     now = monotonic_now() if now_mono is None else float(now_mono)

@@ -25,7 +25,9 @@ class SRAgent(BaseAgent):
     def _get_hyperopt_params(self, symbol: str) -> tuple[float, int]:
         params = HyperoptConfigLoader.get_params_for_symbol(symbol)
         z_loaded = float(params.get("z_score_threshold", self.z_score_threshold))
-        return min(2.0, max(1.4, z_loaded)), int(params.get("entropy_bins", self.entropy_bins))
+        return min(2.0, max(1.4, z_loaded)), int(
+            params.get("entropy_bins", self.entropy_bins)
+        )
 
     def _calculate_entropy(self, series: Any, window: int = 20) -> float:
         """Calcula la Entropía de Shannon de los retornos."""
@@ -130,8 +132,11 @@ class SRAgent(BaseAgent):
         elif z_score_dinamico < -z_score_threshold:
             score = 80.0 - (entropy * 5)  # Voto fuerte a BUY
 
-        # [KINETIC v118.7] Modulador por desaceleración/aceleración en el nivel
+        # [KINETIC v118.7] Modulador por desaceleración/aceleración en el nivel.
+        # Scale the deviation from neutral (50), not the absolute score, so a
+        # BUY vote cannot flip to SELL just because the modifier is < 1.
         modifier = self._calculate_kinetic_modifier(df, z_score_dinamico)
-        score = min(100.0, max(0.0, score * modifier))
+        score = 50.0 + (score - 50.0) * modifier
+        score = min(100.0, max(0.0, score))
 
         return score

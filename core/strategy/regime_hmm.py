@@ -66,7 +66,9 @@ class DynamicHMMRegime:
         for state_id in range(self.n_states):
             mask = hidden_states == state_id
             if np.sum(mask) == 0:
-                state_stats.append({"id": state_id, "return": 0.0, "vol": 0.0, "dir": 0.0})
+                state_stats.append(
+                    {"id": state_id, "return": 0.0, "vol": 0.0, "dir": 0.0}
+                )
                 continue
 
             state_data = feature_frame.iloc[mask]
@@ -141,8 +143,9 @@ class DynamicHMMRegime:
             if len(x_recent) == 0:
                 return "UNKNOWN", 0.0
 
-            last_obs = x_recent[-1].reshape(1, -1)
-            probas = self.model.predict_proba(last_obs)[0]
+            # Filter through the whole recent sequence instead of only the last
+            # observation, so the state distribution reflects recent history.
+            probas = self.model.predict_proba(x_recent)[-1]
             state_id = int(np.argmax(probas))
             confidence = float(probas[state_id])
             return self.state_map.get(state_id, "UNKNOWN"), confidence
@@ -175,8 +178,7 @@ class DynamicHMMRegime:
             if len(x_recent) == 0:
                 return empty_snapshot
 
-            last_obs = x_recent[-1].reshape(1, -1)
-            current_probs = self.model.predict_proba(last_obs)[0]
+            current_probs = self.model.predict_proba(x_recent)[-1]
             transition_matrix = getattr(self.model, "transmat_", None)
             if transition_matrix is None:
                 return empty_snapshot
@@ -190,12 +192,22 @@ class DynamicHMMRegime:
             transition_probs: dict[str, float] = {}
             for hidden_id, label in self.state_map.items():
                 idx = int(hidden_id)
-                state_probs[label] = state_probs.get(label, 0.0) + float(current_probs[idx])
-                transition_probs[label] = transition_probs.get(label, 0.0) + float(next_probs[idx])
+                state_probs[label] = state_probs.get(label, 0.0) + float(
+                    current_probs[idx]
+                )
+                transition_probs[label] = transition_probs.get(label, 0.0) + float(
+                    next_probs[idx]
+                )
 
-            bullish = max(0.0, min(100.0, transition_probs.get("BULL_TREND", 0.0) * 100.0))
-            bearish = max(0.0, min(100.0, transition_probs.get("BEAR_TREND", 0.0) * 100.0))
-            range_prob = max(0.0, min(100.0, transition_probs.get("RANGE", 0.0) * 100.0))
+            bullish = max(
+                0.0, min(100.0, transition_probs.get("BULL_TREND", 0.0) * 100.0)
+            )
+            bearish = max(
+                0.0, min(100.0, transition_probs.get("BEAR_TREND", 0.0) * 100.0)
+            )
+            range_prob = max(
+                0.0, min(100.0, transition_probs.get("RANGE", 0.0) * 100.0)
+            )
 
             return {
                 "ts": datetime.now(UTC).isoformat(),

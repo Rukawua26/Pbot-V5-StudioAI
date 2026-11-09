@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from config import Config
 from core.execution_safety import hard_sl_ack_looks_valid, sl_side_for_trade_side
@@ -40,21 +40,15 @@ def _order_client_id(order: dict) -> str:
 
 
 def _is_protective_stop_for_trade(order: dict, trade: dict) -> bool:
-    order_type = str(order.get("type") or (order.get("info") or {}).get("type") or "").upper()
-    if "STOP" not in order_type:
-        return False
-    if not _bool_reduce_only(order):
-        return False
-    order_side = str(order.get("side") or "").upper()
-    trade_side = str(trade.get("side") or "").upper()
-    if trade_side == "BUY":
-        return order_side == "SELL"
-    if trade_side == "SELL":
-        return order_side == "BUY"
-    return False
+    # Delegate to the shared validator: only a reduce-only STOP_MARKET counts.
+    from core.execution_safety import hard_sl_protective_order
+
+    return hard_sl_protective_order(order, trade)
 
 
-def _hard_sl_order_covers_trade(order: dict, trade: dict, info: dict | None = None) -> bool:
+def _hard_sl_order_covers_trade(
+    order: dict, trade: dict, info: dict | None = None
+) -> bool:
     if not _is_protective_stop_for_trade(order, trade):
         return False
 
@@ -64,11 +58,17 @@ def _hard_sl_order_covers_trade(order: dict, trade: dict, info: dict | None = No
         return False
 
     known_client_id = str(trade.get("sl_client_order_id") or "")
-    if known_client_id and _order_client_id(order) and _order_client_id(order) != known_client_id:
+    if (
+        known_client_id
+        and _order_client_id(order)
+        and _order_client_id(order) != known_client_id
+    ):
         return False
 
     order_info = order.get("info") or {}
-    close_position_raw = order.get("closePosition", order_info.get("closePosition", False))
+    close_position_raw = order.get(
+        "closePosition", order_info.get("closePosition", False)
+    )
     close_position = str(close_position_raw).lower() in {"true", "1", "yes"}
     if close_position:
         return True
@@ -108,8 +108,12 @@ def _find_verified_hard_sl_order(bot, symbol: str, trade: dict, info: dict):
         bot.integrity_lock_active = True
         setattr(bot, "halt_system_active", True)
         with bot.db_lock:
-            bot.brain.save_error_snapshot(symbol, "SL_VERIFY_FAILED_HALT", {"error": str(error)})
-        bot.log(f"🛑 SL_VERIFY_FAILED_HALT {symbol}: {error}. No se pudo verificar HARD SL.")
+            bot.brain.save_error_snapshot(
+                symbol, "SL_VERIFY_FAILED_HALT", {"error": str(error)}
+            )
+        bot.log(
+            f"🛑 SL_VERIFY_FAILED_HALT {symbol}: {error}. No se pudo verificar HARD SL."
+        )
         append_execution_event(
             bot,
             "SL_VERIFY_FAILED_HALT",
@@ -193,9 +197,61 @@ def _emergency_market_close_unprotected(
     )
 
 
+def _repair_sl_client_order_id(seed: str, repair_count: int) -> str:
+    # The count goes into the hashed seed: the leg prefix is truncated to 6 chars.
+    return generate_child_client_order_id(f"{seed}|{repair_count}", "SLR")
+
+
+def _stale_sl_in_book(bot, symbol: str, stale_id: str):
+    """True/False when known; _HARD_SL_ORDER_LOOKUP_FAILED when unverifiable."""
+    fetch = getattr(bot.execution, "fetch_open_orders", None)
+    if not stale_id or not callable(fetch):
+        return False
+    try:
+        open_orders = fetch(symbol) or []
+    except Exception as error:
+        bot.log(f"⚠️ No se pudo inspeccionar SL previo {stale_id} de {symbol}: {error}")
+        return _HARD_SL_ORDER_LOOKUP_FAILED
+    return any(
+        isinstance(o, dict) and str(o.get("id")) == stale_id
+        for o in (open_orders if isinstance(open_orders, (list, tuple)) else [])
+    )
+
+
+def _cancel_stale_sl(bot, symbol: str, stale_id: str, new_id) -> None:
+    """Cancel the superseded SL only after its replacement is confirmed.
+
+    A failed cancel leaves an extra reduce-only stop, which cannot add exposure;
+    it is reported for manual cleanup instead of halting.
+    """
+    if not stale_id or str(new_id or "") == stale_id:
+        return
+    cancel = getattr(bot.execution, "cancel_order", None)
+    if not callable(cancel):
+        return
+    try:
+        cancel(symbol, stale_id)
+    except Exception as cancel_error:
+        bot.log(
+            f"⚠️ No se pudo cancelar SL insuficiente {stale_id} de {symbol}: {cancel_error}"
+        )
+        append_execution_event(
+            bot,
+            "HARD_SL_STALE_CANCEL_FAILED",
+            {
+                "symbol": symbol,
+                "stale_sl_id": stale_id,
+                "error": str(cancel_error)[:180],
+            },
+        )
+
+
 def _ensure_hard_sl_attached(bot, symbol: str, trade: dict, info: dict):
     if trade.get("is_shadow") or Config.PAPER_MODE:
         return False
+    stale_id = ""
+    stale_in_book = False
+    pending_coid = str(trade.get("sl_repair_pending_client_order_id") or "")
     if trade.get("sl_exchange_order_id"):
         verified_sl = _find_verified_hard_sl_order(bot, symbol, trade, info)
         if verified_sl and verified_sl != "HALT":
@@ -205,14 +261,44 @@ def _ensure_hard_sl_attached(bot, symbol: str, trade: dict, info: dict):
                 f"🛑 HARD_SL_VERIFICATION_HALTED {symbol}: wallet sync aborted due to verification failure"
             )
             return False
+        # The recorded SL no longer covers the position (or is gone). Repair it by
+        # placing a fresh SL for the full amount FIRST; the stale one stays in the
+        # book (partial protection) until the replacement is confirmed.
+        stale_id = str(trade.get("sl_exchange_order_id") or "")
+        stale_in_book = _stale_sl_in_book(bot, symbol, stale_id)
+        if stale_in_book is _HARD_SL_ORDER_LOOKUP_FAILED:
+            # Unknown book state: keep the recorded SL and halt instead of
+            # placing an order that could reuse the stale clientOrderId.
+            _halt_wallet_sync(
+                bot,
+                "HARD_SL_OPEN_ORDERS_LOOKUP_FAILED",
+                {"symbol": symbol, "stale_sl_id": stale_id},
+            )
+            return False
+        if stale_in_book and not pending_coid:
+            # Reserve one identity until confirmation, including across ambiguous
+            # ACKs/restarts. The counter counts completed repairs, not attempts.
+            repair_count = int(trade.get("sl_repair_count") or 0) + 1
+            seed = str(trade.get("entry_client_order_id") or stale_id)
+            pending_coid = _repair_sl_client_order_id(seed, repair_count)
+            trade["sl_repair_pending_client_order_id"] = pending_coid
+            with bot.db_lock:
+                bot.brain.save_active_trade_state(
+                    str(trade.get("trade_key") or symbol), trade
+                )
         bot.log(
-            f"🛑 HARD_SL_VISIBILITY_AMBIGUOUS {symbol}: id local "
-            f"{trade.get('sl_exchange_order_id')} no se verificó en open orders."
+            f"🔧 HARD_SL_REPAIR {symbol}: SL previo {stale_id or 'N/A'} no cubre; "
+            "intentando colocar uno nuevo."
         )
-        _halt_ambiguous_hard_sl_visibility(bot, symbol, trade)
-        return False
 
-    existing_sl = _find_existing_hard_sl_order(bot, symbol, trade)
+    # Search the replacement identity without disturbing the stale order's
+    # coherent exchange/client identity, which remains useful on every failure.
+    lookup_trade = dict(trade)
+    if stale_id or pending_coid:
+        lookup_trade["sl_exchange_order_id"] = None
+    if pending_coid:
+        lookup_trade["sl_client_order_id"] = pending_coid
+    existing_sl = _find_existing_hard_sl_order(bot, symbol, lookup_trade)
     if existing_sl is _HARD_SL_ORDER_LOOKUP_FAILED:
         _halt_wallet_sync(
             bot,
@@ -221,10 +307,19 @@ def _ensure_hard_sl_attached(bot, symbol: str, trade: dict, info: dict):
         )
         return False
     if existing_sl:
+        if stale_in_book:
+            _cancel_stale_sl(bot, symbol, stale_id, existing_sl.get("id"))
         trade["sl_exchange_order_id"] = existing_sl.get("id")
+        if pending_coid:
+            trade["sl_client_order_id"] = pending_coid
+            trade["sl_repair_count"] = int(trade.get("sl_repair_count") or 0) + 1
+            trade.pop("sl_repair_pending_client_order_id", None)
+        trade["hard_sl_attach_fail_count"] = 0
         trade["status"] = "OPEN"
         with bot.db_lock:
-            bot.brain.save_active_trade_state(str(trade.get("trade_key") or symbol), trade)
+            bot.brain.save_active_trade_state(
+                str(trade.get("trade_key") or symbol), trade
+            )
         bot.log(f"🛡️ SL existente detectado para {symbol}: {existing_sl.get('id')}")
         return False
 
@@ -240,7 +335,7 @@ def _ensure_hard_sl_attached(bot, symbol: str, trade: dict, info: dict):
         return False
 
     entry_coid = str(trade.get("entry_client_order_id") or "")
-    sl_coid = str(trade.get("sl_client_order_id") or "")
+    sl_coid = pending_coid or str(trade.get("sl_client_order_id") or "")
     if not sl_coid and entry_coid:
         sl_coid = generate_child_client_order_id(entry_coid, "SL")
         trade["sl_client_order_id"] = sl_coid
@@ -267,14 +362,26 @@ def _ensure_hard_sl_attached(bot, symbol: str, trade: dict, info: dict):
     )
     if sl_order and sl_ack_ok:
         trade["sl_exchange_order_id"] = sl_order.get("id")
+        if pending_coid:
+            trade["sl_client_order_id"] = pending_coid
+            trade["sl_repair_count"] = int(trade.get("sl_repair_count") or 0) + 1
+            trade.pop("sl_repair_pending_client_order_id", None)
         trade["hard_sl_attach_fail_count"] = 0
         trade["status"] = "OPEN"
         with bot.db_lock:
-            bot.brain.save_active_trade_state(str(trade.get("trade_key") or symbol), trade)
+            bot.brain.save_active_trade_state(
+                str(trade.get("trade_key") or symbol), trade
+            )
         bot.log(f"🛡️ HARD SL recuperado para {symbol}: {sl_order.get('id')}")
+        if stale_in_book:
+            _cancel_stale_sl(bot, symbol, stale_id, sl_order.get("id"))
     else:
+        # A failed replacement leaves both stale identity fields untouched;
+        # pending_coid remains separate for adoption or an idempotent resend.
         if sl_order is not None:
-            sl_error = sl_ack_reason or str(getattr(bot.execution, "last_hard_sl_error", "") or "")
+            sl_error = sl_ack_reason or str(
+                getattr(bot.execution, "last_hard_sl_error", "") or ""
+            )
         else:
             sl_error = str(getattr(bot.execution, "last_hard_sl_error", "") or "")
         if _is_immediate_trigger_rejection(sl_error):
@@ -284,7 +391,9 @@ def _ensure_hard_sl_attached(bot, symbol: str, trade: dict, info: dict):
         trade["hard_sl_attach_fail_count"] = fail_count
         trade["status"] = "HARD_SL_UNPROTECTED"
         with bot.db_lock:
-            bot.brain.save_active_trade_state(str(trade.get("trade_key") or symbol), trade)
+            bot.brain.save_active_trade_state(
+                str(trade.get("trade_key") or symbol), trade
+            )
         max_retries = int(getattr(Config, "HARD_SL_ATTACH_MAX_RETRIES", 3) or 3)
         if fail_count >= max_retries:
             bot.log(
@@ -309,16 +418,23 @@ def _ensure_hard_sl_attached(bot, symbol: str, trade: dict, info: dict):
 
 
 def _parse_iso_dt(value):
+    """Parse a timestamp as an aware UTC datetime.
+
+    New rows use ``utc_now_iso()`` (aware); legacy rows were written with naive
+    ``datetime.now()``, i.e. local time, which ``astimezone`` interprets as such.
+    """
     if not value:
         return None
     if isinstance(value, datetime):
-        return value
-    if isinstance(value, str):
+        parsed = value
+    elif isinstance(value, str):
         try:
-            return datetime.fromisoformat(value)
+            parsed = datetime.fromisoformat(value)
         except ValueError:
             return None
-    return None
+    else:
+        return None
+    return parsed.astimezone(UTC)
 
 
 def _find_open_entry_order(bot, symbol: str, trade: dict):
@@ -343,7 +459,9 @@ def _find_open_entry_order(bot, symbol: str, trade: dict):
             continue
         order_id = str(order.get("id") or "")
         coid = str(
-            order.get("clientOrderId") or (order.get("info") or {}).get("clientOrderId") or ""
+            order.get("clientOrderId")
+            or (order.get("info") or {}).get("clientOrderId")
+            or ""
         )
         if entry_order_id and order_id == entry_order_id:
             return order
@@ -353,7 +471,10 @@ def _find_open_entry_order(bot, symbol: str, trade: dict):
 
 
 def _manage_partial_fill_trade(bot, symbol: str, trade: dict, info: dict):
-    if not trade.get("partial_fill_pending") and trade.get("status") != "PARTIAL_FILL_PENDING":
+    if (
+        not trade.get("partial_fill_pending")
+        and trade.get("status") != "PARTIAL_FILL_PENDING"
+    ):
         return
 
     executed_amount = float(info.get("amount") or trade.get("amount") or 0.0)
@@ -374,7 +495,9 @@ def _manage_partial_fill_trade(bot, symbol: str, trade: dict, info: dict):
         trade["status"] = "PARTIAL_FILL_PENDING"
         trade["partial_fill_pending"] = True
         with bot.db_lock:
-            bot.brain.save_active_trade_state(str(trade.get("trade_key") or symbol), trade)
+            bot.brain.save_active_trade_state(
+                str(trade.get("trade_key") or symbol), trade
+            )
         return
 
     if open_entry_order is None:
@@ -382,7 +505,9 @@ def _manage_partial_fill_trade(bot, symbol: str, trade: dict, info: dict):
         trade["partial_fill_pending"] = False
         trade["status"] = "OPEN"
         with bot.db_lock:
-            bot.brain.save_active_trade_state(str(trade.get("trade_key") or symbol), trade)
+            bot.brain.save_active_trade_state(
+                str(trade.get("trade_key") or symbol), trade
+            )
         append_execution_event(
             bot,
             "PARTIAL_FILL_COMPLETED",
@@ -398,9 +523,10 @@ def _manage_partial_fill_trade(bot, symbol: str, trade: dict, info: dict):
     started_at = _parse_iso_dt(trade.get("partial_fill_started_at")) or _parse_iso_dt(
         trade.get("open_time")
     )
+    now = utc_now()
     if started_at is None:
-        started_at = datetime.now()
-    age_seconds = max(0.0, (datetime.now() - started_at).total_seconds())
+        started_at = now
+    age_seconds = max(0.0, (now - started_at).total_seconds())
 
     trade["remaining_amount"] = remaining_estimated
     trade["status"] = "PARTIAL_FILL_PENDING"
@@ -409,11 +535,15 @@ def _manage_partial_fill_trade(bot, symbol: str, trade: dict, info: dict):
     timeout_s = int(getattr(Config, "PARTIAL_FILL_TIMEOUT_SECONDS", 300) or 300)
     if age_seconds < timeout_s:
         with bot.db_lock:
-            bot.brain.save_active_trade_state(str(trade.get("trade_key") or symbol), trade)
+            bot.brain.save_active_trade_state(
+                str(trade.get("trade_key") or symbol), trade
+            )
         return
 
     cancel_order = getattr(bot.execution, "cancel_order", None)
-    order_id = str(open_entry_order.get("id") or trade.get("entry_exchange_order_id") or "")
+    order_id = str(
+        open_entry_order.get("id") or trade.get("entry_exchange_order_id") or ""
+    )
     if callable(cancel_order) and order_id:
         try:
             cancel_order(symbol, order_id)
@@ -422,7 +552,9 @@ def _manage_partial_fill_trade(bot, symbol: str, trade: dict, info: dict):
             trade["status"] = "OPEN"
             trade["partial_fill_pending"] = False
             with bot.db_lock:
-                bot.brain.save_active_trade_state(str(trade.get("trade_key") or symbol), trade)
+                bot.brain.save_active_trade_state(
+                    str(trade.get("trade_key") or symbol), trade
+                )
             append_execution_event(
                 bot,
                 "PARTIAL_FILL_TIMEOUT_CANCEL",
@@ -446,7 +578,9 @@ def _manage_partial_fill_trade(bot, symbol: str, trade: dict, info: dict):
                 bot.integrity_lock_active = True
                 setattr(bot, "halt_system_active", True)
                 with bot.db_lock:
-                    bot.brain.save_active_trade_state(str(trade.get("trade_key") or symbol), trade)
+                    bot.brain.save_active_trade_state(
+                        str(trade.get("trade_key") or symbol), trade
+                    )
             append_execution_event(
                 bot,
                 "PARTIAL_FILL_CANCEL_FAILED",
@@ -529,9 +663,12 @@ def sync_wallet(bot):
             side_key = make_trade_key(symbol, side, force_side=True)
             local_key = find_trade_key(bot.active_trades, symbol, side)
             force_side_key = (
-                len(sides_by_symbol.get(symbol, set())) > 1 or side_key in bot.active_trades
+                len(sides_by_symbol.get(symbol, set())) > 1
+                or side_key in bot.active_trades
             )
-            trade_key = local_key or make_trade_key(symbol, side, force_side=force_side_key)
+            trade_key = local_key or make_trade_key(
+                symbol, side, force_side=force_side_key
+            )
             real_active_on_binance[trade_key] = {
                 "symbol": symbol,
                 "trade_key": trade_key,
@@ -543,7 +680,9 @@ def sync_wallet(bot):
 
         # LOG DE DIAGNÓSTICO: Ver qué detecta Binance
         if real_active_on_binance:
-            bot.log(f"🔍 Wallet Sync: Binance reporta {list(real_active_on_binance.keys())}")
+            bot.log(
+                f"🔍 Wallet Sync: Binance reporta {list(real_active_on_binance.keys())}"
+            )
 
         current_balance = bot.get_current_balance()
         balance_lock = getattr(bot, "balance_lock", None)
@@ -553,32 +692,51 @@ def sync_wallet(bot):
         else:
             bot.balance = current_balance
 
-        with bot.lock:
-            emergency_closed_symbols = set()
+        emergency_closed_symbols = set()
 
-            # A. ACTUALIZACIÓN DE PRECIOS REALES (Corrige el PnL)
+        # A. ACTUALIZACIÓN DE PRECIOS REALES (Corrige el PnL) + HARD SL repair.
+        # Network-heavy work (_ensure_hard_sl_attached, _manage_partial_fill_trade)
+        # runs OUTSIDE bot.lock so the guardian keeps serving other symbols.
+        trades_to_process = []
+        with bot.lock:
             for trade_key, info in real_active_on_binance.items():
                 symbol = info["symbol"]
-                if trade_key in bot.active_trades and not bot.active_trades[trade_key].get(
-                    "is_shadow"
-                ):
-                    # Sincronizamos el precio de entrada del bot con el de Binance
-                    # Validamos que el precio sea > 0 para evitar errores de API
-                    if info["entry"] > 0 and bot.active_trades[trade_key]["entry"] != info["entry"]:
-                        bot.log(
-                            f"⚖️ Sincronizando precio {symbol}: {bot.active_trades[trade_key]['entry']} -> {info['entry']}"
-                        )
-                        bot.active_trades[trade_key]["entry"] = info["entry"]
-                        bot.active_trades[trade_key]["amount"] = info["amount"]
-                        bot.active_trades[trade_key]["size_usd"] = info["entry"] * info["amount"]
-
-                    emergency_closed = _ensure_hard_sl_attached(
-                        bot, symbol, bot.active_trades[trade_key], info
+                if trade_key in bot.active_trades and not bot.active_trades[
+                    trade_key
+                ].get("is_shadow"):
+                    local = bot.active_trades[trade_key]
+                    entry_changed = (
+                        info["entry"] > 0 and local["entry"] != info["entry"]
                     )
-                    _manage_partial_fill_trade(bot, symbol, bot.active_trades[trade_key], info)
-                    if emergency_closed:
-                        emergency_closed_symbols.add(trade_key)
+                    # The exchange is authoritative for size even when the
+                    # average entry did not move (adds/reductions at same price).
+                    amount_changed = (
+                        info["amount"] > 0 and local.get("amount") != info["amount"]
+                    )
+                    if entry_changed:
+                        bot.log(
+                            f"⚖️ Sincronizando precio {symbol}: {local['entry']} -> {info['entry']}"
+                        )
+                        local["entry"] = info["entry"]
+                    if amount_changed:
+                        bot.log(
+                            f"⚖️ Sincronizando cantidad {symbol}: {local.get('amount')} -> {info['amount']}"
+                        )
+                        local["amount"] = info["amount"]
+                    synced_entry = float(local.get("entry") or 0.0)
+                    if (entry_changed or amount_changed) and synced_entry > 0:
+                        local["size_usd"] = synced_entry * float(local["amount"])
+                    trades_to_process.append(
+                        (trade_key, symbol, bot.active_trades[trade_key], info)
+                    )
 
+        for trade_key, symbol, trade, info in trades_to_process:
+            emergency_closed = _ensure_hard_sl_attached(bot, symbol, trade, info)
+            _manage_partial_fill_trade(bot, symbol, trade, info)
+            if emergency_closed:
+                emergency_closed_symbols.add(trade_key)
+
+        with bot.lock:
             # B. PURGAR trades huerfanos (No están en Binance pero sí en el bot)
             for trade_key in list(bot.active_trades.keys()):
                 trade = bot.active_trades[trade_key]
@@ -588,12 +746,10 @@ def sync_wallet(bot):
                     and trade_key not in real_active_on_binance
                     and not Config.PAPER_MODE
                 ):
-                    # PROTECCIÓN DE LATENCIA: No purgar si el trade tiene menos de 120 segundos
                     open_time = parse_datetime_utc(trade.get("open_time") or utc_now())
                     if (utc_now() - open_time).total_seconds() < 120:
                         continue
 
-                    # No purgar si el estado es ambiguo (orden no confirmada, cierre en curso, etc.)
                     ambiguous_statuses = {
                         "PENDING_SEND",
                         "ENTRY_ACK_UNKNOWN",
@@ -659,7 +815,11 @@ def sync_wallet(bot):
                         ),
                         "OTHE",
                     )
-                    sl = info["entry"] * 0.95 if info["side"] == "BUY" else info["entry"] * 1.05
+                    sl = (
+                        info["entry"] * 0.95
+                        if info["side"] == "BUY"
+                        else info["entry"] * 1.05
+                    )
 
                     # Generate stable client order IDs for this adopted position
                     entry_coid, sl_coid, _tp_coid = generate_order_ids(
@@ -695,8 +855,12 @@ def sync_wallet(bot):
                         "sl_exchange_order_id": None,
                     }
                     with bot.db_lock:
-                        bot.brain.save_active_trade_state(trade_key, bot.active_trades[trade_key])
-                    _ensure_hard_sl_attached(bot, symbol, bot.active_trades[trade_key], info)
+                        bot.brain.save_active_trade_state(
+                            trade_key, bot.active_trades[trade_key]
+                        )
+                    _ensure_hard_sl_attached(
+                        bot, symbol, bot.active_trades[trade_key], info
+                    )
     except Exception as error:
         bot.log(f"⚠️ Error Sync: {error}")
         if not Config.PAPER_MODE:

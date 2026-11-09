@@ -33,7 +33,9 @@ def _infer_direction(df: pd.DataFrame | None, min_candles: int = 20) -> str:
 
 
 def _opposes_signal(direction: str, signal: str) -> bool:
-    return (signal == "BUY" and direction == "SELL") or (signal == "SELL" and direction == "BUY")
+    return (signal == "BUY" and direction == "SELL") or (
+        signal == "SELL" and direction == "BUY"
+    )
 
 
 def _confirms_signal(direction: str, signal: str) -> bool:

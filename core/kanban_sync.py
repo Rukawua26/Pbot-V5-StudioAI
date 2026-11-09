@@ -36,7 +36,9 @@ def _safe_update_trade_state(
             bot.active_trades[resolved_key][key] = value
             # Persistir en BD para sobrevivir reinicios
             with bot.db_lock:
-                bot.brain.save_active_trade_state(resolved_key, bot.active_trades[resolved_key])
+                bot.brain.save_active_trade_state(
+                    resolved_key, bot.active_trades[resolved_key]
+                )
 
 
 def async_crear_tarjeta(
@@ -66,7 +68,9 @@ def async_crear_tarjeta(
                 trade = bot.active_trades.get(resolved_key, {}) if resolved_key else {}
                 status = trade.get("status", "")
 
-            target_col = "Posiciones Abiertas" if status == "OPEN" else "Órdenes Pendientes"
+            target_col = (
+                "Posiciones Abiertas" if status == "OPEN" else "Órdenes Pendientes"
+            )
             move_res = mover_tarjeta(item_id, target_col)
             if move_res.get("ok"):
                 logger.info(f"✅ Kanban: {symbol} movida a '{target_col}'")
@@ -75,7 +79,9 @@ def async_crear_tarjeta(
                     f"Kanban Sync Error [mover tras crear {symbol}]: {move_res.get('error')}"
                 )
         else:
-            logger.error(f"Kanban Sync Error [crear_tarjeta {symbol}]: {res.get('error')}")
+            logger.error(
+                f"Kanban Sync Error [crear_tarjeta {symbol}]: {res.get('error')}"
+            )
 
     threading.Thread(target=_run, daemon=True, name=f"kanban-crear-{symbol}").start()
 
@@ -94,7 +100,9 @@ def async_mover_tarjeta(item_id: str, columna_destino: str) -> None:
                 f"Kanban Sync Error [mover_tarjeta a {columna_destino}]: {res.get('error')}"
             )
 
-    threading.Thread(target=_run, daemon=True, name=f"kanban-mover-{columna_destino}").start()
+    threading.Thread(
+        target=_run, daemon=True, name=f"kanban-mover-{columna_destino}"
+    ).start()
 
 
 _last_pnl_updates: dict[str, float] = {}
@@ -115,6 +123,8 @@ def async_actualizar_pnl(item_id: str, pnl_actual: float, precio_actual: float) 
     def _run():
         res = actualizar_pnl_tarjeta(item_id, pnl_actual, precio_actual)
         if not res.get("ok"):
-            logger.error(f"Kanban Sync Error [actualizar_pnl item={item_id}]: {res.get('error')}")
+            logger.error(
+                f"Kanban Sync Error [actualizar_pnl item={item_id}]: {res.get('error')}"
+            )
 
     threading.Thread(target=_run, daemon=True, name="kanban-pnl-update").start()

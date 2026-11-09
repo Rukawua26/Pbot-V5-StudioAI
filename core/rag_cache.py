@@ -68,7 +68,9 @@ def init_rag_cache(brain, max_trades: int) -> None:
 
         if matrix_data:
             brain.rag_cache_matrix = np.array(matrix_data)
-            print(f"🧠 RAG Vector Cache inicializado: {len(brain.rag_cache_meta)} vectores en RAM.")
+            print(
+                f"🧠 RAG Vector Cache inicializado: {len(brain.rag_cache_meta)} vectores en RAM."
+            )
     except Exception as error:
         print(f"⚠️ Error cargando RAG Cache: {error}")
 
@@ -101,7 +103,9 @@ def update_rag_cache(brain, trade_data: dict, max_trades: int) -> None:
         print(f"⚠️ Error actualizando RAG cache: {error}")
 
 
-def get_rag_inference(brain, _symbol: str, current_features: dict, config) -> tuple[dict, list]:
+def get_rag_inference(
+    brain, _symbol: str, current_features: dict, config
+) -> tuple[dict, list]:
     """
     [SISTEMA RAG VECTORIAL v118]
     Usa Similitud de Coseno optimizada con NumPy contra TODA la historia.
@@ -111,10 +115,15 @@ def get_rag_inference(brain, _symbol: str, current_features: dict, config) -> tu
         if not getattr(config, "RAG_ENABLED", True):
             return dict(DEFAULT_RAG_SCORES), ["RAG_DISABLED"]
 
-        if getattr(brain, "rag_cache_matrix", None) is None or len(brain.rag_cache_matrix) == 0:
+        if (
+            getattr(brain, "rag_cache_matrix", None) is None
+            or len(brain.rag_cache_matrix) == 0
+        ):
             return dict(DEFAULT_RAG_SCORES), ["NO_CACHE"]
 
-        curr_vec = np.array(build_rag_vector(current_features, btc_delta_key="btc_delta"))
+        curr_vec = np.array(
+            build_rag_vector(current_features, btc_delta_key="btc_delta")
+        )
         similarity_threshold = getattr(config, "RAG_SIMILARITY_THRESHOLD", 0.85)
         min_matches = getattr(config, "RAG_MIN_MATCHES", 3)
 
@@ -136,13 +145,17 @@ def get_rag_inference(brain, _symbol: str, current_features: dict, config) -> tu
             top_k_idx = np.argsort(similarities)[-top_k:]
         else:
             valid_similarities = similarities[valid_indices]
-            top_k_idx = valid_indices[np.argsort(valid_similarities)[-min_matches:][::-1]]
+            top_k_idx = valid_indices[
+                np.argsort(valid_similarities)[-min_matches:][::-1]
+            ]
 
         top_matches = [brain.rag_cache_meta[idx] for idx in top_k_idx]
         wins = sum(1 for match in top_matches if match["pnl"] > 0)
         weighted_score = (wins / len(top_matches)) * 100
         final_scores = {k: weighted_score for k in ["T", "V", "C", "L", "S"]}
-        evidence = [f"{match['symbol']} ({match['pnl']:+.1f}%)" for match in top_matches]
+        evidence = [
+            f"{match['symbol']} ({match['pnl']:+.1f}%)" for match in top_matches
+        ]
 
         return final_scores, evidence
     except Exception:

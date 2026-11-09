@@ -55,7 +55,10 @@ def _finalize_partial_flags(bot):
     with bot.lock:
         snapshot = dict(getattr(bot, "active_trades", {}) or {})
 
-    partial_status = {TradeStatus.PARTIAL_FILL_PENDING.value, TradeStatus.PARTIAL_FILL.value}
+    partial_status = {
+        TradeStatus.PARTIAL_FILL_PENDING.value,
+        TradeStatus.PARTIAL_FILL.value,
+    }
     for symbol, trade in snapshot.items():
         if not isinstance(trade, dict):
             continue

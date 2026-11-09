@@ -9,6 +9,9 @@ from core.strategy.triple_tf.trailing_1m import evaluate_trailing_1m
 from core.strategy.triple_tf.engine import TripleTFEngine
 
 
+import time
+
+
 def generate_mock_ohlcv(n: int, base_price: float, trend: float = 0.0) -> pd.DataFrame:
     np.random.seed(42)
     prices = [base_price]
@@ -20,8 +23,12 @@ def generate_mock_ohlcv(n: int, base_price: float, trend: float = 0.0) -> pd.Dat
     highs = [max(o, c) * 1.001 for o, c in zip(opens, closes)]
     lows = [min(o, c) * 0.999 for o, c in zip(opens, closes)]
 
+    now_ms = int(time.time() * 1000)
+    times = [now_ms - ((n - i) * 60000) for i in range(n)]
+
     df = pd.DataFrame(
         {
+            "time": times,
             "open": opens,
             "high": highs,
             "low": lows,
@@ -48,12 +55,24 @@ class TestTripleTFStrategy(unittest.TestCase):
         self.assertGreater(res.ema50, 0.0)
 
     def test_structure_5m_short_mss_and_pullback(self):
-        # Generate 5M data with downtrend breakdown and pullback to EMA
-        df_5m = generate_mock_ohlcv(60, 100.0, trend=-0.002)
-        # Force a pullback touch in the last candle to EMA
-        ema = df_5m["close"].ewm(span=50, adjust=False).mean().iloc[-1]
+        # Generate 5M data with range around 100
+        df_5m = generate_mock_ohlcv(60, 100.0, trend=0.0)
+        ema = float(df_5m["close"].ewm(span=50, adjust=False).mean().iloc[-1])
+
+        # Ensure prior low is clearly defined
+        df_5m.loc[df_5m.index[-15:-5], "low"] = 99.0
+        # Ensure candles before MSS are above prior low and below EMA touch
+        df_5m.loc[df_5m.index[-5:-3], "close"] = 99.5
+        df_5m.loc[df_5m.index[-5:-3], "high"] = ema * 0.99
+        df_5m.loc[df_5m.index[-5:-3], "low"] = 99.2
+        # Force MSS on index -3 (close breaks below 99.0)
+        df_5m.loc[df_5m.index[-3], "close"] = 97.0
+        df_5m.loc[df_5m.index[-3], "high"] = 98.0
+        df_5m.loc[df_5m.index[-3], "low"] = 96.5
+        # Force pullback later on index -1 (high touches EMA)
         df_5m.loc[df_5m.index[-1], "high"] = ema * 1.001
         df_5m.loc[df_5m.index[-1], "low"] = ema * 0.998
+        df_5m.loc[df_5m.index[-1], "close"] = ema * 0.999
 
         res = evaluate_structure_5m(df_5m, bias_1h="SELL")
         self.assertTrue(res.mss_confirmed)
@@ -120,23 +139,33 @@ class TestTripleTFStrategy(unittest.TestCase):
         self.assertEqual(res.side, "BUY")
 
     def test_filters_ttf_bypass(self):
-        from unittest.mock import MagicMock
+        # Contrato T1: el bypass TTF exige signal_close_time (identidad por vela
+        # 1M cerrada) y gate REAL; en PAPER sigue pasando con TTF_PASSED.
+        from unittest.mock import MagicMock, patch
+        from config import Config
         from core.signals.filters import _apply_entry_filters_and_adjust_prob
 
         bot = MagicMock()
         bot._get_market_regime.return_value = "RANGE"
-        ctx = {"ttf_metrics": {"bias_1h": {"bias": "BUY"}}, "rsi": 80.0, "adx": 10.0}
+        bot._ttf_last_signal_keys = {}
+        ctx = {
+            "ttf_metrics": {"bias_1h": {"bias": "BUY"}},
+            "rsi": 80.0,
+            "adx": 10.0,
+            "signal_close_time": 1_770_030_400_000,
+        }
         df_mock = generate_mock_ohlcv(20, 100.0)
-        prob, passed, reason, updated_ctx = _apply_entry_filters_and_adjust_prob(
-            bot=bot,
-            symbol="BTC/USDT",
-            symbol_raw="BTCUSDT",
-            df_main=df_mock,
-            audit_signal="BUY",
-            prob_final=85.0,
-            ctx=ctx,
-            vol_rel=1.0,
-        )
+        with patch.object(Config, "PAPER_MODE", True):
+            prob, passed, reason, updated_ctx = _apply_entry_filters_and_adjust_prob(
+                bot=bot,
+                symbol="BTC/USDT",
+                symbol_raw="BTCUSDT",
+                df_main=df_mock,
+                audit_signal="BUY",
+                prob_final=85.0,
+                ctx=ctx,
+                vol_rel=1.0,
+            )
         self.assertTrue(passed)
         self.assertEqual(reason, "TTF_PASSED")
         self.assertEqual(prob, 85.0)

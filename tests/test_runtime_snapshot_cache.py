@@ -33,8 +33,12 @@ class RuntimeSnapshotCacheTest(unittest.TestCase):
         btc = _candles(100.0)
         dogs = _candles(0.0001)
 
-        btc_snapshot = StrategyUtils.compute_runtime_snapshot(btc, cache_symbol="BTC/USDT")
-        dogs_snapshot = StrategyUtils.compute_runtime_snapshot(dogs, cache_symbol="DOGS/USDT")
+        btc_snapshot = StrategyUtils.compute_runtime_snapshot(
+            btc, cache_symbol="BTC/USDT"
+        )
+        dogs_snapshot = StrategyUtils.compute_runtime_snapshot(
+            dogs, cache_symbol="DOGS/USDT"
+        )
 
         self.assertIsNotNone(btc_snapshot)
         self.assertIsNotNone(dogs_snapshot)

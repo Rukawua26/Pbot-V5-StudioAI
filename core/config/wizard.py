@@ -37,7 +37,9 @@ def ejecutar_multi_wizard(base_dir: Path, env_path: Path) -> None:
     print("    REAL trading queda deshabilitado por defecto.")
     print("=" * 72)
 
-    api_key = input("\n1. Binance Futures API Key (opcional para PAPER público): ").strip()
+    api_key = input(
+        "\n1. Binance Futures API Key (opcional para PAPER público): "
+    ).strip()
     api_secret = getpass.getpass("2. Binance Futures API Secret (oculto): ").strip()
     dashboard_key = getpass.getpass(
         "3. Dashboard read key (opcional, Enter para generar local): "

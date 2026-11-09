@@ -111,7 +111,9 @@ class TestSafeUpdateSignalAlertStatus(unittest.TestCase):
         bot.db_lock = None
 
         _safe_update_signal_alert_status(bot, "cid_123", "FILLED")
-        bot.brain.update_signal_alert_status.assert_called_once_with("cid_123", "FILLED")
+        bot.brain.update_signal_alert_status.assert_called_once_with(
+            "cid_123", "FILLED"
+        )
 
     def test_does_nothing_when_method_not_callable(self):
         from core.trade_manager import _safe_update_signal_alert_status

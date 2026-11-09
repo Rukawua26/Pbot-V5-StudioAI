@@ -8,7 +8,9 @@ from core.config.wizard import ejecutar_multi_wizard, obtener_ip_publica
 
 class PortableWizardTest(unittest.TestCase):
     def test_obtener_ip_publica_handles_network_errors(self):
-        with patch("core.config.wizard.requests.get", side_effect=RuntimeError("offline")):
+        with patch(
+            "core.config.wizard.requests.get", side_effect=RuntimeError("offline")
+        ):
             self.assertIn("No detectada", obtener_ip_publica())
 
     def test_wizard_generates_paper_only_env(self):
@@ -17,9 +19,14 @@ class PortableWizardTest(unittest.TestCase):
             env_path = base / ".env"
             with (
                 patch("core.config.wizard._clear_screen"),
-                patch("core.config.wizard.obtener_ip_publica", return_value="203.0.113.10"),
+                patch(
+                    "core.config.wizard.obtener_ip_publica", return_value="203.0.113.10"
+                ),
                 patch("builtins.input", return_value="api-key"),
-                patch("getpass.getpass", side_effect=["api-secret", "dashboard-key-123456"]),
+                patch(
+                    "getpass.getpass",
+                    side_effect=["api-secret", "dashboard-key-123456"],
+                ),
             ):
                 ejecutar_multi_wizard(base, env_path)
 

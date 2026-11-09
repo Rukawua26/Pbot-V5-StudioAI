@@ -86,7 +86,9 @@ def load_active_trade_states(brain) -> dict:
         for row in rows:
             state_data = json.loads(row["state_data"])
             if "open_time" in state_data and isinstance(state_data["open_time"], str):
-                state_data["open_time"] = datetime.fromisoformat(state_data["open_time"])
+                state_data["open_time"] = datetime.fromisoformat(
+                    state_data["open_time"]
+                )
             trade_key = str(state_data.get("trade_key") or row["symbol"])
             state_data["trade_key"] = trade_key
             loaded_states[trade_key] = state_data

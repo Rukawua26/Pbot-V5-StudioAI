@@ -38,7 +38,8 @@ class DynamicHMMRegimeTests(unittest.TestCase):
 
         self.assertFalse(regime.dynamic_retrain(pd.DataFrame({"close": [1.0] * 120})))
         self.assertEqual(
-            regime.predict_regime(pd.DataFrame({"close": [1.0] * 120})), ("UNKNOWN", 0.0)
+            regime.predict_regime(pd.DataFrame({"close": [1.0] * 120})),
+            ("UNKNOWN", 0.0),
         )
 
     def test_markov_snapshot_exposes_transition_probabilities(self):
@@ -74,7 +75,9 @@ class MarketStateHMMFallbackTests(unittest.TestCase):
     def test_cached_btc_requires_dict_data_and_minimum_history(self):
         short_data = pd.DataFrame({"close": [1.0] * 10})
 
-        self.assertIsNone(market_state._get_cached_btc_1h(SimpleNamespace(data_service=None)))
+        self.assertIsNone(
+            market_state._get_cached_btc_1h(SimpleNamespace(data_service=None))
+        )
         self.assertIsNone(
             market_state._get_cached_btc_1h(
                 SimpleNamespace(data_service=SimpleNamespace(data_cache=[]))
@@ -115,8 +118,12 @@ class MarketStateHMMFallbackTests(unittest.TestCase):
             with patch.object(market_state.Config, "HMM_BOOTSTRAP_CANDLES", 500):
                 self.assertFalse(market_state.warmup_hmm_regime(bot))
 
-        data_service.exchange.fetch_ohlcv.assert_called_once_with("BTC/USDT", "1h", limit=500)
-        data_service._track_api_weight.assert_called_once_with("fetch_ohlcv", 1, "market")
+        data_service.exchange.fetch_ohlcv.assert_called_once_with(
+            "BTC/USDT", "1h", limit=500
+        )
+        data_service._track_api_weight.assert_called_once_with(
+            "fetch_ohlcv", 1, "market"
+        )
 
     def test_warmup_hmm_falls_back_when_training_rejects_data(self):
         close = pd.Series([100.0 + i for i in range(420)])
@@ -186,7 +193,9 @@ class MarketStateHMMFallbackTests(unittest.TestCase):
             exchange=SimpleNamespace(fetch_ohlcv=MagicMock(return_value=ohlcv)),
             data_cache={},
             last_ohlcv_fetch={},
-            _clean_df=lambda df: df.drop_duplicates(subset=["time"]).sort_values("time"),
+            _clean_df=lambda df: df.drop_duplicates(subset=["time"]).sort_values(
+                "time"
+            ),
             _track_api_weight=MagicMock(),
         )
         bot = SimpleNamespace(data_service=data_service, log=MagicMock())
@@ -201,7 +210,9 @@ class MarketStateHMMFallbackTests(unittest.TestCase):
                 with patch.object(market_state.Config, "HMM_LOOKBACK_CANDLES", 336):
                     self.assertTrue(market_state.warmup_hmm_regime(bot))
 
-        data_service.exchange.fetch_ohlcv.assert_called_once_with("BTC/USDT", "1h", limit=1000)
+        data_service.exchange.fetch_ohlcv.assert_called_once_with(
+            "BTC/USDT", "1h", limit=1000
+        )
         fake_hmm.dynamic_retrain.assert_called_once()
         self.assertIn("BTC/USDT_1h", data_service.data_cache)
 
@@ -275,13 +286,17 @@ class MarketStateHMMFallbackTests(unittest.TestCase):
             last_error=None,
         )
 
-        with patch.object(market_state.Config, "MARKOV_SNAPSHOT_PERSIST_INTERVAL_SECONDS", 0):
+        with patch.object(
+            market_state.Config, "MARKOV_SNAPSHOT_PERSIST_INTERVAL_SECONDS", 0
+        ):
             market_state._last_hmm_snapshot_persist_ts = None
             market_state._last_hmm_snapshot_persist_monotonic = 0.0
             with patch.object(market_state, "hmm_filter", fake_hmm):
                 with patch.object(market_state.threading, "Thread") as thread_cls:
                     thread_obj = MagicMock()
-                    thread_obj.start.side_effect = lambda: thread_cls.call_args.kwargs["target"]()
+                    thread_obj.start.side_effect = lambda: thread_cls.call_args.kwargs[
+                        "target"
+                    ]()
                     thread_cls.return_value = thread_obj
                     self.assertEqual(market_state.detect_market_regime(bot), "RANGE")
 
@@ -300,7 +315,9 @@ class MarketStateHMMFallbackTests(unittest.TestCase):
         )
         bot = SimpleNamespace(
             market_btc_price=btc_data["close"].iloc[-1],
-            data_service=SimpleNamespace(fetch_and_update_data=MagicMock(return_value=btc_data)),
+            data_service=SimpleNamespace(
+                fetch_and_update_data=MagicMock(return_value=btc_data)
+            ),
             log=MagicMock(),
         )
 
@@ -335,7 +352,9 @@ class MarketStateHMMFallbackTests(unittest.TestCase):
         )
         bot = SimpleNamespace(
             market_btc_price=btc_data["close"].iloc[-1],
-            data_service=SimpleNamespace(fetch_and_update_data=MagicMock(return_value=btc_data)),
+            data_service=SimpleNamespace(
+                fetch_and_update_data=MagicMock(return_value=btc_data)
+            ),
             log=MagicMock(),
         )
         fake_hmm = SimpleNamespace(
@@ -389,7 +408,12 @@ class RegimeRangeFilterTests(unittest.TestCase):
                     with patch.object(
                         filters.Strategy,
                         "check_entry_filters",
-                        return_value=(True, "OK", "CALM", {"DAY_WEIGHT": 1.0, "HOUR_WEIGHT": 1.0}),
+                        return_value=(
+                            True,
+                            "OK",
+                            "CALM",
+                            {"DAY_WEIGHT": 1.0, "HOUR_WEIGHT": 1.0},
+                        ),
                     ):
                         prob_final, filter_passed, filter_reason, updated_ctx = (
                             filters._apply_entry_filters_and_adjust_prob(
@@ -409,7 +433,9 @@ class RegimeRangeFilterTests(unittest.TestCase):
         self.assertEqual(filter_reason, "OK")
         self.assertEqual(updated_ctx["regime_reason"], "RANGE_PENALTY")
 
-    def test_range_veto_blocks_entry_without_markov_snapshot_and_skips_breakout_scan(self):
+    def test_range_veto_blocks_entry_without_markov_snapshot_and_skips_breakout_scan(
+        self,
+    ):
         ctx = {
             "rsi": 55.0,
             "adx": 22.0,
@@ -488,18 +514,18 @@ class RegimeRangeFilterTests(unittest.TestCase):
                 ),
             ),
         ):
-                            prob_final, filter_passed, filter_reason, updated_ctx = (
-                                filters._apply_entry_filters_and_adjust_prob(
-                                    bot,
-                                    "TEST/USDT",
-                                    "TEST/USDT",
-                                    pd.DataFrame(),
-                                    "BUY",
-                                    80.0,
-                                    ctx,
-                                    1.0,
-                                )
-                            )
+            prob_final, filter_passed, filter_reason, updated_ctx = (
+                filters._apply_entry_filters_and_adjust_prob(
+                    bot,
+                    "TEST/USDT",
+                    "TEST/USDT",
+                    pd.DataFrame(),
+                    "BUY",
+                    80.0,
+                    ctx,
+                    1.0,
+                )
+            )
 
         self.assertEqual(prob_final, 0.0)
         self.assertFalse(filter_passed)
@@ -522,12 +548,18 @@ class RegimeRangeFilterTests(unittest.TestCase):
         with patch.object(filters.Config, "HMM_RANGE_PENALTY", 0.5):
             with patch.object(filters.Config, "HMM_RANGE_VETO", True):
                 with patch.object(filters.Config, "PAPER_MODE", True):
-                    with patch.object(filters.Config, "SIDE_PARITY_FILTER_ENABLED", False):
+                    with patch.object(
+                        filters.Config, "SIDE_PARITY_FILTER_ENABLED", False
+                    ):
                         with (
                             patch.object(
-                                filters.Config, "HMM_RANGE_LEARNING_OVERRIDE_ENABLED", True
+                                filters.Config,
+                                "HMM_RANGE_LEARNING_OVERRIDE_ENABLED",
+                                True,
                             ),
-                            patch.object(filters.Config, "BULL_TREND_ENTRY_VETO_ENABLED", False),
+                            patch.object(
+                                filters.Config, "BULL_TREND_ENTRY_VETO_ENABLED", False
+                            ),
                             patch.object(
                                 filters.Strategy,
                                 "check_entry_filters",
@@ -557,7 +589,9 @@ class RegimeRangeFilterTests(unittest.TestCase):
         self.assertEqual(filter_reason, "OK")
         self.assertEqual(updated_ctx["regime_reason"], "RANGE_PENALTY")
 
-    def test_range_veto_does_not_allow_shadow_prospect_in_real_mode_without_markov(self):
+    def test_range_veto_does_not_allow_shadow_prospect_in_real_mode_without_markov(
+        self,
+    ):
         ctx = {
             "rsi": 55.0,
             "adx": 22.0,
@@ -573,7 +607,9 @@ class RegimeRangeFilterTests(unittest.TestCase):
         with patch.object(filters.Config, "HMM_RANGE_PENALTY", 0.5):
             with patch.object(filters.Config, "HMM_RANGE_VETO", True):
                 with patch.object(filters.Config, "PAPER_MODE", False):
-                    with patch.object(filters.Config, "EXECUTION_BACKEND", "shadow_live"):
+                    with patch.object(
+                        filters.Config, "EXECUTION_BACKEND", "shadow_live"
+                    ):
                         with patch.object(
                             filters.Strategy,
                             "check_entry_filters",
@@ -624,11 +660,17 @@ class RegimeRangeFilterTests(unittest.TestCase):
         with patch.object(filters.Config, "HMM_RANGE_VETO", True):
             with patch.object(filters.Config, "PAPER_MODE", False):
                 with patch.object(filters.Config, "MARKOV_BREAKOUT_MIN", 75.0):
-                    with patch.object(filters.Config, "MARKOV_RANGE_BREAKOUT_WEIGHT", 0.90):
-                        with patch.object(filters.Config, "SIDE_PARITY_FILTER_ENABLED", False):
+                    with patch.object(
+                        filters.Config, "MARKOV_RANGE_BREAKOUT_WEIGHT", 0.90
+                    ):
+                        with patch.object(
+                            filters.Config, "SIDE_PARITY_FILTER_ENABLED", False
+                        ):
                             with (
                                 patch.object(
-                                    filters.Config, "HMM_RANGE_LEARNING_OVERRIDE_ENABLED", True
+                                    filters.Config,
+                                    "HMM_RANGE_LEARNING_OVERRIDE_ENABLED",
+                                    True,
                                 ),
                                 patch.object(
                                     filters.Strategy,
@@ -641,17 +683,20 @@ class RegimeRangeFilterTests(unittest.TestCase):
                                     ),
                                 ),
                             ):
-                                prob_final, filter_passed, filter_reason, updated_ctx = (
-                                    filters._apply_entry_filters_and_adjust_prob(
-                                        bot,
-                                        "TEST/USDT",
-                                        "TEST/USDT",
-                                        pd.DataFrame(),
-                                        "BUY",
-                                        80.0,
-                                        ctx,
-                                        1.0,
-                                    )
+                                (
+                                    prob_final,
+                                    filter_passed,
+                                    filter_reason,
+                                    updated_ctx,
+                                ) = filters._apply_entry_filters_and_adjust_prob(
+                                    bot,
+                                    "TEST/USDT",
+                                    "TEST/USDT",
+                                    pd.DataFrame(),
+                                    "BUY",
+                                    80.0,
+                                    ctx,
+                                    1.0,
                                 )
 
         self.assertEqual(prob_final, 72.0)
@@ -695,18 +740,18 @@ class RegimeRangeFilterTests(unittest.TestCase):
                 ),
             ),
         ):
-                        prob_final, filter_passed, filter_reason, updated_ctx = (
-                            filters._apply_entry_filters_and_adjust_prob(
-                                bot,
-                                "TEST/USDT",
-                                "TEST/USDT",
-                                pd.DataFrame(),
-                                "BUY",
-                                80.0,
-                                ctx,
-                                1.0,
-                            )
-                        )
+            prob_final, filter_passed, filter_reason, updated_ctx = (
+                filters._apply_entry_filters_and_adjust_prob(
+                    bot,
+                    "TEST/USDT",
+                    "TEST/USDT",
+                    pd.DataFrame(),
+                    "BUY",
+                    80.0,
+                    ctx,
+                    1.0,
+                )
+            )
 
         self.assertEqual(prob_final, 0.0)
         self.assertFalse(filter_passed)
@@ -738,11 +783,17 @@ class RegimeRangeFilterTests(unittest.TestCase):
         with patch.object(filters.Config, "HMM_RANGE_VETO", True):
             with patch.object(filters.Config, "PAPER_MODE", False):
                 with patch.object(filters.Config, "MARKOV_DEAD_ZONE_MAX", 30.0):
-                    with patch.object(filters.Config, "MARKOV_RANGE_STANDARD_WEIGHT", 0.75):
-                        with patch.object(filters.Config, "SIDE_PARITY_FILTER_ENABLED", False):
+                    with patch.object(
+                        filters.Config, "MARKOV_RANGE_STANDARD_WEIGHT", 0.75
+                    ):
+                        with patch.object(
+                            filters.Config, "SIDE_PARITY_FILTER_ENABLED", False
+                        ):
                             with (
                                 patch.object(
-                                    filters.Config, "HMM_RANGE_LEARNING_OVERRIDE_ENABLED", True
+                                    filters.Config,
+                                    "HMM_RANGE_LEARNING_OVERRIDE_ENABLED",
+                                    True,
                                 ),
                                 patch.object(
                                     filters.Strategy,
@@ -755,17 +806,20 @@ class RegimeRangeFilterTests(unittest.TestCase):
                                     ),
                                 ),
                             ):
-                                prob_final, filter_passed, filter_reason, updated_ctx = (
-                                    filters._apply_entry_filters_and_adjust_prob(
-                                        bot,
-                                        "TEST/USDT",
-                                        "TEST/USDT",
-                                        pd.DataFrame(),
-                                        "BUY",
-                                        80.0,
-                                        ctx,
-                                        1.0,
-                                    )
+                                (
+                                    prob_final,
+                                    filter_passed,
+                                    filter_reason,
+                                    updated_ctx,
+                                ) = filters._apply_entry_filters_and_adjust_prob(
+                                    bot,
+                                    "TEST/USDT",
+                                    "TEST/USDT",
+                                    pd.DataFrame(),
+                                    "BUY",
+                                    80.0,
+                                    ctx,
+                                    1.0,
                                 )
 
         # Penalización: 80 * 0.75 = 60.0 — no veto total (HOTFIX v118.1)
@@ -794,11 +848,17 @@ class RegimeRangeFilterTests(unittest.TestCase):
         bot = self._build_bot("BULL_TREND")
 
         with patch.object(filters.Config, "MARKOV_SNAPSHOT_MAX_AGE_SECONDS", 3600.0):
-            with patch.object(filters.Config, "MARKOV_SNAPSHOT_STALE_SECONDS", 6 * 3600.0):
+            with patch.object(
+                filters.Config, "MARKOV_SNAPSHOT_STALE_SECONDS", 6 * 3600.0
+            ):
                 with patch.object(filters.Config, "MARKOV_BULL_STRONG_WEIGHT", 1.10):
-                    with patch.object(filters.Config, "SIDE_PARITY_FILTER_ENABLED", False):
+                    with patch.object(
+                        filters.Config, "SIDE_PARITY_FILTER_ENABLED", False
+                    ):
                         with (
-                            patch.object(filters.Config, "BULL_TREND_ENTRY_VETO_ENABLED", False),
+                            patch.object(
+                                filters.Config, "BULL_TREND_ENTRY_VETO_ENABLED", False
+                            ),
                             patch.object(
                                 filters.Strategy,
                                 "check_entry_filters",
@@ -906,15 +966,21 @@ class RegimePreVetoTests(unittest.TestCase):
         analyze_mock.assert_called_once()
         self.assertEqual(analyze_mock.call_args.kwargs["market_regime"], "RANGE")
 
-    def test_pre_veto_range_blocks_real_even_if_shadow_backend_is_set_without_markov(self):
+    def test_pre_veto_range_blocks_real_even_if_shadow_backend_is_set_without_markov(
+        self,
+    ):
         bot = self._build_bot("RANGE")
         bot.execution_mode = "shadow_live"
         df = self._build_df()
 
         with patch.object(signal_analyze.Config, "HMM_RANGE_VETO", True):
             with patch.object(signal_analyze.Config, "PAPER_MODE", False):
-                with patch.object(signal_analyze.Config, "EXECUTION_BACKEND", "shadow_live"):
-                    with patch.object(signal_analyze.Strategy, "analyze") as analyze_mock:
+                with patch.object(
+                    signal_analyze.Config, "EXECUTION_BACKEND", "shadow_live"
+                ):
+                    with patch.object(
+                        signal_analyze.Strategy, "analyze"
+                    ) as analyze_mock:
                         result = signal_analyze._analyze_symbol_candidate(
                             bot, "TEST/USDT", "TEST/USDT", df, df, elapsed=12
                         )
@@ -947,7 +1013,9 @@ class RegimePreVetoTests(unittest.TestCase):
         self.assertEqual(result, expected)
         analyze_mock.assert_called_once()
 
-    def test_pre_veto_range_allows_directional_strategy_when_markov_bearish_extreme(self):
+    def test_pre_veto_range_allows_directional_strategy_when_markov_bearish_extreme(
+        self,
+    ):
         bot = self._build_bot("RANGE")
         bot.hmm_markov_snapshot = {
             "ts": datetime.now(UTC).isoformat(),
@@ -1025,7 +1093,9 @@ class RegimePreVetoTests(unittest.TestCase):
 
         with (
             patch.object(signal_analyze.Config, "PAPER_MODE", True),
-            patch.object(signal_analyze.Config, "REGIME_CONFLICT_SHADOW_OVERRIDE_ENABLED", True),
+            patch.object(
+                signal_analyze.Config, "REGIME_CONFLICT_SHADOW_OVERRIDE_ENABLED", True
+            ),
             patch.object(signal_analyze.Strategy, "analyze", return_value=expected),
         ):
             result = signal_analyze._analyze_symbol_candidate(
@@ -1034,7 +1104,10 @@ class RegimePreVetoTests(unittest.TestCase):
 
         self.assertEqual(result, expected)
         self.assertTrue(
-            any("FAST_CONFLICT_SHADOW_ALLOWED" in call.args[0] for call in bot.log.call_args_list)
+            any(
+                "FAST_CONFLICT_SHADOW_ALLOWED" in call.args[0]
+                for call in bot.log.call_args_list
+            )
         )
 
     def test_fast_coherence_conflict_remains_blocked_when_override_disabled(self):
@@ -1051,7 +1124,9 @@ class RegimePreVetoTests(unittest.TestCase):
 
         with (
             patch.object(signal_analyze.Config, "PAPER_MODE", True),
-            patch.object(signal_analyze.Config, "REGIME_CONFLICT_SHADOW_OVERRIDE_ENABLED", False),
+            patch.object(
+                signal_analyze.Config, "REGIME_CONFLICT_SHADOW_OVERRIDE_ENABLED", False
+            ),
             patch.object(signal_analyze.Strategy, "analyze", return_value=expected),
         ):
             result = signal_analyze._analyze_symbol_candidate(
@@ -1059,15 +1134,21 @@ class RegimePreVetoTests(unittest.TestCase):
             )
 
         self.assertIsNone(result)
-        self.assertTrue(any("FAST_VETO" in call.args[0] for call in bot.log.call_args_list))
+        self.assertTrue(
+            any("FAST_VETO" in call.args[0] for call in bot.log.call_args_list)
+        )
 
 
 class HMMOrchestratorWeightsTests(unittest.TestCase):
     def test_orchestrator_uses_hmm_directional_regimes_directly(self):
         orchestrator = StrategyOrchestrator()
 
-        bull_weights = orchestrator.get_adaptive_weights("BULL_TREND", adx=30.0, rsi=55.0)
-        bear_weights = orchestrator.get_adaptive_weights("BEAR_TREND", adx=30.0, rsi=45.0)
+        bull_weights = orchestrator.get_adaptive_weights(
+            "BULL_TREND", adx=30.0, rsi=55.0
+        )
+        bear_weights = orchestrator.get_adaptive_weights(
+            "BEAR_TREND", adx=30.0, rsi=45.0
+        )
 
         self.assertGreater(bull_weights["MT"], bull_weights["SR"])
         self.assertGreater(bear_weights["MT"], bear_weights["SR"])

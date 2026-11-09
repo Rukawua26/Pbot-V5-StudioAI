@@ -18,7 +18,9 @@ class GlobalMarketProviderTest(unittest.TestCase):
         self.assertEqual(result, {})
 
     def test_start_enables_provider(self):
-        with patch("core.providers.global_market.Config.GLOBAL_MARKET_PROVIDER_ENABLED", True):
+        with patch(
+            "core.providers.global_market.Config.GLOBAL_MARKET_PROVIDER_ENABLED", True
+        ):
             self.provider.start()
             self.assertTrue(self.provider.enabled)
 
@@ -28,7 +30,9 @@ class GlobalMarketProviderTest(unittest.TestCase):
         self.provider._cache_ts = time.time()
 
         with patch.object(
-            GlobalMarketProvider, "_fetch_from_coingecko", return_value={"btc_dominance": 99.0}
+            GlobalMarketProvider,
+            "_fetch_from_coingecko",
+            return_value={"btc_dominance": 99.0},
         ) as mock_fetch:
             result = self.provider.fetch_global_metrics()
             mock_fetch.assert_not_called()
@@ -40,7 +44,9 @@ class GlobalMarketProviderTest(unittest.TestCase):
         self.provider._cache_ts = time.time() - 600  # 10min ago > 300s TTL
 
         with patch.object(
-            GlobalMarketProvider, "_fetch_from_coingecko", return_value={"btc_dominance": 77.0}
+            GlobalMarketProvider,
+            "_fetch_from_coingecko",
+            return_value={"btc_dominance": 77.0},
         ) as mock_fetch:
             result = self.provider.fetch_global_metrics()
             mock_fetch.assert_called_once()
@@ -52,7 +58,9 @@ class GlobalMarketProviderTest(unittest.TestCase):
         self.provider._cache_ts = time.time() - 600
 
         with patch.object(
-            GlobalMarketProvider, "_fetch_from_coingecko", side_effect=Exception("API down")
+            GlobalMarketProvider,
+            "_fetch_from_coingecko",
+            side_effect=Exception("API down"),
         ):
             result = self.provider.fetch_global_metrics()
             self.assertEqual(result["btc_dominance"], 55.0)
@@ -61,7 +69,9 @@ class GlobalMarketProviderTest(unittest.TestCase):
         self.provider._enabled = True
 
         with patch.object(
-            GlobalMarketProvider, "_fetch_from_coingecko", side_effect=Exception("API down")
+            GlobalMarketProvider,
+            "_fetch_from_coingecko",
+            side_effect=Exception("API down"),
         ):
             result = self.provider.fetch_global_metrics()
             self.assertEqual(result, {})
@@ -69,7 +79,9 @@ class GlobalMarketProviderTest(unittest.TestCase):
     def test_coingecko_fetch_falls_back_to_rest_when_mcp_disabled(self):
         self.provider._enabled = True
         with patch.object(
-            GlobalMarketProvider, "_fetch_from_rest", return_value={"btc_dominance": 50.0}
+            GlobalMarketProvider,
+            "_fetch_from_rest",
+            return_value={"btc_dominance": 50.0},
         ) as mock_rest:
             result = self.provider._fetch_from_coingecko()
             mock_rest.assert_called_once()

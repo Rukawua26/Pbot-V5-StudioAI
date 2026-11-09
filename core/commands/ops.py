@@ -79,7 +79,9 @@ def _handle_misc_commands(bot, text: str) -> bool:
             markov_ts = hmm_snapshot.get("ts")
             markov_age_text = "n/a"
             if markov_ts:
-                parsed_ts = datetime.fromisoformat(str(markov_ts).replace("Z", "+00:00"))
+                parsed_ts = datetime.fromisoformat(
+                    str(markov_ts).replace("Z", "+00:00")
+                )
                 if parsed_ts.tzinfo is None:
                     parsed_ts = parsed_ts.replace(tzinfo=UTC)
                 markov_age = max(0.0, (datetime.now(UTC) - parsed_ts).total_seconds())
@@ -111,7 +113,9 @@ def _handle_misc_commands(bot, text: str) -> bool:
         try:
             events_path = Path(get_log_path("execution_events.jsonl"))
             if not events_path.exists():
-                send_telegram_msg("ℹ️ SRE Intent: aún no existe logs/execution_events.jsonl")
+                send_telegram_msg(
+                    "ℹ️ SRE Intent: aún no existe logs/execution_events.jsonl"
+                )
                 return True
 
             now_utc = datetime.now(UTC)
@@ -203,7 +207,12 @@ def _handle_misc_commands(bot, text: str) -> bool:
             send_telegram_msg("🕵️ *TIERS:* No hay señales en el radar todavía.")
             return True
 
-        tiers: dict[str, list[str]] = {"ELITE": [], "GOLD": [], "SILVER": [], "IRON": []}
+        tiers: dict[str, list[str]] = {
+            "ELITE": [],
+            "GOLD": [],
+            "SILVER": [],
+            "IRON": [],
+        }
         hist = []
         if slock:
             with slock:
@@ -217,11 +226,23 @@ def _handle_misc_commands(bot, text: str) -> bool:
 
         msg = "🏆 *SEÑALES POR TIER*\n\n"
         if tiers["ELITE"]:
-            msg += "💎 *ELITE*\n" + "\n".join([f"• {x}" for x in tiers["ELITE"][:10]]) + "\n\n"
+            msg += (
+                "💎 *ELITE*\n"
+                + "\n".join([f"• {x}" for x in tiers["ELITE"][:10]])
+                + "\n\n"
+            )
         if tiers["GOLD"]:
-            msg += "🥇 *GOLD*\n" + "\n".join([f"• {x}" for x in tiers["GOLD"][:10]]) + "\n\n"
+            msg += (
+                "🥇 *GOLD*\n"
+                + "\n".join([f"• {x}" for x in tiers["GOLD"][:10]])
+                + "\n\n"
+            )
         if tiers["SILVER"]:
-            msg += "🥈 *SILVER*\n" + "\n".join([f"• {x}" for x in tiers["SILVER"][:10]]) + "\n"
+            msg += (
+                "🥈 *SILVER*\n"
+                + "\n".join([f"• {x}" for x in tiers["SILVER"][:10]])
+                + "\n"
+            )
 
         if not tiers["ELITE"] and not tiers["GOLD"] and not tiers["SILVER"]:
             msg += "⚪ Solo señales IRON detectadas."
@@ -276,7 +297,9 @@ def _handle_training_and_maintenance_commands(bot, text: str) -> bool:
                 )
 
                 # 2. Espera no bloqueante del Event Loop (máx 10 min)
-                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=600)
+                stdout, stderr = await asyncio.wait_for(
+                    process.communicate(), timeout=600
+                )
 
                 if process.returncode == 0:
                     # 3. Notificación de Disponibilidad (No recarga inmediata)
@@ -417,7 +440,9 @@ def _handle_training_and_maintenance_commands(bot, text: str) -> bool:
     if text.startswith("/force_clear"):
         parts = text.split(maxsplit=1)
         if len(parts) < 2:
-            send_telegram_msg("⚠️ Uso: /force_clear [SYMBOL] (ej: /force_clear BTC/USDT)")
+            send_telegram_msg(
+                "⚠️ Uso: /force_clear [SYMBOL] (ej: /force_clear BTC/USDT)"
+            )
             return True
 
         symbol = normalize_position_symbol(parts[1], default_quote="USDT", strict=True)
@@ -427,11 +452,19 @@ def _handle_training_and_maintenance_commands(bot, text: str) -> bool:
                 state = dict((bot.active_trades or {}).get(symbol) or {})
 
             if not state:
-                send_telegram_msg(f"ℹ️ {symbol}: no existe estado activo local para limpiar.")
+                send_telegram_msg(
+                    f"ℹ️ {symbol}: no existe estado activo local para limpiar."
+                )
                 return True
 
-            is_simulated = bool(state.get("is_shadow", False) or state.get("simulated_real", False))
-            if Config.PAPER_MODE and state.get("simulated_real") is False and not is_simulated:
+            is_simulated = bool(
+                state.get("is_shadow", False) or state.get("simulated_real", False)
+            )
+            if (
+                Config.PAPER_MODE
+                and state.get("simulated_real") is False
+                and not is_simulated
+            ):
                 bot.is_paused = True
                 bot.integrity_lock_active = True
                 bot.halt_system_active = True

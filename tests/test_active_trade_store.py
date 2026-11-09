@@ -44,7 +44,11 @@ class ActiveTradeStoreTest(unittest.TestCase):
             self.assertTrue(
                 brain.save_active_trade_state(
                     "BTC/USDT|SELL",
-                    {"trade_key": "BTC/USDT|SELL", "symbol": "BTC/USDT", "side": "SELL"},
+                    {
+                        "trade_key": "BTC/USDT|SELL",
+                        "symbol": "BTC/USDT",
+                        "side": "SELL",
+                    },
                 )
             )
 

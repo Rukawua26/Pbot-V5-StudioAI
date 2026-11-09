@@ -51,7 +51,9 @@ class WeeklyMaintenanceTest(unittest.TestCase):
             finally:
                 conn.close()
 
-            result = brain.weekly_maintenance(shadow_days_to_keep=30, signal_days_to_keep=30)
+            result = brain.weekly_maintenance(
+                shadow_days_to_keep=30, signal_days_to_keep=30
+            )
 
             self.assertIsNone(result["error"])
             self.assertEqual(result["shadow_deleted"], 1)
@@ -59,8 +61,12 @@ class WeeklyMaintenanceTest(unittest.TestCase):
 
             conn = brain._get_conn()
             try:
-                shadow_count = conn.execute("SELECT COUNT(*) FROM shadow_telemetry").fetchone()[0]
-                signal_count = conn.execute("SELECT COUNT(*) FROM signal_alerts").fetchone()[0]
+                shadow_count = conn.execute(
+                    "SELECT COUNT(*) FROM shadow_telemetry"
+                ).fetchone()[0]
+                signal_count = conn.execute(
+                    "SELECT COUNT(*) FROM signal_alerts"
+                ).fetchone()[0]
             finally:
                 conn.close()
 
@@ -81,7 +87,12 @@ class WeeklyMaintenanceTest(unittest.TestCase):
             brain=SimpleNamespace(
                 weekly_maintenance=lambda **kwargs: (
                     calls.append(kwargs)
-                    or {"error": None, "shadow_deleted": 0, "signal_deleted": 0, "vacuum_ok": True}
+                    or {
+                        "error": None,
+                        "shadow_deleted": 0,
+                        "signal_deleted": 0,
+                        "vacuum_ok": True,
+                    }
                 )
             ),
             log=logs.append,
@@ -95,7 +106,9 @@ class WeeklyMaintenanceTest(unittest.TestCase):
         finally:
             bot_weekly_ops.datetime = original_datetime
 
-        self.assertEqual(calls, [{"shadow_days_to_keep": 30, "signal_days_to_keep": 30}])
+        self.assertEqual(
+            calls, [{"shadow_days_to_keep": 30, "signal_days_to_keep": 30}]
+        )
         self.assertTrue(any("viernes 10:00 UTC" in entry for entry in logs))
 
     def test_rag_cache_is_limited_to_recent_trades(self):

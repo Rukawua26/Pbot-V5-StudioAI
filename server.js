@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const HOST = '0.0.0.0';
+const HOST = '127.0.0.1'; // demo only; never expose the simulator
 
 app.disable('x-powered-by');
 
@@ -1304,6 +1304,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ ok: false, error: 'Internal Server Error' });
 });
 
+console.warn('⚠️  DEMO/SIMULATOR ONLY - not connected to the trading bot. Do not use for real trading decisions.');
 app.listen(PORT, HOST, () => {
   console.log(`Sniper AI Master Monitor listening on http://${HOST}:${PORT}`);
 });

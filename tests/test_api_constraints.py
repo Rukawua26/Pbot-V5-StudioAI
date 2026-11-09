@@ -8,7 +8,11 @@ import random
 import string
 import unittest
 
-from core.reconciliation import _MAX_BINANCE_ID_LEN, _MAX_SAFE_ID_LEN, generate_order_ids
+from core.reconciliation import (
+    _MAX_BINANCE_ID_LEN,
+    _MAX_SAFE_ID_LEN,
+    generate_order_ids,
+)
 
 
 def _random_string(length: int) -> str:
@@ -31,7 +35,9 @@ class TestAPIConstraints(unittest.TestCase):
             instance_id = _random_string(random.randint(8, 20))
 
             try:
-                entry_id, sl_id, tp_id = generate_order_ids(symbol, side, signal_ts, instance_id)
+                entry_id, sl_id, tp_id = generate_order_ids(
+                    symbol, side, signal_ts, instance_id
+                )
             except Exception as e:
                 failures.append(f"#{i}: Exception: {e}")
                 continue
@@ -50,7 +56,9 @@ class TestAPIConstraints(unittest.TestCase):
                     )
 
         if failures:
-            self.fail(f"{len(failures)} IDs exceeded limits:\n" + "\n".join(failures[:10]))
+            self.fail(
+                f"{len(failures)} IDs exceeded limits:\n" + "\n".join(failures[:10])
+            )
 
     def test_ids_are_deterministic(self):
         """El mismo input debe producir el mismo output."""
@@ -89,7 +97,9 @@ class TestAPIConstraints(unittest.TestCase):
         signal_ts = 1_750_000_000.123456
         instance_id = "abc123"
 
-        entry_id, sl_id, tp_id = generate_order_ids(symbol, side, signal_ts, instance_id)
+        entry_id, sl_id, tp_id = generate_order_ids(
+            symbol, side, signal_ts, instance_id
+        )
 
         # Verificar prefijos
         self.assertTrue(
@@ -107,7 +117,9 @@ class TestAPIConstraints(unittest.TestCase):
                 f"{name} ID '{oid}' excede {_MAX_SAFE_ID_LEN} chars: {len(oid)}",
             )
             # Verificar que sea razonable (más de 10 chars)
-            self.assertGreater(len(oid), 10, f"{name} ID '{oid}' es demasiado corto: {len(oid)}")
+            self.assertGreater(
+                len(oid), 10, f"{name} ID '{oid}' es demasiado corto: {len(oid)}"
+            )
 
     def test_ids_do_not_contain_pipe_or_whitespace(self):
         """Los IDs no deben contener caracteres problemáticos."""
@@ -116,7 +128,9 @@ class TestAPIConstraints(unittest.TestCase):
         signal_ts = 1_750_000_000.123456
         instance_id = "test-123"
 
-        entry_id, sl_id, tp_id = generate_order_ids(symbol, side, signal_ts, instance_id)
+        entry_id, sl_id, tp_id = generate_order_ids(
+            symbol, side, signal_ts, instance_id
+        )
 
         for name, oid in [("entry", entry_id), ("sl", sl_id), ("tp", tp_id)]:
             self.assertNotIn("|", oid, f"{name} ID contiene '|': {oid}")

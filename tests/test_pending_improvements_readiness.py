@@ -41,7 +41,9 @@ class PendingImprovementsReadinessTest(unittest.TestCase):
         self.assertFalse(blocked)
         self.assertTrue(any("Modo PAPER" in item for item in ok))
         self.assertTrue(any("FVG_TRACKER_ENABLED=false" in item for item in warnings))
-        self.assertTrue(any("GLOBAL_MARKET_PROVIDER_ENABLED=false" in item for item in warnings))
+        self.assertTrue(
+            any("GLOBAL_MARKET_PROVIDER_ENABLED=false" in item for item in warnings)
+        )
 
 
 if __name__ == "__main__":

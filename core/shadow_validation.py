@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -11,7 +12,27 @@ from config import Config
 from core.runtime_metrics import append_runtime_metric
 
 
-_model_identity = {"model_type": "UNKNOWN", "bootstrap_heuristic_mode": None}
+def _is_working_tree_dirty() -> bool:
+    """Check if the git working tree has uncommitted changes."""
+    try:
+        import subprocess
+
+        result = subprocess.run(
+            ["git", "status", "--porcelain"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            cwd=str(Path(__file__).resolve().parents[1]),
+        )
+        return bool(result.stdout.strip())
+    except Exception:
+        return True  # fail-safe: assume dirty if check fails
+
+
+_model_identity: dict[str, Any] = {
+    "model_type": "UNKNOWN",
+    "bootstrap_heuristic_mode": None,
+}
 _run_id = uuid4().hex[:12]
 
 
@@ -65,20 +86,29 @@ def _config_values() -> dict[str, Any]:
 
 def _campaign_identity() -> dict[str, Any]:
     config_values = _config_values()
-    encoded = json.dumps(config_values, sort_keys=True, separators=(",", ":"), default=str)
+    encoded = json.dumps(
+        config_values, sort_keys=True, separators=(",", ":"), default=str
+    )
     return {
         "campaign": str(
-            getattr(Config, "SHADOW_VALIDATION_CAMPAIGN", "shadow_macro_fvg_consensus_v1")
+            getattr(
+                Config, "SHADOW_VALIDATION_CAMPAIGN", "shadow_macro_fvg_consensus_v1"
+            )
         ),
         "config_fingerprint": hashlib.sha256(encoded.encode("utf-8")).hexdigest()[:12],
         "code_version": str(os.getenv("SNIPER_CODE_VERSION", "unknown") or "unknown"),
-        "runtime_mode": "PAPER" if bool(getattr(Config, "PAPER_MODE", True)) else "REAL",
+        "code_dirty": _is_working_tree_dirty(),
+        "runtime_mode": "PAPER"
+        if bool(getattr(Config, "PAPER_MODE", True))
+        else "REAL",
         "run_id": _run_id,
         **_model_identity,
     }
 
 
-def append_shadow_validation_event(event: str, payload: Mapping[str, Any] | None = None) -> None:
+def append_shadow_validation_event(
+    event: str, payload: Mapping[str, Any] | None = None
+) -> None:
     if not enabled():
         return
     record = {**_campaign_identity(), "event": str(event)}
@@ -204,10 +234,15 @@ def emit_shadow_trade_closed(
                 else None
             ),
             "trade_key": str(trade.get("trade_key") or ""),
+            "trade_instance_id": str(
+                trade.get("entry_client_order_id") or trade.get("trade_key") or ""
+            ),
             "mae_percent": _float(mae_percent),
             "mfe_percent": _float(mfe_percent),
             "entry_confidence": _float(trade.get("entry_confidence")),
-            "market_regime": str(trade.get("market_regime") or snapshot.get("regime") or ""),
+            "market_regime": str(
+                trade.get("market_regime") or snapshot.get("regime") or ""
+            ),
             "fear_greed_index": _int(snapshot.get("fear_greed_index"), 50),
             "btc_dominance": _float(snapshot.get("btc_dominance")),
             "agent_signal_override": bool(snapshot.get("agent_signal_override", False)),
@@ -216,7 +251,9 @@ def emit_shadow_trade_closed(
     )
 
 
-def emit_fvg_cycle(symbols_scanned: int, new_gaps: int, active_gaps: list[dict]) -> None:
+def emit_fvg_cycle(
+    symbols_scanned: int, new_gaps: int, active_gaps: list[dict]
+) -> None:
     status_counts: dict[str, int] = {}
     for gap in active_gaps:
         status = str(gap.get("status") or "UNKNOWN")
@@ -232,7 +269,9 @@ def emit_fvg_cycle(symbols_scanned: int, new_gaps: int, active_gaps: list[dict])
     )
 
 
-def emit_scan_cycle(duration_ms: float, candidates: int, heavy_analysis_calls: int) -> None:
+def emit_scan_cycle(
+    duration_ms: float, candidates: int, heavy_analysis_calls: int
+) -> None:
     append_shadow_validation_event(
         "scan_cycle",
         {

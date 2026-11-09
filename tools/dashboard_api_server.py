@@ -3,6 +3,7 @@ import hmac
 import json
 import os
 import re
+import secrets
 import sqlite3
 import stat
 import threading
@@ -157,21 +158,10 @@ def verify_control_key(req: Request):
         raise HTTPException(503, "Dashboard control API key not configured")
     headers = getattr(req, "headers", {}) or {}
     cookies = getattr(req, "cookies", {}) or {}
-    client = getattr(req, "client", None)
     supplied = str(headers.get("X-Control-API-Key") or "")
     cookie = str(cookies.get(CONTROL_SESSION_COOKIE) or "")
-    read_cookie = str(cookies.get(READ_SESSION_COOKIE) or "")
-    client_host = client.host if client else ""
-    is_loopback = client_host in ("127.0.0.1", "localhost", "::1")
-    if (
-        (supplied and hmac.compare_digest(supplied, CONTROL_API_KEY))
-        or (cookie and hmac.compare_digest(cookie, CONTROL_SESSION_TOKEN))
-        or (
-            read_cookie
-            and hmac.compare_digest(read_cookie, READ_SESSION_TOKEN)
-            and is_loopback
-            and CONTROL_API_KEY == API_KEY
-        )
+    if (supplied and hmac.compare_digest(supplied, CONTROL_API_KEY)) or (
+        cookie and hmac.compare_digest(cookie, CONTROL_SESSION_TOKEN)
     ):
         return
     raise HTTPException(401, "Unauthorized")
@@ -201,6 +191,16 @@ def index():
         samesite="strict",
         max_age=12 * 60 * 60,
     )
+    return response
+
+
+@app.post("/api/v1/session/control")
+def create_control_session(req: Request):
+    """Exchange an explicit X-Control-API-Key header for a control-only cookie."""
+    supplied = str(req.headers.get("X-Control-API-Key") or "")
+    if not supplied or not hmac.compare_digest(supplied, CONTROL_API_KEY):
+        raise HTTPException(401, "Unauthorized")
+    response = JSONResponse({"ok": True})
     response.set_cookie(
         CONTROL_SESSION_COOKIE,
         CONTROL_SESSION_TOKEN,
@@ -446,9 +446,10 @@ def _is_valid_command(action: str) -> bool:
 
 def _dispatch_ipc_command(action: str) -> dict:
     _ensure_safe_cmd_dir()
-    path = os.path.join(CMD_DIR, "command.json")
+    command_id = f"cmd-{time.time_ns():020d}-{os.getpid()}-{secrets.token_hex(16)}"
+    path = os.path.join(CMD_DIR, f"{command_id}.json")
     data = {"commands": [{"action": action, "ts": time.time()}]}
-    tmp = os.path.join(CMD_DIR, f"command.json.{os.getpid()}.{time.time_ns()}.tmp")
+    tmp = os.path.join(CMD_DIR, f"{command_id}.tmp")
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW
@@ -458,7 +459,7 @@ def _dispatch_ipc_command(action: str) -> dict:
         f.flush()
         os.fsync(f.fileno())
     os.replace(tmp, path)
-    return {"ok": True, "action": action}
+    return {"ok": True, "status": "queued", "action": action, "id": command_id}
 
 
 @app.post("/api/v1/command")
@@ -914,7 +915,7 @@ def get_intelligence_postmortem(trade_id: int, _=Depends(verify_key)):
 
 
 @app.post("/api/v1/intelligence/generate")
-def generate_intelligence(_=Depends(verify_key)):
+def generate_intelligence(_=Depends(verify_control_key)):
     result = generate_full_intelligence_cycle(db_path=DB_PATH)
     return {
         "ok": True,

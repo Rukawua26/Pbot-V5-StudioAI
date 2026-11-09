@@ -24,7 +24,9 @@ class TestWatchdogHeartbeatPathResolution(unittest.TestCase):
         self.assertEqual(path, DEFAULT_WATCHDOG_HEARTBEAT_PATH)
 
     def test_env_override(self):
-        with patch.dict(os.environ, {"WATCHDOG_HEARTBEAT_PATH": "/tmp/custom_heartbeat.json"}):
+        with patch.dict(
+            os.environ, {"WATCHDOG_HEARTBEAT_PATH": "/tmp/custom_heartbeat.json"}
+        ):
             path = resolve_watchdog_heartbeat_path()
             self.assertEqual(path, "/tmp/custom_heartbeat.json")
 
@@ -82,7 +84,9 @@ class TestWatchdogHeartbeatWrite(unittest.TestCase):
         self.assertNotEqual(first_ts, second_ts)
 
     def test_write_uses_atomic_replace(self):
-        tmp_file = os.path.join(os.path.dirname(self.tmp_path), ".sniper_ai_heartbeat.tmp")
+        tmp_file = os.path.join(
+            os.path.dirname(self.tmp_path), ".sniper_ai_heartbeat.tmp"
+        )
         write_watchdog_heartbeat(self.bot, path=self.tmp_path, min_interval_s=0)
         self.assertFalse(os.path.exists(tmp_file))
         self.assertTrue(os.path.exists(self.tmp_path))

@@ -58,7 +58,9 @@ class DrawdownWarningTests(unittest.TestCase):
         self.assertTrue(result)
         self.assertFalse(bot._drawdown_warning_sent)
         warning_events = [
-            call for call in mock_evt.call_args_list if call.args[1] == "DAILY_DRAWDOWN_WARNING"
+            call
+            for call in mock_evt.call_args_list
+            if call.args[1] == "DAILY_DRAWDOWN_WARNING"
         ]
         self.assertEqual(len(warning_events), 0)
 
@@ -76,7 +78,9 @@ class DrawdownWarningTests(unittest.TestCase):
         check_safety_and_goals(bot, current_pnl=-2.6)
 
         warning_events = [
-            call for call in mock_evt.call_args_list if call.args[1] == "DAILY_DRAWDOWN_WARNING"
+            call
+            for call in mock_evt.call_args_list
+            if call.args[1] == "DAILY_DRAWDOWN_WARNING"
         ]
         self.assertEqual(len(warning_events), 1)
 
