@@ -26,8 +26,27 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 
+# Snapshot the testnet settings at import time, BEFORE any core import: core
+# config loads the project .env with override=True, which would replace the
+# values exported by scripts/run_testnet_e2e.sh. Empty values count as unset.
+_TESTNET_ENV = {
+    name: (os.environ.get(name) or "").strip()
+    for name in (
+        "RUN_BINANCE_TESTNET_E2E",
+        "BINANCE_TESTNET_API_KEY",
+        "BINANCE_TESTNET_API_SECRET",
+        "BINANCE_TESTNET_SYMBOL",
+        "BINANCE_TESTNET_ORDER_AMOUNT",
+    )
+}
+
+
+def _testnet_env(name: str, default: str = "") -> str:
+    return _TESTNET_ENV.get(name) or default
+
+
 def _env_bool(name: str) -> bool:
-    return str(os.getenv(name, "")).strip().lower() in {"1", "true", "yes", "on"}
+    return _testnet_env(name).lower() in {"1", "true", "yes", "on"}
 
 
 def _position_contracts(exchange, symbol: str) -> float:
@@ -86,15 +105,15 @@ def _reduce_only_stops(orders):
 class BinanceTestnetWalletSyncSlRepairTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        api_key = os.getenv("BINANCE_TESTNET_API_KEY")
-        api_secret = os.getenv("BINANCE_TESTNET_API_SECRET")
+        api_key = _testnet_env("BINANCE_TESTNET_API_KEY")
+        api_secret = _testnet_env("BINANCE_TESTNET_API_SECRET")
         if not api_key or not api_secret:
             raise unittest.SkipTest(
                 "Binance testnet API credentials are required (set BINANCE_TESTNET_API_KEY and BINANCE_TESTNET_API_SECRET)"
             )
 
-        cls.symbol = os.getenv("BINANCE_TESTNET_SYMBOL", "BTC/USDT")
-        cls.amount = float(os.getenv("BINANCE_TESTNET_ORDER_AMOUNT", "0.001"))
+        cls.symbol = _testnet_env("BINANCE_TESTNET_SYMBOL", "BTC/USDT")
+        cls.amount = float(_testnet_env("BINANCE_TESTNET_ORDER_AMOUNT", "0.001"))
         if not math.isfinite(cls.amount) or cls.amount <= 0:
             raise unittest.SkipTest(
                 "BINANCE_TESTNET_ORDER_AMOUNT must be positive and finite"
